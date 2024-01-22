@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "motionhexa")(type "KiCad")(uri "${KIPRJMOD}/kicad_footprints.pretty/motionhexa.kicad_sym")(options "")(descr ""))
+)
