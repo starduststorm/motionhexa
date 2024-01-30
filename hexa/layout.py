@@ -624,7 +624,7 @@ class PCBLayout(object):
     
     if self.pixel_prototype is None:
       print("Loading pixel footprint...")
-      self.pixel_prototype = pcbnew.FootprintLoad(str(Path(__file__).parent.joinpath('kicad_footprints.pretty').resolve()), self.pixelType.footprintName)
+      self.pixel_prototype = pcbnew.FootprintLoad(str(Path(__file__).parent.parent.joinpath('kicad_footprints.pretty').resolve()), self.pixelType.footprintName)
       self.pixel_prototype.SetLayer(self.kicadpcb.layertable[layer])
 
     absPoint = self.center + point
@@ -903,8 +903,8 @@ def is_point_in_triangle(P, A, B, C):
     return abs(A_total - A1 - A2 - A3) < 0.0001
 
 class LayoutHexa(PCBLayout):
-  edgeRadius = 62/2
-  pixelRadius = 62/2
+  edgeRadius = 32
+  pixelRadius = 31
   pixelSpacing = 3.9
 
   ##
