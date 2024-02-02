@@ -3606,11 +3606,11 @@
     (descr "http://www.normandled.com/upload/202003/SK9822-EC20%20LED%20Datasheet.pdf")
     (tags "LED RGB SPI")
     (attr smd)
-    (fp_text reference "D25" (at -0.05 2.7 -135) (layer "F.SilkS") hide
+    (fp_text reference "D25" (at -0.05 2.7 45) (layer "F.SilkS") hide
         (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 8211805f-d75f-4dde-9550-62e69c14502f)
     )
-    (fp_text value "LED-SK9822-EC20" (at 0 -2.35 -135) (layer "F.Fab")
+    (fp_text value "LED-SK9822-EC20" (at 0 -2.35 45) (layer "F.Fab")
         (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 7b6f3714-2ec6-45f5-87f9-3465b55ba71d)
     )
@@ -3660,7 +3660,7 @@
     (pad "4" smd rect locked (at -0.875 0.775 225) (size 0.55 0.95) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp 914f93f9-59a3-45a0-9985-3731d1596ff6))
     (pad "5" smd rect locked (at 0 0.775 225) (size 0.4 0.95) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp f5003264-6c17-4953-8afb-fb4ae0ae8d92))
     (pad "6" smd rect locked (at 0.875 0.775 225) (size 0.55 0.95) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp a25d0a3f-8f42-4947-baa8-accaa7a7413f))
-    (model "${KIPRJMOD}/kicad_footprints.pretty/APA-102-2020-256-8.STEP"
+    (model "${KIPRJMOD}/../kicad_footprints.pretty/APA-102-2020-256-8.STEP"
       (offset (xyz 0 0 0))
       (scale (xyz 1 1 1))
       (rotate (xyz -90 0 0))

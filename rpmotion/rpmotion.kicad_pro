@@ -45,7 +45,7 @@
         "silk_text_thickness": 0.15,
         "silk_text_upright": false,
         "zones": {
-          "min_clearance": 0.3
+          "min_clearance": 0.15
         }
       },
       "diff_pair_dimensions": [
@@ -419,7 +419,9 @@
     "pinned_footprint_libs": [
       "rpmotion"
     ],
-    "pinned_symbol_libs": []
+    "pinned_symbol_libs": [
+      "hexa"
+    ]
   },
   "meta": {
     "filename": "rpmotion.kicad_pro",

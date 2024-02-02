@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "hexa")(type "KiCad")(uri "/Users/opal/src/motionhexa/kicad_footprints.pretty/hexa.kicad_sym")(options "")(descr ""))
+)
