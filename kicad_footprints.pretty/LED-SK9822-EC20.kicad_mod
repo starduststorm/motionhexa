@@ -80,7 +80,7 @@
       c4559079-caef-425f-8fcd-869c0e5e4476
     )
   )
-  (model "${KIPRJMOD}/kicad_footprints.pretty/APA-102-2020-256-8.STEP"
+  (model "${KIPRJMOD}/../kicad_footprints.pretty/APA-102-2020-256-8.STEP"
     (offset (xyz 0 0 0))
     (scale (xyz 1 1 1))
     (rotate (xyz -90 0 0))
