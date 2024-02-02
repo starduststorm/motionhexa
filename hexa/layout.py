@@ -25,6 +25,7 @@ parser.add_argument('--hide-pixel-labels', action='store_true', help="For all mo
 parser.add_argument('--hide-all-labels', action='store_true', help="Set reference text hidden for all footprints")
 parser.add_argument('--dump-objects', action='store', nargs='?', const=True, default=None)
 parser.add_argument('--zone-circle', nargs=6, type=str, help='Draw a zone with the given x, y, radius, name, net, and layer')
+parser.add_argument('--lock', action='store_true', default=False, help='Lock pcb elements')
 
 args = parser.parse_args()
 
@@ -330,7 +331,7 @@ class KiCadPCB(object):
     line.SetEnd(end.vector2i())
     line.SetLayer(self.layertable[layer])
     line.SetWidth(int(width * IU_PER_MM))
-    line.SetLocked(True)
+    line.SetLocked(args.lock)
     return line
   
   def draw_circle(self, center, radius, layer='F.Silkscreen', width=0.15):
@@ -343,7 +344,7 @@ class KiCadPCB(object):
       circle.SetEnd((center + Point(radius,0)).vector2i()) # Sets radius.. somehow
       circle.SetLayer(self.layertable[layer])
       circle.SetWidth(int(width * IU_PER_MM))
-      circle.SetLocked(True)
+      circle.SetLocked(args.lock)
       return circle
 
   def draw_arc(self, start, center=None, end=None, angle=None, layer='F.Silkscreen', width=0.15):
@@ -362,7 +363,7 @@ class KiCadPCB(object):
       arc.SetLayer(self.layertable[layer])
       arc.SetWidth(int(width * IU_PER_MM))
       self.board.Add(arc)
-      arc.SetLocked(True)
+      arc.SetLocked(args.lock)
       return arc
 
   def add_copper_trace(self, start, end, net, layer="F.Cu", width = 0.2):
@@ -374,7 +375,7 @@ class KiCadPCB(object):
     track.SetLayer(self.layertable[layer])
     track.SetWidth(int(width * IU_PER_MM))
     track.SetNet(net)
-    track.SetLocked(True)
+    track.SetLocked(args.lock)
     self.board.Add(track)
     print("  copper from {} to {} on net {} layer {}".format(start, end, net.GetNetname(), layer))
     return track
@@ -390,41 +391,186 @@ class KiCadPCB(object):
     via.SetDrill(int(BoardConstraints.minDrill * IU_PER_MM))
     via.SetWidth(int((BoardConstraints.minDrill + 2*BoardConstraints.annularRing) * IU_PER_MM))
     via.SetNet(net)
-    via.SetLocked(True)
+    via.SetLocked(args.lock)
     self.board.Add(via)
 
 
-###############################################################################
+## TraceBuilder #############################################################################
 
+
+class TraceBuilder(object):
+  defaultTraceWith = 0.2
+  class Via(object):
+    def __init__(self, pt):
+      self.point = pt
+  class Trace(object):
+    def __init__(self, pt):
+      self.point = pt
+  def multitrace(self, kicadpcb, points, net, startlayer):
+    front = (startlayer=="F.Cu")
+    lastPoint = points[0].point
+    for p in points[1:]:
+      isVia = type(p) is self.Via
+      p = p.point
+      if p.distance_to(lastPoint) > 0.0001:
+        # then only draw traces if they are long enough
+        kicadpcb.add_copper_trace(lastPoint, p, net, "F.Cu" if front else "B.Cu", width=self.defaultTraceWith)
+        lastPoint = p
+      if isVia:
+        kicadpcb.add_via(p, net)
+        front = not front
   
+  def __init__(self, startPad=None, startlayer="F.Cu"):
+    self.points = []
+    self.startlayer = startlayer
+    self._startPad = None
+    if startPad is None:
+      self.addPoint(Point(0,0))
+    elif type(startPad) == Point:
+      self.addPoint(startPad)
+    else:
+      self._startPad = startPad
+      self.addPoint(Point(startPad.GetPosition()))
+  
+  def addPoint(self, p):
+    if type(p)==self.Via or type(p)==self.Trace:
+      self.points.append(p)
+    else:  
+      self.points.append(self.Trace(Point(p)))
+
+  @property
+  def startPad(self):
+    return self._startPad
+
+  @startPad.setter
+  def startPad(self, newStartPad):
+      if self.startPad is None:
+        print("Rotating to ori: {} under parent: {}".format(newStartPad.GetParent().GetOrientation().AsDegrees(), newStartPad.GetParent()))
+        self.rotate(-newStartPad.GetParent().GetOrientation().AsRadians())
+      prevStart = Point(self.startPad.GetPosition()) if self.startPad else Point(0,0)
+      self.translate(Point(newStartPad.GetPosition())-prevStart)
+      self._startPad = newStartPad
+
+  def useAsPivot(self):
+    self._startPad = None
+    self.points = [self.Trace(self.lastPoint())]
+    return self
+  
+  def draw(self, kicadpcb):
+    self.multitrace(kicadpcb, self.points, self._startPad.GetNet(), self.startlayer)
+    return self
+  
+  def translate(self, v):
+    for i, p in enumerate(self.points):
+      self.points[i] = type(p)(p.point + v)
+
+  def rotate(self, theta):
+    # rotate around first point
+    center = self.points[0].point
+    self.translate(-center)
+    for i, p in enumerate(self.points):
+      x = p.point.x
+      y = p.point.y
+      p.point.x = x*cos(theta) - y*sin(theta)
+      p.point.y = x*sin(theta) + y*cos(theta)
+      self.points[i] = p
+    self.translate(center)
+
+
+  ####
+
+  def lastPoint(self):
+    for t in self.points[::-1]:
+      return t.point
+      
+  def angleConst(self, distance, angle):
+    self.addPoint(self.lastPoint().polar_translated(distance, angle))
+    return self
+  
+  def via(self):
+    self.points.append(self.Via(self.lastPoint()))
+    return self
+  
+  def xconst(self, x):
+    self.addPoint(self.lastPoint() + (x,0))
+    return self
+  
+  def yconst(self, y):
+    self.addPoint(self.lastPoint() + (0, y))
+    return self
+  
+  def octPathCloseTo(self, end):
+    othertb = None
+    if type(end) is TraceBuilder:
+      othertb = end
+      end = end.lastPoint()
+    try:
+      end = Point(end.GetPosition())
+    except AttributeError:
+      pass
+    # diagonal path to a cardinal line, then close it
+    lp = self.lastPoint()
+    distance = end - lp
+    if abs(distance.x) < abs(distance.y):
+      # x closer
+      self.addPoint(lp + (distance.x, sign(distance.y)*abs(distance.x)))
+    else:
+      # y closer
+      self.addPoint(lp + (sign(distance.x)*abs(distance.y), distance.y))
+    if othertb:
+      for p in othertb.points[::-1]:
+        self.addPoint(p)
+    else: 
+      self.addPoint(end)
+    return self
+
+  def joinWithCardialAtSplitRatio(self, ratio, other):
+    assert(0 <= ratio <= 1)
+    distance = other.lastPoint() - self.lastPoint()
+    if abs(distance.x) < abs(distance.y):
+      # x closer
+      self.addPoint(self.lastPoint() + (distance.x*ratio, sign(distance.y)*abs(distance.x)*ratio))
+      self.addPoint(other.lastPoint() - (distance.x*(1-ratio), sign(distance.y)*abs(distance.x)*(1-ratio)))
+    else:
+      # y closer
+      self.addPoint(self.lastPoint() + (sign(distance.x)*abs(distance.y)*ratio, distance.y*ratio))
+      self.addPoint(other.lastPoint() - (sign(distance.x)*abs(distance.y)*(1-ratio), distance.y*(1-ratio)))
+    for p in other.points[::-1]:
+      self.addPoint(p)
+    return self
+
+## Pixel #############################################################################
+
 class Pixel(object):
   footprintName = ""
   connectionMap = {}
   powerPin = None
-  gndPin = None
-  gndViaAngle = 0
-  powerTraceAngle = 0
-  def __init__(self, name, powerPin, gndPin, dataConnections, gndViaAngle, powerTraceAngle):
+  groundPin = None
+  powerConnect = None
+  groundConnect = None
+  def __init__(self, name, powerPin, groundPin, dataConnections, powerConnect, groundConnect):
     self.footprintName = name
-    self.powerPin = str(powerPin)
-    self.gndPin = str(gndPin)
+    self.powerPin = powerPin
+    self.groundPin = groundPin
     self.connectionMap = dataConnections
-    self.gndViaAngle = gndViaAngle
-    self.powerTraceAngle = powerTraceAngle
+    self.powerConnect = powerConnect
+    self.groundConnect = groundConnect
 
-SK9822EC20 = Pixel("LED-SK9822-EC20", powerPin=5, gndPin=2, dataConnections={"1": "3", "6": "4"}, gndViaAngle=-pi/2, powerTraceAngle=pi/2)
-WS2812B1010 = Pixel("ws2812b_1010", powerPin=2, gndPin=3, dataConnections={"1": "4"}, gndViaAngle=3*pi/4, powerTraceAngle=0)
+SK9822EC20 = Pixel("LED-SK9822-EC20", powerPin=5, groundPin=2, dataConnections={1:3, 6:4}, 
+                   powerConnect=TraceBuilder().angleConst(0.5, pi/2), 
+                   groundConnect=TraceBuilder().angleConst(0.5, -pi/2))
+WS2812B1010 = Pixel("ws2812b_1010", powerPin=2, groundPin=3, dataConnections={1:4}, 
+                    powerConnect=TraceBuilder().angleConst(0.5, 0), 
+                    groundConnect=TraceBuilder().angleConst(0.5, 3*pi/4))
 
-
-###############################################################################
-
+## PCBLayout #############################################################################
 
 class PCBLayout(object):
   center = Point(100,100)
   edge_cut_line_thickness = 0.05
   
-  groundViaDistance = 0.8
-  vccTraceDistance = 0.8
+  groundViaDistance = 0.5
+  powerTraceDistance = 1
   zoneMinThickness = 0.1
   zoneClearance = 0.2
 
@@ -457,7 +603,7 @@ class PCBLayout(object):
       # zone.SetThermalReliefSpokeWidth(0.4)
       zone.SetThermalReliefGap(int(0.4*IU_PER_MM))
       
-      zone.SetLocked(True)
+      zone.SetLocked(args.lock)
       if type(layers) is str:
         zone.SetLayer(self.kicadpcb.layertable[layers])
       else:
@@ -561,27 +707,18 @@ class PCBLayout(object):
   ### ------------------------------------------------------- ###
 
   def get5VTraceEnd(self, pad, orientation):
-    return Point(pad.GetPosition()).polar_translated(self.vccTraceDistance, self.pixelType.powerTraceAngle - orientation)
+    return Point(pad.GetPosition()).polar_translated(self.powerTraceDistance, self.pixelType.powerTraceAngle - orientation).polar_translated(0.2, pi/2)
 
-  def connectPixels(self, fromPixel, toPixel, connectVcc=True, connectorFunction=None):
+  def connectPixels(self, fromPixel, toPixel, connectorFunction=None):
     print("Connect pixels", fromPixel.GetReference(), "(orientation:", fromPixel.GetOrientation().AsDegrees(), fromPixel.GetOrientation().AsRadians(), ") ->", toPixel.GetReference(), "(orientation:", toPixel.GetOrientation().AsDegrees(), toPixel.GetOrientation().AsRadians(),")")
     if not args.skip_traces:
-      for pad in toPixel.Pads():
-        if connectVcc and pad.GetPadName() == self.pixelType.powerPin:
-          # connect +5V from previous
-          prevPad = [p for p in fromPixel.Pads() if p.GetPadName() == self.pixelType.powerPin][0]
-          orientationFlip = pi if fromPixel.GetLayerName() == "B.Cu" else 0
-          prevEnd = self.get5VTraceEnd(prevPad, fromPixel.GetOrientation().AsRadians()+orientationFlip)
-          end = self.get5VTraceEnd(pad, toPixel.GetOrientation().AsRadians()+orientationFlip)
-          self.kicadpcb.add_copper_trace(prevEnd, end, pad.GetNet(), fromPixel.GetLayerName())
-
       # Add data tracks from the previous pixel
       alternate = -1 if int(str(fromPixel.GetReference()).strip("D")) % 2 else 1
       for prev_pad in fromPixel.Pads():
-        if prev_pad.GetPadName() in self.pixelType.connectionMap:
+        if int(prev_pad.GetPadName()) in self.pixelType.connectionMap:
           # then connect the two pads
           for pad in toPixel.Pads():
-            if pad.GetPadName() == self.pixelType.connectionMap[prev_pad.GetPadName()]:
+            if int(pad.GetPadName()) == self.pixelType.connectionMap[int(prev_pad.GetPadName())]:
               start = Point(prev_pad.GetPosition())
               end = Point(pad.GetPosition())
               if connectorFunction:
@@ -598,7 +735,7 @@ class PCBLayout(object):
         self.kicadpcb.board.Delete(fp)
         break
     if type(footprintNameOrPrototype) is str:
-      fp = pcbnew.FootprintLoad(str(Path(__file__).parent.joinpath('kicad_footprints.pretty').resolve()), footprintNameOrPrototype)
+      fp = pcbnew.FootprintLoad(str(Path(__file__).parent.parent.joinpath('kicad_footprints.pretty').resolve()), footprintNameOrPrototype)
     else:
       fp = pcbnew.FOOTPRINT(footprintNameOrPrototype)
     
@@ -613,15 +750,20 @@ class PCBLayout(object):
     fp.SetReference(reference)
     self.kicadpcb.board.Add(fp)
     fp.Reference().SetVisible(False)
-    fp.SetLocked(True)
+    fp.SetLocked(args.lock)
     if onBack:
       fp.Flip(point.vector2i(), True)
 
     return fp
 
-  def placePixel(self, reference, point, orientation, layer="F.Cu", allowOverlaps=True, alignOverlaps=True, connectVcc=True, connectGnd=True):
+  def placePixel(self, reference, point, orientation, layer="F.Cu", allowOverlaps=True, alignOverlaps=True, powerConnect=None, groundConnect=None):
     print("Consider place pixel %s at point %s (relative center %s) orientation %f layer %s" % (reference, point, self.center, orientation, layer));
     
+    if powerConnect is None:
+      powerConnect = self.pixelType.powerConnect
+    if powerConnect is None:
+      groundConnect = self.pixelType.groundConnect
+
     if self.pixel_prototype is None:
       print("Loading pixel footprint...")
       self.pixel_prototype = pcbnew.FootprintLoad(str(Path(__file__).parent.parent.joinpath('kicad_footprints.pretty').resolve()), self.pixelType.footprintName)
@@ -672,29 +814,25 @@ class PCBLayout(object):
 
     if not args.skip_traces:
       for pad in pixel.Pads():
-        if connectGnd and pad.GetPadName() == self.pixelType.gndPin:
-          # draw trace outward from ground
-          end = Point(pad.GetPosition()).polar_translated(self.groundViaDistance, self.pixelType.gndViaAngle-(orientation+orientationFlip)).vector2i()
-          self.kicadpcb.add_copper_trace(pad.GetPosition(), end, pad.GetNet(), layer)
+        if groundConnect and int(pad.GetPadName()) == self.pixelType.groundPin:
+          groundConnect.startPad = pad
+          groundConnect.draw(self.kicadpcb)
+        elif powerConnect and int(pad.GetPadName()) == self.pixelType.powerPin:
+          powerConnect.startPad = pad
+          powerConnect.draw(self.kicadpcb)
 
-          # add a via
-          self.kicadpcb.add_via(end, pad.GetNet())
-        elif connectVcc and pad.GetPadName() == self.pixelType.powerPin:
-          # draw trace outward from 5V
-          end = self.get5VTraceEnd(pad, orientation+orientationFlip)
-          self.kicadpcb.add_copper_trace(pad.GetPosition(), end.vector2i(), pad.GetNet(), layer)
     return pixel
 
-  def placeSeriesPixel(self, point, orientation, layer="F.Cu", allowOverlaps=True, alignOverlaps=True, series="D", reverseDataOrder=False, connectorFunction=None, connectGnd=True, connectVcc=True):
+  def placeSeriesPixel(self, point, orientation, layer="F.Cu", allowOverlaps=True, alignOverlaps=True, series="D", reverseDataOrder=False, connectorFunction=None, powerConnect=None, groundConnect=None):
     reference = "{}{}".format(series, (self.seriesPixelCounts.get(series,0)+1))
     
-    placedPixel = self.placePixel(reference, point, orientation, layer, allowOverlaps, alignOverlaps, connectVcc, connectGnd)
+    placedPixel = self.placePixel(reference, point, orientation, layer, allowOverlaps, alignOverlaps, powerConnect, groundConnect)
     if placedPixel is not None:
       if self.seriesPixelPrevious.get(series) is not None:
         fromPixel, toPixel = self.seriesPixelPrevious[series], placedPixel
         if reverseDataOrder:
           toPixel, fromPixel = fromPixel, toPixel
-        self.connectPixels(fromPixel, toPixel, connectVcc, connectorFunction)
+        self.connectPixels(fromPixel, toPixel, connectorFunction)
 
       self.seriesPixelPrevious[series] = placedPixel
       self.seriesPixelCounts[series] = self.seriesPixelCounts.get(series,0) + 1
@@ -790,107 +928,9 @@ class PCBLayout(object):
   
   def decorateSilkScreen(self):
     pass
+  
 
-###############################################################################
-
-class TraceBuilder(object):
-  class Via(object):
-    def __init__(self, pt):
-      self.point = pt
-  def multitrace(self, kicadpcb, points, net, startlayer):
-    front = (startlayer=="F.Cu")
-    lastPoint = points[0]
-    for p in points[1:]:
-      isVia = type(p) is self.Via
-      if isVia:
-        # if we TraceBuild from both sides, the via is off-by-one after we merge and flip, so we treat it like a proper trace point
-        p = p.point
-      if p.distance_to(lastPoint) > 0.0001:
-        # then only draw traces if they are long enough
-        kicadpcb.add_copper_trace(lastPoint, p, net, "F.Cu" if front else "B.Cu")
-        lastPoint = p
-      if isVia:
-        kicadpcb.add_via(p, net)
-        front = not front
-  
-  def __init__(self, startPad, startlayer="F.Cu"):
-    self.points = []
-    assert(len(self.points) == 0)
-    try:
-      self.startlayer = startlayer
-      coord = Point(startPad.GetPosition())
-      self.startPad = startPad
-    except AttributeError:
-      print("Start should be a pcbnew.PAD")
-      coord = startPad
-    self.points.append(coord)
-
-  def lastPoint(self):
-    for t in self.points[::-1]:
-      if type(t) is Point:
-        return t
-      
-  def angleConst(self, distance, angle):
-    self.points.append(self.lastPoint().polar_translated(distance, angle))
-    return self
-  
-  def via(self):
-    self.points.append(self.Via(self.lastPoint()))
-    return self
-  
-  def xconst(self, x):
-    self.points.append(self.lastPoint() + (x,0))
-    return self
-  
-  def yconst(self, y):
-    self.points.append(self.lastPoint() + (y,0))
-    return self
-  
-  def octPathCloseTo(self, end):
-    othertb = None
-    if type(end) is TraceBuilder:
-      othertb = end
-      end = end.lastPoint()
-    try:
-      end = Point(end.GetPosition())
-    except AttributeError:
-      pass
-    # diagonal path to a cardinal line, then close it
-    lp = self.lastPoint()
-    distance = end - lp
-    if abs(distance.x) < abs(distance.y):
-      # x closer
-      self.points.append(lp + (distance.x, sign(distance.y)*abs(distance.x)))
-    else:
-      # y closer
-      self.points.append(lp + (sign(distance.x)*abs(distance.y), distance.y))
-    if othertb:
-      for p in othertb.points[::-1]:
-        self.points.append(p)
-    else: 
-      self.points.append(end)
-    return self
-
-  def joinWithCardialAtSplitRatio(self, ratio, other):
-    assert(0 <= ratio <= 1)
-    distance = other.lastPoint() - self.lastPoint()
-    if abs(distance.x) < abs(distance.y):
-      # x closer
-      self.points.append(self.lastPoint() - (sign(distance.y)*abs(distance.x)*ratio, sign(distance.x)*abs(distance.x)*ratio))
-      self.points.append(other.lastPoint() + (sign(distance.y)*abs(distance.x)*(1-ratio), sign(distance.x)*abs(distance.x)*(1-ratio)))
-    else:
-      # y closer
-      self.points.append(self.lastPoint() + (sign(distance.x)*abs(distance.y)*ratio, sign(distance.y)*abs(distance.y)*ratio))
-      self.points.append(other.lastPoint() - (sign(distance.x)*abs(distance.y)*(1-ratio), sign(distance.y)*abs(distance.y)*(1-ratio)))
-    for p in other.points[::-1]:
-      self.points.append(p)
-    return self
-  
-  def draw(self, kicadpcb):
-    self.multitrace(kicadpcb, self.points, self.startPad.GetNet(), self.startlayer)
-    return self
-
-###############################################################################
+##  LayoutHexa  #############################################################################
 
 def is_point_in_triangle(P, A, B, C):
     # barycenter method
@@ -930,8 +970,8 @@ class LayoutHexa(PCBLayout):
     
     zonePoints = self.hexaPoints(self.edgeRadius+2)
     for pos in zonePoints:
-      self.addZonePoint(pos, "GND1", "GND", "B.Cu")
-      self.addZonePoint(pos, "+5V", "+5V", "F.Cu")
+      self.addZonePoint(pos, "GND1", "GND", "In2.Cu")
+      self.addZonePoint(pos, "+5V", "+5V", "In1.Cu")
       
 
   def is_point_in_hexa(self, pos):
@@ -945,17 +985,6 @@ class LayoutHexa(PCBLayout):
         print("Point {} in triangle {} {} {}".format(pos, p1, p2, p3))
         return True
     return False
-
-  def placeSeptet(self, pos):
-    orientation = pi/4
-    if self.is_point_in_hexa(pos):
-      placed = self.placeSeriesPixel(pos, orientation, allowOverlaps=False, alignOverlaps=False, connectVcc=False)
-      if placed is not None:
-        for i in range(7):
-          v = pos.polar_translated(self.pixelSpacing, i * 2*pi/6)
-          self.placeSeptet(v)
-    else:
-      print("Skipping pos {} outside of hexa".format(pos))
 
   def placeZigZag(self):
     spacing = Point(self.pixelSpacing, sin(2*pi/6) * self.pixelSpacing)
@@ -971,105 +1000,130 @@ class LayoutHexa(PCBLayout):
       topmost = pos.y
       return Point(leftmost, topmost)
 
+    TraceBuilder.defaultTraceWith = 0.15
+
     startPos = findTopLeftPlacement()
+    print("startPos = ", startPos);
     pos = startPos
-    alternateRow = 1
-    alternatePixel = 1
+    xDirection = -1
     while True:
-      orientation = pi+pi/4
-      self.groundViaDistance = 0.8 if alternateRow > 0 else 0.5
+      orientation = pi/4
       placed = None
       if self.is_point_in_hexa(pos):
+        
+        def footprintPadNamed(fp, padName):
+          for pad in fp.Pads():
+            if pad.GetPadName() == padName:
+              return pad
+          return None
 
         def dataTraceConnector(fromPad, toPad):
           start = Point(fromPad.GetPosition())
           end = Point(toPad.GetPosition())
           six_to_four = fromPad.GetPadName() == "6"
           one_to_three = fromPad.GetPadName() == "1"
-          if alternateRow < 0:
+
+          if xDirection > 0:
+            if end.y - start.y > 2:
+              # new row, left side of hexa
+              # left side leaves pad 6 the same
+              if six_to_four:
+                  tb1 = TraceBuilder(fromPad).angleConst(0.5, pi/4).via().angleConst(0.84, pi)
+              if start.y < self.center.y-1.5:
+                # new row, top left
+                if six_to_four:
+                  pivot = TraceBuilder(footprintPadNamed(fromPad.GetParent(), "4")).xconst(-1.0).useAsPivot()
+                  tb1.joinWithCardialAtSplitRatio(0.5, pivot)
+                  tb2 = TraceBuilder(toPad).angleConst(0.25, 3*pi/4).via().yconst(-0.8)
+                  tb1.joinWithCardialAtSplitRatio(0.5, tb2).draw(self.kicadpcb)
+                if one_to_three:
+                  pivot = TraceBuilder(footprintPadNamed(fromPad.GetParent(), "3")).xconst(-0.85).useAsPivot()
+                  tb1 = TraceBuilder(fromPad).angleConst(0.4, pi/4).via()
+                  tb1.joinWithCardialAtSplitRatio(0.49, pivot)
+                  tb2 = TraceBuilder(toPad).angleConst(0.5, pi/4).via()
+                  tb1.joinWithCardialAtSplitRatio(0.28, tb2).draw(self.kicadpcb)
+                
+              else:
+                # new row, bottom left
+                if six_to_four:
+                  pivot = TraceBuilder(footprintPadNamed(fromPad.GetParent(), "4")).xconst(-0.8).useAsPivot()
+                  tb1.joinWithCardialAtSplitRatio(0.7, pivot)
+                  tb2 = TraceBuilder(toPad).angleConst(0.5, -3*pi/4).via()
+                  tb2.octPathCloseTo(tb1).draw(self.kicadpcb)
+                if one_to_three:
+                  # use pad 3 of the start pixel as a pivot
+                  pivot = TraceBuilder(footprintPadNamed(fromPad.GetParent(), "3")).xconst(-0.85).useAsPivot()
+                  tb1 = TraceBuilder(fromPad).angleConst(0.16, 3*pi/4).via().yconst(0.25)
+                  tb1.joinWithCardialAtSplitRatio(0.5, pivot).yconst(0.8)
+                  tb2 = TraceBuilder(toPad).angleConst(0.6, 3*pi/4).via()
+                  tb1.joinWithCardialAtSplitRatio(0.3, tb2).draw(self.kicadpcb)
+            else:
+              # regular rightward row
+              if six_to_four:
+                tb = TraceBuilder(fromPad).xconst(xDirection*0.4)
+              if one_to_three:
+                tb = TraceBuilder(fromPad).angleConst(0.4, pi/4).xconst(1.0)
+              tb.octPathCloseTo(toPad).draw(self.kicadpcb)
+          else:
+            # leftward, always land on the pad the same way
+            if six_to_four:
+              tb2 = TraceBuilder(toPad).angleConst(0.5, pi/2).via()
+            if one_to_three:
+              tb2 = TraceBuilder(toPad).angleConst(0.3, 3*pi/4).via()
+            
             if end.y - start.y > 2:
               # new row, right side of hexa
               if start.y < self.center.y:
                 # new row, top right
                 if six_to_four:
-                  tb1 = TraceBuilder(fromPad).angleConst(0.88, pi/2).via()
-                  tb2 = TraceBuilder(toPad).angleConst(0.26, pi/2).via()
+                  tb1 = TraceBuilder(fromPad).angleConst(0.8, 0).via()
+                  tb2 = tb2.angleConst(1.14, -pi/4).xconst(1.1122).angleConst(0.41, -pi/4).yconst(-1.9)
+                  tb1.octPathCloseTo(tb2).draw(self.kicadpcb)
                 if one_to_three:
-                  tb1 = TraceBuilder(fromPad).angleConst(0.42, pi/4).via().angleConst(0.35, pi/4).xconst(1.8)
-                  tb2 = TraceBuilder(toPad).angleConst(0.44, -3*pi/4).via()
-                tb1.octPathCloseTo(tb2).draw(self.kicadpcb)
+                  tb1 = TraceBuilder(fromPad).angleConst(0.5, pi/4).via()
+                  tb2 = tb2.xconst(-xDirection*1.5).angleConst(1.25, -pi/4)
+                  tb1.octPathCloseTo(tb2).draw(self.kicadpcb)
+                  
               else:
                 # new row, bottom right
                 if six_to_four:
-                  tb1 = TraceBuilder(fromPad).angleConst(0.88, pi/2).via()
-                  tb2 = TraceBuilder(toPad).angleConst(0.5, 0).via()
-                  tb1.octPathCloseTo(tb2).draw(self.kicadpcb)
+                  tb1 = TraceBuilder(fromPad).angleConst(0.16, 3*pi/4).via().angleConst(0.7, 3*pi/4).yconst(1.4)
+                  tb2 = tb2.angleConst(1.14, -pi/4).xconst(1.1160)
+                  tb1.joinWithCardialAtSplitRatio(0.57, tb2).draw(self.kicadpcb)
                 if one_to_three:
-                  tb1 = TraceBuilder(fromPad).angleConst(0.42, pi/4).via()
-                  tb2 = TraceBuilder(toPad).angleConst(0.42, pi/4).via()
-                  tb1.joinWithCardialAtSplitRatio(0.5, tb2).draw(self.kicadpcb)
+                  tb1 = TraceBuilder(fromPad).angleConst(0.42, pi/2).via()
+                  tb2 = tb2.xconst(1.45)
+                  tb2.octPathCloseTo(tb1).draw(self.kicadpcb)
             else:
               # regular leftward row
-              initialJump = 1.0 if one_to_three else 0.4
-              tb = TraceBuilder(fromPad).xconst(alternateRow*initialJump)
-              tb.octPathCloseTo(toPad).draw(self.kicadpcb)
-          else:
-            if end.y - start.y > 2:
-              # new row, left side of hexa
-              if start.y < self.center.y:
-                # new row, top left
-                if six_to_four:
-                  tb1 = TraceBuilder(fromPad).angleConst(0.38, 3*pi/4).via()
-                  tb2 = TraceBuilder(toPad).angleConst(0.9, -3*pi/4).via()
-                  tb1.octPathCloseTo(tb2).draw(self.kicadpcb)
-                if one_to_three:
-                  TraceBuilder(fromPad).octPathCloseTo(toPad).draw(self.kicadpcb)
+              srcPadDistance = 0.5 if six_to_four else 0.4
+              dataTraceSplit = 0.427 if six_to_four else 0.46
+              if six_to_four:
+                tb1 = TraceBuilder(fromPad).angleConst(srcPadDistance, pi/4).via().xconst(-0.77)
               else:
-                # new row, bottom left
-                if six_to_four:
-                  tb1 = TraceBuilder(fromPad).angleConst(0.38, 3*pi/4).via().xconst(0.71)
-                  tb2 = TraceBuilder(toPad).angleConst(0.4, -pi/2).via().xconst(-1.3)
-                  tb1.octPathCloseTo(tb2).draw(self.kicadpcb)
-                if one_to_three:
-                  tb1 = TraceBuilder(fromPad).angleConst(0.53, 3*pi/4).via().angleConst(1.2, pi/2)
-                  tb2 = TraceBuilder(toPad).angleConst(0.42, -3*pi/4).via().xconst(-0.15).angleConst(1.3, 3*pi/4).xconst(-1)
-                  tb1.octPathCloseTo(tb2).draw(self.kicadpcb)
-            else:
-              # regular rightward row
-              dataTraceSplit = 0.7 if six_to_four else 0.4
-              sidewaysJump = 0.6 if six_to_four else 0.0
-              tb1 = TraceBuilder(fromPad).angleConst(0.25, -pi/4).via().xconst(alternateRow*sidewaysJump)
-              tb2 = TraceBuilder(toPad).angleConst(0.45, -3*pi/4).via()
+                tb1 = TraceBuilder(fromPad).angleConst(srcPadDistance, pi/4).via()
+                tb2 = tb2.xconst(-xDirection*1.32)
               combined = tb1.joinWithCardialAtSplitRatio(dataTraceSplit, tb2).draw(self.kicadpcb)
 
-        placed = self.placeSeriesPixel(pos, orientation, allowOverlaps=False, alignOverlaps=False, connectVcc=False, connectorFunction=dataTraceConnector)
-        alternatePixel *= -1
+        gndDistance = 0.5 if xDirection > 0 else 0.65
+        placed = self.placeSeriesPixel(pos, orientation, allowOverlaps=False, alignOverlaps=False, 
+                                       powerConnect=TraceBuilder().angleConst(0.8, pi/2).angleConst(0.35, 3*pi/4).via(),
+                                       groundConnect=TraceBuilder().angleConst(gndDistance, -pi/2).via(),
+                                       connectorFunction=dataTraceConnector)
+      
       if pos.x < startPos.x or pos.x > -startPos.x: # centered around 0 so we can do this
         # next row
         assert(not placed)
-        pos += (-alternateRow * 3*spacing.x/2, spacing.y)
+        pos += (-xDirection * 3*spacing.x/2, spacing.y)
         if pos.y > -startPos.y:
           break
-        alternateRow *= -1
+        xDirection *= -1
       else:
-        pos += (alternateRow * spacing.x, 0)
+        pos += (xDirection * spacing.x, 0)
 
   def placePixels(self):
     super().placePixels()
-
-    # self.placeSeptet(Point(0,0))
     self.placeZigZag()
-
-    # for row in range(numRows):
-    #   numCols = 28 if row%2 else 21
-    #   for col in range(numCols):
-    #     pos = Point(-self.edgeRadius, -self.edgeRadius)
-    #     pos += Point(pixelSpacing*col - (0.5 * pixelSpacing if row%2 else 0), pixelSpacing*row)
-        
-        
-    #       self.placeSeriesPixel(pos, pi/4)
-    #   self.seriesPixelDiscontinuity()
-    
 
   def decorateSilkScreen(self):
     super().decorateSilkScreen()
