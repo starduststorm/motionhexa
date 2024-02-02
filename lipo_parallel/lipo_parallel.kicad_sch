@@ -2701,6 +2701,31 @@
     )
   )
 
+  (symbol (lib_id "power:+5V") (at 112.522 158.75 180) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no)
+    (uuid 27e483c8-7dd0-4d45-89ff-6bcf5b955572)
+    (property "Reference" "#PWR028" (at 112.522 154.94 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Value" "+5V" (at 112.776 163.322 90)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "" (at 112.522 158.75 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "" (at 112.522 158.75 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (pin "1" (uuid d1f02553-b7a0-4056-b00b-06149f441dc4))
+    (instances
+      (project "lipo_parallel"
+        (path "/c7c44c45-3072-4a51-ac4d-3ef4d55811c5"
+          (reference "#PWR028") (unit 1)
+        )
+      )
+    )
+  )
+
   (symbol (lib_id "power:PWR_FLAG") (at 251.46 92.71 270) (unit 1)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid 298a7c20-c556-44de-b914-a3f29f397896)
@@ -2915,41 +2940,6 @@
       (project "lipo_parallel"
         (path "/c7c44c45-3072-4a51-ac4d-3ef4d55811c5"
           (reference "#PWR05") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "power:GND") (at 112.522 158.75 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
-    (uuid 3e1c2666-176c-40b9-a3fb-ff1aead62ebc)
-    (property "Reference" "#PWR060" (at 112.522 165.1 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "GND" (at 112.522 163.322 90)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "" (at 112.522 158.75 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 112.522 158.75 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid f9d222c5-b4d0-4520-9e58-f44cd3fe86fa))
-    (instances
-      (project "penta"
-        (path "/2e8b15b9-33da-4001-b66c-591b57065bcb"
-          (reference "#PWR060") (unit 1)
-        )
-      )
-      (project "earthvenusmars"
-        (path "/bace58c2-f0d1-4517-97b2-cd7ba63e787a"
-          (reference "#PWR0112") (unit 1)
-        )
-      )
-      (project "lipo_parallel"
-        (path "/c7c44c45-3072-4a51-ac4d-3ef4d55811c5"
-          (reference "#PWR028") (unit 1)
         )
       )
     )
