@@ -1031,6 +1031,15 @@ class LayoutHexa(PCBLayout):
     capIndex = 1
     capPrototype = pcbnew.FootprintLoad(str(Path(findFootprintLibsFolder()).joinpath("Capacitor_SMD.pretty")), "C_0402_1005Metric")
 
+    def insertCap(pos, orientation):
+      nonlocal capIndex
+      reference = "C{}".format(capIndex)
+      cap = self.insertFootprint(capPrototype, reference, pos, orientation, "F.Cu")
+      capIndex+=1
+      for i, pad in enumerate(cap.Pads()):
+        TraceBuilder(pad).angleConst(0.4, -orientation + i*pi - pi).via().draw(self.kicadpcb)
+      return cap
+
     while True:
       orientation = pi/4
       placed = None
@@ -1038,8 +1047,7 @@ class LayoutHexa(PCBLayout):
         if pos.x < 0 and xDirection > 0 and not placedLeftCap:
           angle = -3*pi/4
           angleAdjust = 0 if pos.y < 0 else -pi/2
-          cap = self.insertFootprint(capPrototype, "C{}".format(capIndex), pos.polar_translated(2.4,angle+angleAdjust), orientation+angleAdjust, "F.Cu")
-          capIndex+=1
+          cap = insertCap(pos.polar_translated(2.4,angle+angleAdjust), orientation+angleAdjust)
           placedLeftCap = True
 
         def footprintPadNamed(fp, padName):
@@ -1150,8 +1158,7 @@ class LayoutHexa(PCBLayout):
           lastPos = pos - (xDirection*spacing.x, 0)
           angle = -pi/4
           angleAdjust = 0 if lastPos.y < 0 else pi/2
-          cap = self.insertFootprint(capPrototype, "C{}".format(capIndex), lastPos.polar_translated(2.4,angle+angleAdjust), orientation+angleAdjust+pi/2, "F.Cu")
-          capIndex+=1
+          insertCap(lastPos.polar_translated(2.4,angle+angleAdjust), orientation+angleAdjust+pi/2)
           placedRightCap = True
 
       if pos.x < -startPos.x or pos.x > startPos.x: # centered around 0 so we can do this
