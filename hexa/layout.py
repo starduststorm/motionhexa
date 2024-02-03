@@ -36,6 +36,19 @@ sys.path.append("/usr/local/lib/python3.9/site-packages")
 import pcbnew
 IU_PER_MM = pcbnew.PCB_IU_PER_MM
 
+_footprintsLibFolder = None
+def findFootprintLibsFolder():
+  # No way I can find to get KICAD7_FOOTPRINT_DIR from outside the app
+  # on my system it's /Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints
+  global _footprintsLibFolder
+  if _footprintsLibFolder is None:
+    path = Path(pcbnew.__file__).parent
+    while "SharedSupport" not in (p.stem for p in path.iterdir()):
+      path = path.parent
+      assert path != path.parent, "failed to find footprints lib"
+    _footprintsLibFolder = path.joinpath("SharedSupport/footprints")
+  return _footprintsLibFolder
+
 class BoardConstraints(object):
   minDrill = 0
   annularRing = 0
@@ -445,13 +458,13 @@ class TraceBuilder(object):
   @startPad.setter
   def startPad(self, newStartPad):
       if self.startPad is None:
-        print("Rotating to ori: {} under parent: {}".format(newStartPad.GetParent().GetOrientation().AsDegrees(), newStartPad.GetParent()))
         self.rotate(-newStartPad.GetParent().GetOrientation().AsRadians())
       prevStart = Point(self.startPad.GetPosition()) if self.startPad else Point(0,0)
       self.translate(Point(newStartPad.GetPosition())-prevStart)
       self._startPad = newStartPad
 
   def useAsPivot(self):
+    """ Use the last point in this TraceBuilder as a waypoint in another tracebuilder """
     self._startPad = None
     self.points = [self.Trace(self.lastPoint())]
     return self
@@ -500,6 +513,7 @@ class TraceBuilder(object):
     return self
   
   def octPathCloseTo(self, end):
+    """ Close the path to end pcbnew.PAD or TraceBuilder using a diagonal followed by a cardinal trace """
     othertb = None
     if type(end) is TraceBuilder:
       othertb = end
@@ -525,6 +539,7 @@ class TraceBuilder(object):
     return self
 
   def joinWithCardialAtSplitRatio(self, ratio, other):
+    """ Close the path to other TraceBuilder using a cardinal-direction bar at ratio between the height-gap or width-gap (whichever is less) of the last points on each TraceBuilder """
     assert(0 <= ratio <= 1)
     distance = other.lastPoint() - self.lastPoint()
     if abs(distance.x) < abs(distance.y):
@@ -736,10 +751,15 @@ class PCBLayout(object):
         break
     if type(footprintNameOrPrototype) is str:
       fp = pcbnew.FootprintLoad(str(Path(__file__).parent.parent.joinpath('kicad_footprints.pretty').resolve()), footprintNameOrPrototype)
+      if not fp:
+        lib, name = footprintNameOrPrototype.split(":")
+        fp = pcbnew.FootprintLoad(lib, name)
+      assert fp, "Failed to load footprint {}".format(footprintNameOrPrototype)
     else:
       fp = pcbnew.FOOTPRINT(footprintNameOrPrototype)
     
-    print("Placing footprint reference %s at point %s orientation %f layer %s" % (reference, point, orientation, layer))
+    print("** Placing footprint reference {} at point {} orientation {} layer {}".format(reference, point, orientation, layer))
+    print("    {}".format(fp))
     if onBack:
       # Here we insert the footprint on the front, then Flip() it to the back, rather than try and natively insert it on the back, which doesn't work.
       layer = "F.Cu"
@@ -943,8 +963,8 @@ def is_point_in_triangle(P, A, B, C):
     return abs(A_total - A1 - A2 - A3) < 0.0001
 
 class LayoutHexa(PCBLayout):
-  edgeRadius = 32
-  pixelRadius = 31
+  edgeRadius = 39
+  pixelRadius = 38
   pixelSpacing = 3.9
 
   ##
@@ -989,28 +1009,39 @@ class LayoutHexa(PCBLayout):
   def placeZigZag(self):
     spacing = Point(self.pixelSpacing, sin(2*pi/6) * self.pixelSpacing)
     # i wanna have a pixel at 0,0 but still have row-major zig-zag wiring order for layout/schematic sanity reasons
-    def findTopLeftPlacement():
+    def findTopRightPlacement():
       pos = Point(0,0)
       while self.is_point_in_hexa(pos):
-        pos -= (spacing.x, 0)
-      leftmost = pos.x
+        pos += (spacing.x, 0)
+      rightmost = pos.x
       pos = Point(0,0)
       while self.is_point_in_hexa(pos):
         pos -= (0, spacing.y)
       topmost = pos.y
-      return Point(leftmost, topmost)
+      return Point(rightmost, topmost)
 
     TraceBuilder.defaultTraceWith = 0.15
 
-    startPos = findTopLeftPlacement()
+    startPos = findTopRightPlacement()
     print("startPos = ", startPos);
-    pos = startPos
+    pos = startPos - (self.pixelSpacing, 0)
     xDirection = -1
+    placedLeftCap = False
+    placedRightCap = False
+    capIndex = 1
+    capPrototype = pcbnew.FootprintLoad(str(Path(findFootprintLibsFolder()).joinpath("Capacitor_SMD.pretty")), "C_0402_1005Metric")
+
     while True:
       orientation = pi/4
       placed = None
       if self.is_point_in_hexa(pos):
-        
+        if pos.x < 0 and xDirection > 0 and not placedLeftCap:
+          angle = -3*pi/4
+          angleAdjust = 0 if pos.y < 0 else -pi/2
+          cap = self.insertFootprint(capPrototype, "C{}".format(capIndex), pos.polar_translated(2.4,angle+angleAdjust), orientation+angleAdjust, "F.Cu")
+          capIndex+=1
+          placedLeftCap = True
+
         def footprintPadNamed(fp, padName):
           for pad in fp.Pads():
             if pad.GetPadName() == padName:
@@ -1064,7 +1095,8 @@ class LayoutHexa(PCBLayout):
               if one_to_three:
                 tb = TraceBuilder(fromPad).angleConst(0.4, pi/4).xconst(1.0)
               tb.octPathCloseTo(toPad).draw(self.kicadpcb)
-          else:
+          
+          else: # xDirection >= 0
             # leftward, always land on the pad the same way
             if six_to_four:
               tb2 = TraceBuilder(toPad).angleConst(0.5, pi/2).via()
@@ -1106,18 +1138,31 @@ class LayoutHexa(PCBLayout):
               combined = tb1.joinWithCardialAtSplitRatio(dataTraceSplit, tb2).draw(self.kicadpcb)
 
         gndDistance = 0.5 if xDirection > 0 else 0.65
+        # connect power via slightly different on the rightward to avoid caps
+        powerConnect = TraceBuilder().angleConst(0.7256, pi/2).angleConst(0.2387, pi/4).via() if xDirection>0 else TraceBuilder().angleConst(0.8, pi/2).angleConst(0.35, 3*pi/4).via()
         placed = self.placeSeriesPixel(pos, orientation, allowOverlaps=False, alignOverlaps=False, 
-                                       powerConnect=TraceBuilder().angleConst(0.8, pi/2).angleConst(0.35, 3*pi/4).via(),
+                                       powerConnect=powerConnect,
                                        groundConnect=TraceBuilder().angleConst(gndDistance, -pi/2).via(),
                                        connectorFunction=dataTraceConnector)
-      
-      if pos.x < startPos.x or pos.x > -startPos.x: # centered around 0 so we can do this
+      else:
+        if pos.x > 0 and xDirection > 0 and not placedRightCap:
+          # just fell off the right end of the hexa
+          lastPos = pos - (xDirection*spacing.x, 0)
+          angle = -pi/4
+          angleAdjust = 0 if lastPos.y < 0 else pi/2
+          cap = self.insertFootprint(capPrototype, "C{}".format(capIndex), lastPos.polar_translated(2.4,angle+angleAdjust), orientation+angleAdjust+pi/2, "F.Cu")
+          capIndex+=1
+          placedRightCap = True
+
+      if pos.x < -startPos.x or pos.x > startPos.x: # centered around 0 so we can do this
         # next row
         assert(not placed)
         pos += (-xDirection * 3*spacing.x/2, spacing.y)
         if pos.y > -startPos.y:
           break
         xDirection *= -1
+        placedLeftCap = False
+        placedRightCap = False
       else:
         pos += (xDirection * spacing.x, 0)
 
