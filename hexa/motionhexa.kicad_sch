@@ -791,31 +791,6 @@
     )
   )
 
-  (symbol (lib_id "power:GND") (at 106.426 90.17 270) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
-    (uuid 8958dd65-cb65-45d0-9400-0fbf0b3d3b18)
-    (property "Reference" "#PWR010" (at 100.076 90.17 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "GND" (at 101.854 90.17 90)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "" (at 106.426 90.17 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 106.426 90.17 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 2f7882d8-3142-4795-9725-78babb37619b))
-    (instances
-      (project "motionhexa"
-        (path "/532d7ce0-7387-4a95-852a-321dca6ae013"
-          (reference "#PWR010") (unit 1)
-        )
-      )
-    )
-  )
-
   (symbol (lib_id "power:VDD") (at 116.84 120.65 270) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid a22d06b5-b297-488d-b341-4c6da11c1fb3)
@@ -861,6 +836,31 @@
       (project "motionhexa"
         (path "/532d7ce0-7387-4a95-852a-321dca6ae013"
           (reference "#PWR011") (unit 1)
+        )
+      )
+    )
+  )
+
+  (symbol (lib_id "power:+5V") (at 106.426 90.17 90) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no)
+    (uuid d6faa91b-de17-42a8-90cc-6428dc4b6843)
+    (property "Reference" "#PWR06" (at 110.236 90.17 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Value" "+5V" (at 101.854 90.424 90)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "" (at 106.426 90.17 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "" (at 106.426 90.17 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (pin "1" (uuid 64839d52-4fcd-4bcf-a999-9419a99bca39))
+    (instances
+      (project "motionhexa"
+        (path "/532d7ce0-7387-4a95-852a-321dca6ae013"
+          (reference "#PWR06") (unit 1)
         )
       )
     )
