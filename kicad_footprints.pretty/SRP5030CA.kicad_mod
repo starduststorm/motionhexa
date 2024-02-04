@@ -37,7 +37,7 @@
     (stroke (width 0.1) (type solid)) (layer "F.Fab") (tstamp ccac6958-570a-4bdc-bfda-fc2be3614635))
   (pad "1" smd rect (at -1.625 0) (size 1.25 4.7) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp 1dc0d5e8-ceb7-4d35-ad3f-112bbcc34fce))
   (pad "2" smd rect (at 1.625 0) (size 1.25 4.7) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp 693e727e-d32c-4d45-bddf-fa3fc4b9153c))
-  (model "${KIPRJMOD}/kicad_footprints.pretty/SRP5030CA-1R0M.stp"
+  (model "${KIPRJMOD}/../kicad_footprints.pretty/SRP5030CA-1R0M.stp"
     (offset (xyz 0 0 0))
     (scale (xyz 1 1 1))
     (rotate (xyz 0 0 0))
