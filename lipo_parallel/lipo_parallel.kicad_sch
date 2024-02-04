@@ -3843,7 +3843,7 @@
     (property "Value" "Conn_01x15_Socket" (at 120.65 149.5765 90)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "lipo_parallel:rpmotion_castellated" (at 120.65 153.67 0)
+    (property "Footprint" "lipo_parallel:lipoparallel_castellated" (at 120.65 153.67 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "~" (at 120.65 153.67 0)

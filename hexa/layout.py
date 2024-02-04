@@ -586,7 +586,7 @@ class PCBLayout(object):
   
   groundViaDistance = 0.5
   powerTraceDistance = 1
-  zoneMinThickness = 0.1
+  zoneMinThickness = 0.15
   zoneClearance = 0.2
 
   ####
@@ -1131,7 +1131,7 @@ class LayoutHexa(PCBLayout):
                   tb2 = tb2.angleConst(1.14, -pi/4).xconst(1.1160)
                   tb1.joinWithCardialAtSplitRatio(0.57, tb2).draw(self.kicadpcb)
                 if one_to_three:
-                  tb1 = TraceBuilder(fromPad).angleConst(0.42, pi/2).via()
+                  tb1 = TraceBuilder(fromPad).angleConst(0.5, pi/4).via().angleConst(0.5, 3*pi/4)
                   tb2 = tb2.xconst(1.45)
                   tb2.octPathCloseTo(tb1).draw(self.kicadpcb)
             else:
