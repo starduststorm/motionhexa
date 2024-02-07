@@ -69,7 +69,7 @@
   (pad "7" smd rect (at 1.4478 -0.250063) (size 0.8128 0.254) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp 8d2f536c-3776-4ce4-b106-47bbcca4adda))
   (pad "8" smd rect (at 1.4478 -0.750189) (size 0.8128 0.254) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp fedf07a9-7d35-4a18-93ea-44d8e6befc7c))
   (pad "9" smd rect (at 0 0) (size 0.2032 1.6002) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp 5385d34c-c321-4e02-ba77-ba83dd1e7885))
-  (model "${KIPRJMOD}/kicad_footprints.pretty/W25Q16JVUXIQ TR.STEP"
+  (model "${KIPRJMOD}/../kicad_footprints.pretty/W25Q16JVUXIQ TR.STEP"
     (offset (xyz 0 0 0))
     (scale (xyz 1 1 1))
     (rotate (xyz -90 0 0))

@@ -333,11 +333,11 @@
         )
       )
     )
-    (symbol "power:VDD" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+    (symbol "power:VBUS" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
       (property "Reference" "#PWR" (at 0 -3.81 0)
         (effects (font (size 1.27 1.27)) hide)
       )
-      (property "Value" "VDD" (at 0 3.81 0)
+      (property "Value" "VBUS" (at 0 3.81 0)
         (effects (font (size 1.27 1.27)))
       )
       (property "Footprint" "" (at 0 0 0)
@@ -349,10 +349,10 @@
       (property "ki_keywords" "global power" (at 0 0 0)
         (effects (font (size 1.27 1.27)) hide)
       )
-      (property "ki_description" "Power symbol creates a global label with name \"VDD\"" (at 0 0 0)
+      (property "ki_description" "Power symbol creates a global label with name \"VBUS\"" (at 0 0 0)
         (effects (font (size 1.27 1.27)) hide)
       )
-      (symbol "VDD_0_1"
+      (symbol "VBUS_0_1"
         (polyline
           (pts
             (xy -0.762 1.27)
@@ -378,9 +378,9 @@
           (fill (type none))
         )
       )
-      (symbol "VDD_1_1"
+      (symbol "VBUS_1_1"
         (pin power_in line (at 0 0 90) (length 0) hide
-          (name "VDD" (effects (font (size 1.27 1.27))))
+          (name "VBUS" (effects (font (size 1.27 1.27))))
           (number "1" (effects (font (size 1.27 1.27))))
         )
       )
@@ -481,20 +481,6 @@
       (effects (font (size 1.27 1.27)) (justify left) hide)
     )
   )
-  (global_label "SYS" (shape input) (at 116.84 95.25 0) (fields_autoplaced)
-    (effects (font (size 1.27 1.27)) (justify left))
-    (uuid a1c71ac4-098e-4b5f-b388-f914d3be4db3)
-    (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 123.3328 95.25 0)
-      (effects (font (size 1.27 1.27)) (justify left) hide)
-    )
-  )
-  (global_label "SYS" (shape input) (at 106.68 95.25 180) (fields_autoplaced)
-    (effects (font (size 1.27 1.27)) (justify right))
-    (uuid a59403af-b67c-4011-89a0-e38e5a11fd0d)
-    (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 100.1872 95.25 0)
-      (effects (font (size 1.27 1.27)) (justify right) hide)
-    )
-  )
   (global_label "SCL" (shape input) (at 106.68 107.95 180) (fields_autoplaced)
     (effects (font (size 1.27 1.27)) (justify right))
     (uuid b3dbf104-fb13-4312-9643-a7e041579647)
@@ -531,33 +517,8 @@
     )
   )
 
-  (symbol (lib_id "power:VDD") (at 87.63 30.48 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid 0236b405-aac4-43da-a2fe-996921cea4fd)
-    (property "Reference" "#PWR03" (at 87.63 34.29 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "VDD" (at 87.63 27.305 90)
-      (effects (font (size 1.27 1.27)) (justify left))
-    )
-    (property "Footprint" "" (at 87.63 30.48 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 87.63 30.48 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 03fd322a-6a89-402d-bdb0-83cd97c74e0b))
-    (instances
-      (project "motionhexa"
-        (path "/532d7ce0-7387-4a95-852a-321dca6ae013"
-          (reference "#PWR03") (unit 1)
-        )
-      )
-    )
-  )
-
   (symbol (lib_id "Connector:Conn_01x13_Socket") (at 111.76 97.79 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
+    (in_bom no) (on_board yes) (dnp no)
     (uuid 2239450f-d185-4be0-a9cb-37a8c535dc38)
     (property "Reference" "J1" (at 108.458 79.502 0)
       (effects (font (size 1.27 1.27)))
@@ -621,31 +582,6 @@
     )
   )
 
-  (symbol (lib_id "power:+5V") (at 87.63 30.48 180) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid 333e37ad-f5a6-4db9-8ad2-6080b986de05)
-    (property "Reference" "#PWR04" (at 87.63 26.67 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "+5V" (at 87.63 33.6549 90)
-      (effects (font (size 1.27 1.27)) (justify left))
-    )
-    (property "Footprint" "" (at 87.63 30.48 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 87.63 30.48 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 164a34a3-3b12-48c8-9786-b267b8be0871))
-    (instances
-      (project "motionhexa"
-        (path "/532d7ce0-7387-4a95-852a-321dca6ae013"
-          (reference "#PWR04") (unit 1)
-        )
-      )
-    )
-  )
-
   (symbol (lib_id "power:GND") (at 106.68 82.55 270) (unit 1)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid 339bf2e4-ec63-477c-8fe6-280310c2f3f5)
@@ -666,6 +602,31 @@
       (project "motionhexa"
         (path "/532d7ce0-7387-4a95-852a-321dca6ae013"
           (reference "#PWR013") (unit 1)
+        )
+      )
+    )
+  )
+
+  (symbol (lib_id "power:VBUS") (at 106.68 95.25 90) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
+    (uuid 4762f5a1-861e-41c6-bf98-e33fdd5ba2f7)
+    (property "Reference" "#PWR010" (at 110.49 95.25 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Value" "VBUS" (at 103.505 95.25 90)
+      (effects (font (size 1.27 1.27)) (justify left))
+    )
+    (property "Footprint" "" (at 106.68 95.25 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "" (at 106.68 95.25 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (pin "1" (uuid c743acb8-3a54-452f-91bf-96b72c4ce21e))
+    (instances
+      (project "motionhexa"
+        (path "/532d7ce0-7387-4a95-852a-321dca6ae013"
+          (reference "#PWR010") (unit 1)
         )
       )
     )
@@ -697,7 +658,7 @@
   )
 
   (symbol (lib_id "Connector:Conn_01x13_Socket") (at 111.76 107.95 180) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
+    (in_bom no) (on_board yes) (dnp no)
     (uuid 5feae526-d0d8-41df-9d1f-e8d672805ccc)
     (property "Reference" "J2" (at 115.062 89.408 0)
       (effects (font (size 1.27 1.27)))
@@ -786,14 +747,14 @@
     )
   )
 
-  (symbol (lib_id "power:VDD") (at 116.84 120.65 270) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid a22d06b5-b297-488d-b341-4c6da11c1fb3)
+  (symbol (lib_id "power:+5V") (at 116.84 120.65 270) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no)
+    (uuid 8bd1664c-1a88-48e7-a71d-19fcd6325736)
     (property "Reference" "#PWR01" (at 113.03 120.65 0)
       (effects (font (size 1.27 1.27)) hide)
     )
-    (property "Value" "VDD" (at 120.015 120.65 90)
-      (effects (font (size 1.27 1.27)) (justify left))
+    (property "Value" "+5V" (at 121.412 120.396 90)
+      (effects (font (size 1.27 1.27)))
     )
     (property "Footprint" "" (at 116.84 120.65 0)
       (effects (font (size 1.27 1.27)) hide)
@@ -801,7 +762,7 @@
     (property "Datasheet" "" (at 116.84 120.65 0)
       (effects (font (size 1.27 1.27)) hide)
     )
-    (pin "1" (uuid 1301549d-2fa8-457a-96e2-a9b56bf9d5d6))
+    (pin "1" (uuid 75162a5a-bce8-4795-a02a-3802f936c5ad))
     (instances
       (project "motionhexa"
         (path "/532d7ce0-7387-4a95-852a-321dca6ae013"
@@ -831,6 +792,31 @@
       (project "motionhexa"
         (path "/532d7ce0-7387-4a95-852a-321dca6ae013"
           (reference "#PWR011") (unit 1)
+        )
+      )
+    )
+  )
+
+  (symbol (lib_id "power:VBUS") (at 116.84 95.25 270) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
+    (uuid b441a686-1d8f-4cc4-8188-c6ae1d9ef12c)
+    (property "Reference" "#PWR08" (at 113.03 95.25 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Value" "VBUS" (at 120.015 95.25 90)
+      (effects (font (size 1.27 1.27)) (justify left))
+    )
+    (property "Footprint" "" (at 116.84 95.25 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "" (at 116.84 95.25 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (pin "1" (uuid 3dbd63cb-9804-4431-be4f-345f9be412ac))
+    (instances
+      (project "motionhexa"
+        (path "/532d7ce0-7387-4a95-852a-321dca6ae013"
+          (reference "#PWR08") (unit 1)
         )
       )
     )
