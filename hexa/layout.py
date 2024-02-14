@@ -11,21 +11,27 @@ from urllib.request import getproxies
 parser = argparse.ArgumentParser()
 parser.add_argument('-p', "--path", action='store', required=True, help="Path to kicad_pcb file")
 parser.add_argument('-L', "--do-layout", action='store_true', required=False, help="Run main layout")
+parser.add_argument('--dry-run', action='store_true', help='Don\'t save results')
 
+# drawing
 parser.add_argument('--draw-poly', action='store', help='Draw a polygon with format "sides,radius,layer"')
 parser.add_argument('--draw-wave', action='store', help='Draw a wave with format "startx,starty,endx,endy,cycles,amplitude,segments,layer"')
+parser.add_argument('--zone-circle', nargs=6, type=str, help='Draw a zone with the given x, y, radius, name, net, and layer')
 
+# editing
 parser.add_argument('--delete-all-traces', action='store_true', help='Delete All Traces in the pcbnew and then exit')
 parser.add_argument('--delete-all-drawings', action='store_true', help='Delete all lines & texts in the pcbnew and then exit')
-parser.add_argument('--delete-short-traces', action='store_true', help='Delete traces of zero or very small length and exit')
-parser.add_argument('--dry-run', action='store_true', help='Don\'t save results')
-parser.add_argument('-v', dest='verbose', action='count', help="Verbose")
-parser.add_argument('--skip-traces', action='store_true', help='Don\'t add traces')
-parser.add_argument('--hide-pixel-labels', action='store_true', help="For all modules like D*, set reference text to hidden")
+parser.add_argument('--hide-pixel-labels', action='store_true', help="For all footprints like D*, set reference text to hidden")
 parser.add_argument('--hide-all-labels', action='store_true', help="Set reference text hidden for all footprints")
-parser.add_argument('--dump-objects', action='store', nargs='?', const=True, default=None)
-parser.add_argument('--zone-circle', nargs=6, type=str, help='Draw a zone with the given x, y, radius, name, net, and layer')
+
+# options
+parser.add_argument('--skip-traces', action='store_true', help='Don\'t add traces')
 parser.add_argument('--lock', action='store_true', default=False, help='Lock pcb elements')
+
+# info
+parser.add_argument('--dump-objects', action='store', nargs='?', const=True, default=None)
+parser.add_argument('--stats', action='store_true', default=False)
+
 
 args = parser.parse_args()
 
@@ -105,9 +111,6 @@ class Point(object):
   def vector2i(self):
     return pcbnew.VECTOR2I_MM(self.x, self.y)
 
-  def point2d(self):
-    return Point(x,y)
-
   def translate(self, vec):
     self.x += vec.x
     self.y += vec.y
@@ -158,7 +161,6 @@ class Point(object):
     other = Point(other)
     return sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
 
-
   def lerp_to(self, other, fraction):
     x = fraction * (other.x - self.x) + self.x
     y = fraction * (other.y - self.y) + self.y
@@ -172,7 +174,7 @@ class Point(object):
     return Point(-self.x, -self.y)
 
   def __str__(self):
-    return "(%0.2f, %0.2f)" % (self.x, self.y)
+    return "(%f, %f)" % (self.x, self.y)
   
   def __repr__(self):
     return str(self)
@@ -193,6 +195,9 @@ class Point(object):
       return self.x == oth.x and self.y == oth.y
     except AttributeError:
       return False
+      
+  def __lt__(self, oth):
+    return (self.x, self.y) < (oth.x, oth.y)
 
   def __complex__(self):
     return self.x + self.y * 1j
@@ -220,13 +225,66 @@ class Timing(object):
     time = time/duration
     return change * time*time*time + start
 
-###############################################################################
+## TraceNet #############################################################################
 
+class TraceNet(object):
+  def __init__(self, tracks, pads):
+    self.tracks = tracks
+    self.pads = pads
+    self.netname = None
+    self.layers = set()
+    
+    for t in self.tracks:
+      netname = t.GetNetname()
+      assert self.netname is None or self.netname == netname, "TraceNet tracks across nets {} and {}".format(self.netname, netname)
+      self.netname = netname
+      self.layers.add(t.GetLayerName())
+    for p in self.pads:
+      netname = p.GetNetname()
+      assert self.netname is None or self.netname == netname, "TraceNet pads across nets {} and {}".format(self.netname, netname)
+      self.netname = netname
+      # try:
+      ref = p.GetParent().GetReference()
+      # except AttributeError:
+      #   ref = str(p.GetParent()) + str(Point(p.GetPosition()))
+      padLayerHasTrack = False
+      for layer in self.layers:
+        if p.IsOnLayer(p.GetBoard().GetLayerID(layer)):
+          padLayerHasTrack = True
+          break
+      assert padLayerHasTrack, "Expected pad ref {}, net {}, to be on a layer connected to its tracks, layers={}".format(ref, netname, self.layers)
+
+  def totalLength(self):
+    dist = 0
+    for t in self.tracks:
+      dist += Point(t.GetStart()).distance_to(t.GetEnd())
+    return dist
+  
+  def traceCount(self):
+    return len([v for v in self.tracks if type(v) is pcbnew.PCB_TRACK])
+
+  def viaCount(self):
+    return len([v for v in self.tracks if type(v) is pcbnew.PCB_VIA])
+  
+  def padCount(self):
+    return len(self.pads)
+  
+  def __lt__(self, oth):
+    return self.netname < oth.netname or (self.netname == oth.netname and self.totalLength() < oth.totalLength())
+  
+  def __str__(self):
+    return "<TraceNet {}: {}t{}v".format(self.netname, self.traceCount(), self.viaCount())
+
+## KiCadPCB #############################################################################
+  
 class KiCadPCB(object):
   def __init__(self, path):
     self.pcb_path = os.path.abspath(path)
     self.board = pcbnew.LoadBoard(self.pcb_path)
-    tracks = self.board.GetTracks()
+    self.tracks = frozenset(self.board.GetTracks())
+    self.pads = frozenset(self.board.GetPads())
+    self.sortedTracks = None
+    self.sortedPads = None
     
     self.numlayers = pcbnew.PCB_LAYER_ID_COUNT
 
@@ -263,7 +321,17 @@ class KiCadPCB(object):
         if layer is None or layer == drawing.GetLayerName():
           print("Deleting drawing {}".format(drawing))
           self.board.Delete(drawing)
+  
+  def deleteFootprintConnectedItems(self, fp):
+    # TODO: cache sorted lists for traceNet
+    tracks = self.board.GetTracks()
+    for pad in fp.Pads():      
+      traceNet = self.getTraceNet(pad)
+      print("  Deleting old tracks ({} items) for fp {} pad {} net {}".format(len(traceNet.tracks), fp.GetReference(), pad.GetPadName(), pad.GetNetname()))
+      for item in traceNet.tracks:
+        self.board.Delete(item)
 
+  # == Info ===
   def dumpObjects(self, layer=None):
     print("Dumping All Objects", "" if (type(layer)!= str) else "on layer %s"%layer)
     def dumpiflayer(obj):
@@ -290,51 +358,163 @@ class KiCadPCB(object):
       dumpiflayer(obj)
     # for obj in self.board.GetMarkers():
     #   dumpiflayer(obj)
-
-  def deleteShortTraces(self):
-    print("FIXME: disabled because it removes vias")
-    exit(1)
-    tracks = board.GetTracks()
-    for t in tracks:
-      start = t.GetStart()
-      end = t.GetEnd()
-      length = sqrt((end.x - start.x)**2 + (end.y - start.y)**2)
-      if length < 100: # millionths of an inch
-        print("Deleting trace of short length {}in/1000000".format(length))
-        board.Delete(t)
-
-  def delete_tracks_connected_to_track(self, track):
-    track_start = Point.fromVector2i(track.GetStart())
-    track_end = Point.fromVector2i(track.GetEnd())
-
-    tracks = self.board.GetTracks()
-    for t in tracks:
-      t_start = Point.fromVector2i(t.GetStart())
-      t_end = Point.fromVector2i(t.GetEnd())
       
-      thresh = .0001
-      d1 = track_start.distance_to(t_start)
-      d2 = track_start.distance_to(t_end)
-      d3 = track_end.distance_to(t_start)
-      d4 = track_end.distance_to(t_end)
+  def dumpStats(self):
+    from operator import itemgetter
+    
+    tracks = set(self.tracks)
 
-      if d1 < thresh or d2 < thresh or d3 < thresh or d4 < thresh:
-        print("    Deleting connected track of length", t_start.distance_to(t_end))
-        self.board.Delete(t)
+    traceNets = []
+    while len(tracks) > 0:
+      t = tracks.pop()
+      tn = self.getTraceNet(t)
+      if len(tn.pads) == 0 and (len(tn.tracks) != 1 or type(list(tn.tracks)[0]) is not pcbnew.PCB_VIA):
+        print("  Found a connected group with no pads?")
+        # FIXME: this finds orphans sometimes, but usually just trace groups that are actually connected by zone fills
+        for t in tn.tracks:
+          print("    track {} from {} to {} on net {}".format(type(t), Point(t.GetStart()), Point(t.GetEnd()), t.GetNetname()))
+      print(".",end="",flush=True)
+      for t in tn.tracks:
+        tracks.discard(t)
+      traceNets.append(tn)
+    
+    traceNets = sorted(traceNets)
 
-  def delete_tracks_for_module(self, module): 
-    tracks = self.board.GetTracks()
-    for pad in module.Pads():
-      pad_position = Point.fromVector2i(pad.GetPosition())
-      print("  Deleting old tracks for module %s pad %s net %s" % (module.GetReference(), pad.GetPadName(), pad.GetNetname()))
-      for track in tracks:
-        thresh = 0.0001
-        d1 = pad_position.distance_to(track.GetStart())
-        d2 = pad_position.distance_to(track.GetEnd())
-        if d1 < thresh or d2 < thresh:
-          self.delete_tracks_connected_to_track(track)
+    # stats TODO:
+    # * zone connections
+    # * draw as a table showing stats per Net as well as totals
+    # * diff against a git commit
 
-  # Drawing Tools
+    print("")
+    print("== Stats =======================================================================")
+    print("Number of connected trace/via/pad groups (modulo zone-connections): {}".format(len(traceNets)))
+    print("-"*80)
+
+    for tn in traceNets:
+      print("Trace group {} with {} trace segments of total length {:.3f} and {} vias, connecting {} pads".format(tn.netname, tn.traceCount(), tn.totalLength(), tn.viaCount(), tn.padCount()))
+
+    print("-- Length --")
+    trackLengths = [(tn.totalLength(), tn) for tn in traceNets]
+    themax = max(trackLengths, key=itemgetter(0))
+    print("Longest connected track group: {:.3f}mm on net {}".format(themax[0], themax[1].netname))
+    
+    totalTrackLength = sum(tl[0] for tl in trackLengths)
+    print("Track length of all tracks: {:.3f}mm".format(totalTrackLength))
+    
+    print("-- Vias --")
+    traceNetVias = [(tn.viaCount(), tn) for tn in traceNets]
+    totalVias = sum(tnv[0] for tnv in traceNetVias)
+    print("Average number of vias per mm of track: {:.4f}".format(totalVias/totalTrackLength))
+
+    traceNetViasExcluding = [(tn.viaCount(), tn) for tn in traceNets if not tn.netname.startswith('GND') and tn.netname != '-BATT']
+    totalViasExcluding = sum(tnv[0] for tnv in traceNetViasExcluding)
+    if totalViasExcluding > 0:
+      totalTrackLengthExcluding = sum(tl[0] for tl in trackLengths if not tl[1].netname.startswith('GND') and tl[1].netname != '-BATT')
+      print("Average number of vias per mm of track (excluding GND* and -BATT): {:.4f}".format(totalViasExcluding/totalTrackLengthExcluding))
+
+    for tn1 in traceNets:
+      for tn2 in traceNets:
+        if tn1 != tn2:
+          assert set(tn1.tracks).isdisjoint(tn2.tracks), "Overlapping groups: maybe failed to follow a connected trace path: {} and {}".format(tn1, tn2)
+
+  def itemLayersIntersect(self, item1, item2):
+    return not set(item1.GetLayerSet().Seq()).isdisjoint(set(item2.GetLayerSet().Seq()))
+
+  def listIndexesNearPoint(self, indexedList, pt, item, hitBox = 0.1):#mm
+    """ given a sorted list of the form [(point, item), ...] and an item at pt, find the indexes of all other tracks,vias,pads within hitbot (mm) of the given point on layers intersecting the given item """
+
+    def hitTestAtIndex(pt, srcItem, index):
+      if srcItem == indexedList[index][1]:
+        return False
+      pointHit = pt.distance_to(indexedList[index][0]) < hitBox
+      # TODO: any benefit to using kicad's HitTest?
+      # pointHit = indexedList[index][1].HitTest(pt.vector2i(), int(hitBox * IU_PER_MM))
+      return pointHit and self.itemLayersIntersect(srcItem, indexedList[index][1])
+
+    def clusterAt(index):
+      # the binary search should find a cluster of items all within hit range
+      bsHit = hitTestAtIndex(pt, item, index)
+      cluster = [index] if bsHit else []
+
+      for l in range(index-1, -1, -1):
+        if hitTestAtIndex(pt, item, l):
+          cluster.insert(0, l)
+        elif abs(pt.x - indexedList[l][0].x) > hitBox:
+          break
+      for r in range(index+1, len(indexedList)):
+        if hitTestAtIndex(pt, item, r):
+          cluster.append(r)
+        elif abs(pt.x - indexedList[r][0].x) > hitBox:
+          break
+      return cluster
+
+    startIndex = 0
+    endIndex = len(indexedList)-1
+    while endIndex >= startIndex:
+      index = int(startIndex + (endIndex - startIndex)/2)
+      if pt == indexedList[index][0] or hitTestAtIndex(pt, item, index):
+        return clusterAt(index)
+      if pt < indexedList[index][0]:
+        endIndex = index-1
+      else:
+        startIndex = index+1
+    return []
+  
+  def sortedItemsNear(self, item, sortedList):
+    if type(item) is pcbnew.PCB_TRACK:
+      nearStart = self.listIndexesNearPoint(sortedList, Point(item.GetStart()), item)
+      nearEnd = self.listIndexesNearPoint(sortedList, Point(item.GetEnd()), item)
+      return [sortedList[i][1] for i in nearStart] + [sortedList[i][1] for i in nearEnd]
+    elif type(item) is pcbnew.PAD or type(item) is pcbnew.PCB_VIA:
+      nearby = self.listIndexesNearPoint(sortedList, Point(item.GetPosition()), item)
+      return [sortedList[i][1] for i in nearby]
+    else:
+      raise TypeError(item)
+
+  def getTraceNet(self, item):
+    """ 
+      return a TraceNet object of all tracks, pads and vias, connected to the given track 
+      item should be a PCB_TRACK, PCB_VIA, or PAD
+      does not consider zone connections
+    """
+    #FIXME: need zone intersection processing
+
+    from operator import itemgetter
+
+    # cache for perf
+    if self.sortedTracks is None:
+      sortedTracks = [(Point(t.GetStart()), t) for t in self.tracks]
+      sortedTracks.extend([(Point(t.GetEnd()), t) for t in self.tracks if type(t) is pcbnew.PCB_TRACK])
+      self.sortedTracks = tuple(sorted(sortedTracks, key=itemgetter(0)))
+
+    if self.sortedPads is None:
+      sortedPads = [(Point(p.GetPosition()), p) for p in self.pads]
+      self.sortedPads = tuple(sorted(sortedPads, key=itemgetter(0)))
+
+    trackSet = set()
+    unvisited = set([item])
+    totalVisited = 0
+    while len(unvisited) > 0:
+      totalVisited+=1
+      t = unvisited.pop()
+      if type(t) is not pcbnew.PAD:
+        trackSet.add(t)
+      nearbyTracks = self.sortedItemsNear(t, self.sortedTracks)
+      for nt in nearbyTracks:
+        if nt not in trackSet:
+          unvisited.add(nt)
+    
+    padSet = set()
+    for t in trackSet:
+      pads = self.sortedItemsNear(t, self.sortedPads)
+      for p in pads:
+        padSet.add(p)
+    if type(item) is pcbnew.PAD:
+      assert item in padSet
+
+    return TraceNet(trackSet, padSet)
+
+  # == Drawing Tools ==
   def draw_segment(self, start, end, layer='F.Silkscreen', width=0.15):
     print("LINE from (%f, %f) to (%f, %f) on %s" % (start.x, start.y, end.x, end.y, layer))
     line = pcbnew.PCB_SHAPE()
@@ -870,6 +1050,8 @@ class PCBLayout(object):
     print("Hid %i reference labels" % hid)
 
   def doLayout(self, args):
+    needSave = False
+
     if args.dump_objects:
       self.kicadpcb.dumpObjects(args.dump_objects)
       print("Exiting after object dump")
@@ -877,12 +1059,11 @@ class PCBLayout(object):
 
     if args.delete_all_traces:
       self.kicadpcb.deleteAllTraces()
+      needSave = True
 
     if args.delete_all_drawings:
       self.kicadpcb.deleteAllDrawings()
-
-    if args.delete_short_traces:
-      self.kicadpcb.deleteShortTraces()
+      needSave = True
     
     if args.hide_pixel_labels:
       hid = 0
@@ -892,17 +1073,22 @@ class PCBLayout(object):
             m.Reference().SetVisible(False)
             hid+=1
       print("Hid %i reference labels" % hid)
+      needSave = True
     if args.hide_all_labels:
       self.hideAllLabels()
+      needSave = True
 
     if args.draw_poly:
       self.drawPoly(args.draw_poly)
+      needSave = True
     if args.draw_wave:
       self.drawWave(args.draw_wave)
+      needSave = True
     if args.zone_circle:
       print(args.zone_circle)
       zc = args.zone_circle
       self.drawZoneCircle(Point(float(zc[0]), float(zc[1])), float(zc[2]), zc[3], zc[4], zc[5])
+      needSave = True
 
     if args.do_layout:
       self.kicadpcb.deleteAllDrawings(layer='F.Silkscreen')
@@ -917,8 +1103,12 @@ class PCBLayout(object):
       self.placePixels()
       
       self.decorateSilkScreen()
+      needSave = True
 
-    if not args.dry_run:
+    if args.stats:
+      self.kicadpcb.dumpStats()
+
+    if not args.dry_run and needSave:
       self.kicadpcb.save()
   
   ### to override
@@ -930,7 +1120,7 @@ class PCBLayout(object):
     for fp in self.kicadpcb.board.GetFootprints():
       if re.match("^D\d+$",fp.GetReference()):
         print("Removing old footprint for pixel %s" % fp.GetReference())
-        self.kicadpcb.delete_tracks_for_module(fp)
+        self.kicadpcb.deleteFootprintConnectedItems(fp)
         self.kicadpcb.board.Delete(fp)
 
   def deleteZones(self):
