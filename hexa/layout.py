@@ -764,8 +764,6 @@ class PCBLayout(object):
   center = Point(100,100)
   edge_cut_line_thickness = 0.05
   
-  groundViaDistance = 0.5
-  powerTraceDistance = 1
   zoneMinThickness = 0.15
   zoneClearance = 0.2
 
@@ -900,9 +898,6 @@ class PCBLayout(object):
       prevPoint = rotated
 
   ### ------------------------------------------------------- ###
-
-  def get5VTraceEnd(self, pad, orientation):
-    return Point(pad.GetPosition()).polar_translated(self.powerTraceDistance, self.pixelType.powerTraceAngle - orientation).polar_translated(0.2, pi/2)
 
   def connectPixels(self, fromPixel, toPixel, connectorFunction=None):
     print("Connect pixels", fromPixel.GetReference(), "(orientation:", fromPixel.GetOrientation().AsDegrees(), fromPixel.GetOrientation().AsRadians(), ") ->", toPixel.GetReference(), "(orientation:", toPixel.GetOrientation().AsDegrees(), toPixel.GetOrientation().AsRadians(),")")
