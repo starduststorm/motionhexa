@@ -2779,10 +2779,14 @@
     (uuid fa9f5eda-73b5-46bf-b363-2d50e5f4219f)
   )
 
-  (text "VBUS does not power rp2040 by default\nthe 5v line coming from the lipo_paralle board does\nbridge this to make this board operate standalone"
-    (at 13.97 172.72 0)
+  (text "VBUS does not power rp2040 by default, the 5v line does.\nBridge this to make this board operate standalone."
+    (at 12.7 170.18 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 5144cb1a-779a-4363-8c18-d515d621edb2)
+  )
+  (text "i2c\nAD0=0, 1101000\nAD0=1, 1101001" (at 80.01 156.21 0)
+    (effects (font (size 1.27 1.27)) (justify right bottom))
+    (uuid 86dc1fa1-250c-46a3-a4d3-ac801c560526)
   )
   (text "USB Power Regulator" (at 21.971 127 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
