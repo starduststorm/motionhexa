@@ -11,6 +11,7 @@ from urllib.request import getproxies
 parser = argparse.ArgumentParser()
 parser.add_argument('-p', "--path", action='store', required=True, help="Path to kicad_pcb file")
 parser.add_argument('-L', "--do-layout", action='store_true', required=False, help="Run main layout")
+parser.add_argument("--do-silk", action='store_true', required=False, help="Draw silk if not doing main layout")
 parser.add_argument('--dry-run', action='store_true', help='Don\'t save results')
 
 # drawing
@@ -121,6 +122,12 @@ class Point(object):
   def polar_translated(self, distance, angle):
     vec = distance * cmath.exp(angle * 1j)
     return self.translated(Point.fromComplex(vec))
+
+  def rotate_about(self, theta, center):
+    self.translate(-center)
+    self.x, self.y = self.x*cos(theta) - self.y*sin(theta), self.x*sin(theta) + self.y*cos(theta)
+    self.translate(center)
+    return self
 
   def __getattr__(self, attr):
     if attr == "theta":
@@ -1099,6 +1106,10 @@ class PCBLayout(object):
       
       self.decorateSilkScreen()
       needSave = True
+    elif args.do_silk:
+      self.kicadpcb.deleteAllDrawings(layer='F.Silkscreen')
+      self.decorateSilkScreen()
+      needSave = True
 
     if args.stats:
       self.kicadpcb.dumpStats()
@@ -1179,9 +1190,10 @@ class LayoutHexa(PCBLayout):
       self.addZonePoint(pos, "+5V", "+5V", "In1.Cu")
       
 
-  def is_point_in_hexa(self, pos):
+  def is_point_in_hexa(self, pos, radius=None):
     # decide if contained in the hexa, by measuring if the point is in any of the component triangles
-    points = self.hexaPoints(self.pixelRadius)
+    radius = self.pixelRadius if radius is None else radius
+    points = self.hexaPoints(radius)
     for i in range(6):
       p1 = Point(0,0)
       p2 = points[i]
@@ -1364,6 +1376,28 @@ class LayoutHexa(PCBLayout):
 
   def decorateSilkScreen(self):
     super().decorateSilkScreen()
+
+    # draw hexa-crisscrossy lines on silk
+    def rampUpDown(value, A, B, N):
+      midpoint = lineCount//2
+      if value < midpoint:
+        return A + (B - A) * (value / midpoint)
+      else:
+        return B - (B - A) * ((value - midpoint) / midpoint)
+
+    spacing = sin(2*pi/6)*self.pixelSpacing
+    lineCount = floor(self.edgeRadius*2/spacing/2)*2-1
+    edgeClearance = 0.6
+    for t in range(3):
+      theta = 2*pi/6*t
+      for i in range(lineCount):
+        y = -lineCount/2*spacing + i*spacing + spacing/2
+        length = rampUpDown(i, self.edgeRadius, 2*self.edgeRadius, lineCount) - edgeClearance/2
+        P1 = Point(-length/2, y).rotate_about(theta, Point(0,0))
+        P2 = Point(length/2, y).rotate_about(theta, Point(0,0))
+        # checking if we're (almost) in hexa serves the somewhat futile purpose of avoiding clipping the silkscreen on the board edge
+        if self.is_point_in_hexa(P1, self.edgeRadius-edgeClearance/4) and self.is_point_in_hexa(P2, self.edgeRadius-edgeClearance/4):
+          self.drawSegment(P1, P2)
 
 layout = LayoutHexa(args.path, SK9822EC20)    
 

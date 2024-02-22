@@ -9,7 +9,7 @@
       (effects (font (size 1 1) (thickness 0.15)))
     (tstamp 14ebc001-2523-4bc3-a0a5-308af181cdd3)
   )
-  (pad "1" smd custom (at 1.8425 0) (size 0.1 0.1) (layers "F.Cu" "F.Paste" "F.Mask")
+  (pad "1" smd custom (at 1.8425 0) (size 0.1 0.1) (layers "F.Cu" "F.Mask")
     (options (clearance outline) (anchor circle))
     (primitives
       (gr_circle (center -1.8425 0) (end 0 0) (width 0.505) (fill none))
