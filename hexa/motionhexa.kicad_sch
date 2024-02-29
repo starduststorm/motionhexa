@@ -580,7 +580,7 @@
   )
 
   (symbol (lib_id "Connector:Screw_Terminal_01x01") (at 187.706 88.9 0) (unit 1)
-    (in_bom no) (on_board yes) (dnp no) (fields_autoplaced)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 160595ac-2321-427d-911e-9a9d43be6424)
     (property "Reference" "J6" (at 189.738 87.6879 0)
       (effects (font (size 1.27 1.27)) (justify left))
@@ -701,7 +701,7 @@
   )
 
   (symbol (lib_id "Connector:Screw_Terminal_01x01") (at 187.706 80.518 0) (unit 1)
-    (in_bom no) (on_board yes) (dnp no) (fields_autoplaced)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 42e361fd-1de4-4164-b060-7d7487286c6a)
     (property "Reference" "J4" (at 189.738 79.3059 0)
       (effects (font (size 1.27 1.27)) (justify left))
@@ -897,7 +897,7 @@
   )
 
   (symbol (lib_id "Connector:Screw_Terminal_01x01") (at 187.706 76.454 0) (unit 1)
-    (in_bom no) (on_board yes) (dnp no) (fields_autoplaced)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 93573881-1fc9-481b-aa85-ea8e214b2a7d)
     (property "Reference" "J3" (at 189.738 75.2419 0)
       (effects (font (size 1.27 1.27)) (justify left))
@@ -978,7 +978,7 @@
   )
 
   (symbol (lib_id "Connector:Screw_Terminal_01x01") (at 187.706 84.836 0) (unit 1)
-    (in_bom no) (on_board yes) (dnp no) (fields_autoplaced)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid d29a3b0f-1847-4d99-b647-9f1f370a87e2)
     (property "Reference" "J5" (at 189.738 83.6239 0)
       (effects (font (size 1.27 1.27)) (justify left))
