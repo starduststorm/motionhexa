@@ -211,6 +211,14 @@ class Point(object):
 
 ###############################################################################
 
+def pretty(obj):
+  if type(obj) == pcbnew.PAD:
+    return "<pcbnew.PAD {} of fp '{}' ({}) at {} [this={}]".format(obj.GetPadName(), obj.GetParent().GetReference(), obj.GetNetname(), Point(obj.GetPosition()), obj.this)
+  else:
+    raise TypeError(type(obj))
+
+###############################################################################
+
 class Timing(object):
   @classmethod
   def linear(cls, time, start, change, duration):
@@ -243,12 +251,16 @@ class TraceNet(object):
     
     for t in self.tracks:
       netname = t.GetNetname()
-      assert self.netname is None or self.netname == netname, "TraceNet tracks across nets {} and {}".format(self.netname, netname)
+      # assert self.netname is None or self.netname == netname, "TraceNet tracks across nets {} and {}".format(self.netname, netname)
+      if self.netname is not None and self.netname != netname:
+        print("WARNING: TraceNet pads across nets {} and {}".format(self.netname, netname))
       self.netname = netname
       self.layers.add(t.GetLayerName())
     for p in self.pads:
       netname = p.GetNetname()
-      assert self.netname is None or self.netname == netname, "TraceNet pads across nets {} and {}".format(self.netname, netname)
+      # assert self.netname is None or self.netname == netname, "TraceNet tracks across nets {} and {}".format(self.netname, netname)
+      if self.netname is not None and self.netname != netname:
+        print("WARNING: TraceNet pads across nets {} and {}".format(self.netname, netname))
       self.netname = netname
       # try:
       ref = p.GetParent().GetReference()
@@ -288,11 +300,24 @@ class KiCadPCB(object):
   def __init__(self, path):
     self.pcb_path = os.path.abspath(path)
     self.board = pcbnew.LoadBoard(self.pcb_path)
+    self.resetCache()
+
+  def save(self):
+    print("Saving...")
+    backup_path = self.pcb_path + ".layoutbak"
+    if os.path.exists(backup_path):
+      os.unlink(backup_path)
+    os.rename(self.pcb_path, backup_path)
+    print("  Backing up '%s' to '%s'..." % (self.pcb_path, backup_path))
+    assert self.board.Save(self.pcb_path)
+    print("Saved!")
+
+  def resetCache(self):
     self.tracks = frozenset(self.board.GetTracks())
     self.pads = frozenset(self.board.GetPads())
-    self.sortedTracks = None
-    self.sortedPads = None
-    
+    self._sortedTracks = None
+    self._sortedPads = None
+
     self.numlayers = pcbnew.PCB_LAYER_ID_COUNT
 
     self.layertable = {}
@@ -330,9 +355,8 @@ class KiCadPCB(object):
           self.board.Delete(drawing)
   
   def deleteFootprintConnectedItems(self, fp):
-    # TODO: cache sorted lists for traceNet
-    tracks = self.board.GetTracks()
-    for pad in fp.Pads():      
+    for pad in fp.Pads():
+      print("  Finding traces connected to {} pad {} net {}...".format(fp.GetReference(), pad.GetPadName(), pad.GetNetname()))
       traceNet = self.getTraceNet(pad)
       print("  Deleting old tracks ({} items) for fp {} pad {} net {}".format(len(traceNet.tracks), fp.GetReference(), pad.GetPadName(), pad.GetNetname()))
       for item in traceNet.tracks:
@@ -425,13 +449,23 @@ class KiCadPCB(object):
           assert set(tn1.tracks).isdisjoint(tn2.tracks), "Overlapping groups: maybe failed to follow a connected trace path: {} and {}".format(tn1, tn2)
 
   def itemLayersIntersect(self, item1, item2):
+    if item1.GetParent().GetFlags() & pcbnew.STRUCT_DELETED:
+      print("WARNING: Skipping intersect check on item with deleted parent", item1.GetParent().GetReference())
+      return False
+    if item2.GetParent().GetFlags() & pcbnew.STRUCT_DELETED:
+      print("WARNING: Skipping intersect check on item with deleted parent", item2.GetParent().GetReference())
+      return False
     return not set(item1.GetLayerSet().Seq()).isdisjoint(set(item2.GetLayerSet().Seq()))
 
   def listIndexesNearPoint(self, indexedList, pt, item, hitBox = 0.1):#mm
-    """ given a sorted list of the form [(point, item), ...] and an item at pt, find the indexes of all other tracks,vias,pads within hitbot (mm) of the given point on layers intersecting the given item """
+    """ given a sorted list of the form [(point, item), ...] and an item at pt, find the indexes of all other tracks,vias,pads within hitbox (mm) of the given point on layers intersecting the given item """
 
     def hitTestAtIndex(pt, srcItem, index):
       if srcItem == indexedList[index][1]:
+        return False
+      if indexedList[index][1].this is None: # `this` will be None if the item has been deleted from the board
+        #FIXME: this shouldn't be happening if we reset the cache after ever footprint delete?
+        print("WARNING: hitTestAtIndex given index refers to deleted item", indexedList[index][1])
         return False
       pointHit = pt.distance_to(indexedList[index][0]) < hitBox
       # TODO: any benefit to using kicad's HitTest?
@@ -459,6 +493,9 @@ class KiCadPCB(object):
     endIndex = len(indexedList)-1
     while endIndex >= startIndex:
       index = int(startIndex + (endIndex - startIndex)/2)
+      # if type(indexedList[startIndex][1]) == pcbnew.PAD:
+        # print("    binary search [{},{}] is {} <--to--> {}".format(startIndex, endIndex, pretty(indexedList[startIndex][1]), pretty(indexedList[endIndex][1])))
+        # print("    considering index {} is {}".format(index, pretty(indexedList[index][1])))
       if pt == indexedList[index][0] or hitTestAtIndex(pt, item, index):
         return clusterAt(index)
       if pt < indexedList[index][0]:
@@ -478,6 +515,21 @@ class KiCadPCB(object):
     else:
       raise TypeError(item)
 
+  def sortedTracks(self):
+    from operator import itemgetter
+    if self._sortedTracks is None:
+      sortedTracks = [(Point(t.GetStart()), t) for t in self.tracks]
+      sortedTracks.extend([(Point(t.GetEnd()), t) for t in self.tracks if type(t) is pcbnew.PCB_TRACK])
+      self._sortedTracks = tuple(sorted(sortedTracks, key=itemgetter(0)))
+    return self._sortedTracks
+  
+  def sortedPads(self):
+    from operator import itemgetter
+    if self._sortedPads is None:
+      sortedPads = [(Point(p.GetPosition()), p) for p in self.pads]
+      self._sortedPads = tuple(sorted(sortedPads, key=itemgetter(0)))
+    return self._sortedPads
+
   def getTraceNet(self, item):
     """ 
       return a TraceNet object of all tracks, pads and vias, connected to the given track 
@@ -486,17 +538,14 @@ class KiCadPCB(object):
     """
     #FIXME: need zone intersection processing
 
-    from operator import itemgetter
-
-    # cache for perf
-    if self.sortedTracks is None:
-      sortedTracks = [(Point(t.GetStart()), t) for t in self.tracks]
-      sortedTracks.extend([(Point(t.GetEnd()), t) for t in self.tracks if type(t) is pcbnew.PCB_TRACK])
-      self.sortedTracks = tuple(sorted(sortedTracks, key=itemgetter(0)))
-
-    if self.sortedPads is None:
-      sortedPads = [(Point(p.GetPosition()), p) for p in self.pads]
-      self.sortedPads = tuple(sorted(sortedPads, key=itemgetter(0)))
+    if type(item) is pcbnew.PAD:
+      pads = self.sortedItemsNear(item, self.sortedPads())
+      assert(len(pads)==1)
+      if item != pads[0]:
+        # we may be given a Pad object that is the same pad but a different reference to it
+        assert(item.GetPadName() == pads[0].GetPadName())
+        assert(item.GetParent().GetReference() == pads[0].GetParent().GetReference())
+        item = pads[0]
 
     trackSet = set()
     unvisited = set([item])
@@ -506,18 +555,19 @@ class KiCadPCB(object):
       t = unvisited.pop()
       if type(t) is not pcbnew.PAD:
         trackSet.add(t)
-      nearbyTracks = self.sortedItemsNear(t, self.sortedTracks)
+      nearbyTracks = self.sortedItemsNear(t, self.sortedTracks())
       for nt in nearbyTracks:
         if nt not in trackSet:
           unvisited.add(nt)
     
     padSet = set()
     for t in trackSet:
-      pads = self.sortedItemsNear(t, self.sortedPads)
-      for p in pads:
+      for p in self.sortedItemsNear(t, self.sortedPads()):
         padSet.add(p)
-    if type(item) is pcbnew.PAD:
-      assert item in padSet
+
+    if len(trackSet)>0:
+      if type(item) is pcbnew.PAD:
+        assert item in padSet
 
     return TraceNet(trackSet, padSet)
 
@@ -644,22 +694,25 @@ class TraceBuilder(object):
 
   @startPad.setter
   def startPad(self, newStartPad):
-      if self.startPad is None:
-        self.rotate(-newStartPad.GetParent().GetOrientation().AsRadians())
+      if self.startPad is not None:
+        self.rotate(self.startPad.GetParent().GetOrientation().AsRadians())
+      self.rotate(-newStartPad.GetParent().GetOrientation().AsRadians())
       prevStart = Point(self.startPad.GetPosition()) if self.startPad else Point(0,0)
       self.translate(Point(newStartPad.GetPosition())-prevStart)
       self._startPad = newStartPad
+  
+  def draw(self, kicadpcb):
+    self.multitrace(kicadpcb, self.points, self._startPad.GetNet(), self.startlayer)
+    return self
+  
+  # path manipulation
 
   def useAsPivot(self):
     """ Use the last point in this TraceBuilder as a waypoint in another tracebuilder """
     self._startPad = None
     self.points = [self.Trace(self.lastPoint())]
     return self
-  
-  def draw(self, kicadpcb):
-    self.multitrace(kicadpcb, self.points, self._startPad.GetNet(), self.startlayer)
-    return self
-  
+
   def translate(self, v):
     for i, p in enumerate(self.points):
       self.points[i] = type(p)(p.point + v)
@@ -676,8 +729,7 @@ class TraceBuilder(object):
       self.points[i] = p
     self.translate(center)
 
-
-  ####
+  #### point manipulation
 
   def lastPoint(self):
     for t in self.points[::-1]:
@@ -759,11 +811,11 @@ class Pixel(object):
     self.groundConnect = groundConnect
 
 SK9822EC20 = Pixel("LED-SK9822-EC20", powerPin=5, groundPin=2, dataConnections={1:3, 6:4}, 
-                   powerConnect=TraceBuilder().angleConst(0.5, pi/2), 
-                   groundConnect=TraceBuilder().angleConst(0.5, -pi/2))
+                   powerConnect=TraceBuilder().angleConst(0.5, 0).via(), 
+                   groundConnect=TraceBuilder().angleConst(0.5, pi).via())
 WS2812B1010 = Pixel("ws2812b_1010", powerPin=2, groundPin=3, dataConnections={1:4}, 
-                    powerConnect=TraceBuilder().angleConst(0.5, 0), 
-                    groundConnect=TraceBuilder().angleConst(0.5, 3*pi/4))
+                    powerConnect=TraceBuilder().angleConst(0.5, 0).via(), 
+                    groundConnect=TraceBuilder().angleConst(0.5, 3*pi/4).via())
 
 ## PCBLayout #############################################################################
 
@@ -960,11 +1012,11 @@ class PCBLayout(object):
 
   def placePixel(self, reference, point, orientation, layer="F.Cu", allowOverlaps=True, alignOverlaps=True, powerConnect=None, groundConnect=None):
     print("Consider place pixel %s at point %s (relative center %s) orientation %f layer %s" % (reference, point, self.center, orientation, layer));
-    
+    from copy import deepcopy
     if powerConnect is None:
-      powerConnect = self.pixelType.powerConnect
-    if powerConnect is None:
-      groundConnect = self.pixelType.groundConnect
+      powerConnect = deepcopy(self.pixelType.powerConnect)
+    if groundConnect is None:
+      groundConnect = deepcopy(self.pixelType.groundConnect)
 
     if self.pixel_prototype is None:
       print("Loading pixel footprint...")
@@ -1094,7 +1146,6 @@ class PCBLayout(object):
 
     if args.do_layout:
       self.kicadpcb.deleteAllDrawings(layer='F.Silkscreen')
-      self.kicadpcb.deleteAllDrawings(layer='Stiffener')
       
       self.deleteZones()
 
@@ -1128,6 +1179,7 @@ class PCBLayout(object):
         print("Removing old footprint for pixel %s" % fp.GetReference())
         self.kicadpcb.deleteFootprintConnectedItems(fp)
         self.kicadpcb.board.Delete(fp)
+        self.kicadpcb.resetCache()
 
   def deleteZones(self):
     zones = self.kicadpcb.board.Zones()
@@ -1144,9 +1196,10 @@ class PCBLayout(object):
   
   def decorateSilkScreen(self):
     pass
-  
 
-##  LayoutHexa  #############################################################################
+
+## End API, Begin Per-Project Code #############################################################################
+  
 
 def is_point_in_triangle(P, A, B, C):
     # barycenter method
