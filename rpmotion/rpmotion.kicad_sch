@@ -3016,6 +3016,11 @@
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 5144cb1a-779a-4363-8c18-d515d621edb2)
   )
+  (text "ADC inputs voltage should not exceed IOVDD 1.8v\neven though ADC_AVDD is powered at 3.3v for performance"
+    (at 176.53 145.288 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid 6a2b4d53-8625-4287-9e5c-f5bf890f5b28)
+  )
   (text "i2c\nAD0=0, 1101000\nAD0=1, 1101001" (at 80.01 156.21 0)
     (effects (font (size 1.27 1.27)) (justify right bottom))
     (uuid 86dc1fa1-250c-46a3-a4d3-ac801c560526)
