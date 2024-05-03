@@ -36,6 +36,7 @@ I2S i2s(INPUT);
 #include "drawing.h"
 #include "PatternManager.h"
 #include "ledgraph.h"
+#include "controls.h"
 
 #include <functional>
 
@@ -44,7 +45,7 @@ I2S i2s(INPUT);
 #define WAIT_FOR_SERIAL 1
 
 DrawingContext ctx;
-MotionManager mm;
+HardwareControls controls;
 
 FrameCounter fc;
 PatternManager<DrawingContext> patternManager(ctx);
@@ -105,6 +106,8 @@ void serialTimeoutIndicator() {
   delay(20);
 }
 
+int framelimit = 120;
+
 void setup() {
   init_serial();
   randomSeed(lsb_noise(UNCONNECTED_PIN_1, 8 * sizeof(uint32_t)));
@@ -114,6 +117,16 @@ void setup() {
   init_i2s();
   init_spi();
   FastLED.addLeds<SK9822, LED_SPI0_TX, LED_SPI0_SCK, BGR, DATA_RATE_MHZ(16)>(ctx.leds, LED_COUNT);//.setCorrection(0xFFB0C0);
+
+  SPSTButton *button = controls.addButton(25);
+  button->onSinglePress([]() {
+    if (framelimit == 5) {
+      framelimit = 120;
+    } else {
+      framelimit = 5;
+    }
+  });
+  
 
   fc.tick();
 
@@ -125,8 +138,6 @@ void setup() {
   
   gpio_init(11);
   gpio_set_dir(11, GPIO_OUT);
-  
-  mm.init();
 
   setupDoneTime = millis();
 } 
@@ -138,7 +149,7 @@ void drawLoop() {
 
   FastLED.show();
   fc.tick();
-  fc.clampToFramerate(120);
+  fc.clampToFramerate(framelimit);
 }
 
 void startupWelcome() {
@@ -170,14 +181,10 @@ void loop() {
     firstLoop = false;
   }
 
-  FastLED.setBrightness(0x20);
+  FastLED.setBrightness(0x10);
   patternManager.loop();
-  mm.loop();
-  // x across hexa (negative when button side down)
-  // y vertical on hexa, (negative lipo usb down)
-  // z through hexa, (negative leds up)
-
-  // logf("accel = %i, %i, %i", mm.agmt.acc.axes.x, mm.agmt.acc.axes.y, mm.agmt.acc.axes.z);
+  controls.update();
+  
   // graphTest(ctx);
   drawLoop();
 }

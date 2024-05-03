@@ -54,6 +54,12 @@ static void _logf(bool newline, const char *format, va_list argptr)
   free(buf);
 }
 
+#if DEBUG
+#define logdf(format, ...) logf(format, ## __VA_ARGS__)
+#else
+#define logdf(format, ...)
+#endif
+
 void logf(const char *format, ...)
 {
   va_list argptr;
@@ -131,7 +137,7 @@ class FrameCounter {
           // arduino-samd-core can't sprintf floats??
           // not sure why it's not working for me, I should have Arduino SAMD core v1.8.9
           // https://github.com/arduino/ArduinoCore-samd/issues/407
-          // logf("Framerate: %i, free mem: %i", fps(), freeRAM());
+          logf("Framerate: %i, free mem: %i", fps(), freeRAM());
         }
         frames = 0;
         lastPrint = mil;

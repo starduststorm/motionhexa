@@ -27,6 +27,15 @@ struct Euler {
 };
 
 class MotionManager {
+protected:
+    static MotionManager *_singleton;
+    MotionManager() {}
+    const bool enableDMP = false;
+public:
+    MotionManager(MotionManager &other) = delete;
+    void operator=(const MotionManager &) = delete;
+    static MotionManager &manager();
+
 private:
   bool hasSensor = false;
   unsigned int retainCount;
@@ -41,6 +50,7 @@ private:
   // }
   ICM_20948_I2C icm;
   void initDMP() {
+    logf("Init DMP...");
     bool success = true; // Use success to show if the DMP configuration was successful
 
     // Initialize the DMP. initializeDMP is a weak function. You can overwrite it if you want to e.g. to change the sample rate
@@ -103,17 +113,17 @@ private:
   }
 
 public:
-  MotionManager() {
-  }
 
   bool init(TwoWire *wire=&Wire) {
-    logf("mm INIT");
+    logf("motionManager INIT");
     icm.begin(Wire, 0);
     // hasSensor = icm.begin_I2C(0b1101000);
     hasSensor = (icm.status == ICM_20948_Stat_Ok);
     logf("ICM20948 init = %i", hasSensor);
     if (hasSensor) {
-      initDMP();
+      if (enableDMP) {
+        initDMP();
+      }
       for (unsigned i = 0; i < ActivityTypeCount; ++i) {
         activityHandlers.push_back(ActivityHandlerMap());
       }
@@ -149,6 +159,9 @@ public:
       return;
     }
     agmt = icm.getAGMT();
+    if (!enableDMP) {
+      return;
+    }
     
     // eventMap.clear(); // new frame new events
     // twirlCached = false;
@@ -368,6 +381,14 @@ void printScaledAGMT(ICM_20948_I2C *sensor)
   printFormattedFloat(sensor->temp(), 5, 2);
   Serial.print(" ]");
   Serial.println();
+}
+
+MotionManager *MotionManager::_singleton = nullptr;
+MotionManager &MotionManager::manager() {
+    if (_singleton==nullptr) {
+        _singleton = new MotionManager();
+    }
+    return *_singleton;
 }
 
 #endif

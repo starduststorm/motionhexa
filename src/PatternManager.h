@@ -28,7 +28,7 @@ class PatternManager {
   Pattern *TestIdlePattern() {
     static Pattern *testIdlePattern = NULL;
     if (testIdlePattern == NULL) {
-      testIdlePattern = new TestPattern();
+      testIdlePattern = new BouncyPixels();
     }
     return testIdlePattern;
   }
@@ -36,6 +36,7 @@ class PatternManager {
 public:
   PatternManager(BufferType &ctx) : ctx(ctx) {
     patternConstructors.push_back(&(construct<TestPattern>));
+    patternConstructors.push_back(&(construct<BouncyPixels>));
   }
 
   ~PatternManager() {
@@ -99,10 +100,13 @@ public:
   }
 
   void setup() {
+    MotionManager::manager().init();
   }
 
   void loop() {
     ctx.leds.fill_solid(CRGB::Black);
+
+    MotionManager::manager().loop();
 
     if (activePattern) {
       activePattern->loop();

@@ -35,6 +35,8 @@ typedef union {
   uint32_t quad;
 } EdgeTypesQuad;
 
+
+
 struct Edge {
     typedef enum : uint8_t {
         none             = 0,
@@ -206,7 +208,62 @@ public:
 };
 ItemGeometry<LED_COUNT> ledgeometry(ledgraph);
 
+/* 
+logical hex pixel arrangement orientation convention is "point down" e.g. 
+   .
+.     .
+   .
+.     .
+   .
+even though the walls of the board are "side down" e.g.
+ . .
+. . .
+ . .
+ */
+
+template<typename T>
+class HexGrid {
+public:    
+    class HexNode {
+        public:
+        T value;
+        union {
+            struct {
+                optional<PixelIndex> ul, ur, r, dr, dl, l;
+            } named;
+            optional<PixelIndex> neighbors[6];
+        };
+        HexNode(T val) : value(val) { 
+            for (int n = 0; n < 6; ++n) {
+                neighbors[n] = optional<PixelIndex>();
+            }
+         }
+        uint8_t neighborCount() {
+            int n = 0;
+            for (int j = 0; j < 6; ++j) {
+                if (neighbors[j].has_value()) { n++; }
+            }
+            return n;
+        }
+    };
+    vector<HexNode> nodes;
+    int size;
+    HexGrid(uint16_t size) : size(size) {}
+    void populate() {
+        nodes.reserve(size);
+        for (int i = 0; i < size; ++i) {
+            nodes.emplace_back(i);
+        }
+    }
+    HexNode &operator[](uint16_t index) {
+        return nodes[index];
+    }
+};
+
+HexGrid<PixelIndex> hexGrid(LED_COUNT);
+
 void initLEDGraph() {
+    hexGrid.populate();
     const int kSidelen = lround((3 + sqrt(9 - 12 * (1 - LED_COUNT))) / 6); // 10
     assert(kSidelen == 10, "10");
     const int kMeridian = 2*kSidelen-1;
@@ -240,10 +297,14 @@ void initLEDGraph() {
         if (rightToLeft) {
             if (i > rowStarts[row]) {
                 ledgraph.addEdge(Edge(i, i-1, Edge::geometric, 0x7F));
+                hexGrid.nodes[i].named.r = i-1;
+                hexGrid.nodes[i-1].named.l = i;
             }
         } else {
             if (i < rowStarts[row] + rowCounts[row] - 1) {
                 ledgraph.addEdge(Edge(i, i+1, Edge::geometric, 0));
+                hexGrid.nodes[i].named.r = i+1;
+                hexGrid.nodes[i+1].named.l = i;
             }
         }
         if (row+1 < kMeridian) {
@@ -251,10 +312,14 @@ void initLEDGraph() {
             if (topSide || (!rightToLeft && i > rowStarts[row]) || (rightToLeft && i < rowStarts[row] + rowCounts[row]-1)) {
                 int dl = (rowStarts[row+1] + rowCounts[row+1]) - (i - rowStarts[row]) + (topSide ? -1 : 0) + rightToLeftCorrection;
                 ledgraph.addEdge(Edge(i, dl, Edge::geometric, 0xAB/*170.667*/));
+                hexGrid.nodes[i].named.dl = dl;
+                hexGrid.nodes[dl].named.ur = i;
             }
             if (topSide || (!rightToLeft && i < rowStarts[row]+rowCounts[row]-1) || (rightToLeft && i > rowStarts[row])) {
                 int dr = (rowStarts[row+1] + rowCounts[row+1]) - (i - rowStarts[row]) + (topSide ? -1 : 0) + rightToLeftCorrection + (rightToLeft ? 1 : -1);
                 ledgraph.addEdge(Edge(i, dr, Edge::geometric, 0xD5/*213.333*/));
+                hexGrid.nodes[i].named.dr = dr;
+                hexGrid.nodes[dr].named.ul = i;
             }
         }
     }

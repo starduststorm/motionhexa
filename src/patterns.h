@@ -4,6 +4,7 @@
 #include <FastLED.h>
 #include <vector>
 #include <functional>
+#include <optional>
 
 #include "util.h"
 #include "palettes.h"
@@ -426,8 +427,11 @@ public:
 
 struct vector16 {
   int16_t x,y;
-  vector16() {}
+  vector16() : x(0), y(0) {}
   vector16(int16_t x, int16_t y) : x(x), y(y) {}
+  int32_t dot(const vector16 &other) {
+    return x*other.x + y*other.y;
+  }
   void operator-() {
     x = -x;
     y = -y;
@@ -435,14 +439,55 @@ struct vector16 {
   vector16 operator+(const vector16 &other) {
     return vector16(x+other.x, y+other.y);
   }
-  // vector16 operator+=(const vector16 &other) {
-  //   x += other.x;
-  //   y += other.y;
-  // }
+  vector16 operator/(const int16_t divisor) {
+    return vector16(x/divisor, y/divisor);
+  }
+  vector16 &operator=(const vector16 &other) {
+    x = other.x;
+    y = other.y;
+    return *this;
+  }
+  vector16 &operator+=(const vector16 &other) {
+    x += other.x;
+    y += other.y;
+    return *this;
+  }
+  vector16 &operator-=(const vector16 &other) {
+    x -= other.x;
+    y -= other.y;
+    return *this;
+  }
 };
+
+enum class HexagonBounding : uint8_t {
+  // 8 sides because we may be considering a hexagon either side-down or point-down
+  interior     = 0,
+  right        = 1 << 0, // 1
+  topright     = 1 << 1, // 2
+  top          = 1 << 2, // 4
+  topleft      = 1 << 3, // 8
+  left         = 1 << 4, // 16
+  bottomleft   = 1 << 5, // 32
+  bottom       = 1 << 6, // 64
+  bottomright  = 1 << 7, // 128
+};
+inline HexagonBounding operator|(HexagonBounding lhs, HexagonBounding rhs) {
+  using T = std::underlying_type_t <HexagonBounding>;
+  return static_cast<HexagonBounding>(static_cast<T>(lhs) | static_cast<T>(rhs));
+}
+inline HexagonBounding operator&(HexagonBounding lhs, HexagonBounding rhs) {
+  using T = std::underlying_type_t <HexagonBounding>;
+  return static_cast<HexagonBounding>(static_cast<T>(lhs) & static_cast<T>(rhs));
+
+}
+inline HexagonBounding& operator|=(HexagonBounding &lhs, HexagonBounding rhs) {
+  lhs = lhs | rhs;
+  return lhs;
+}
 
 template<unsigned int SIZE>
 class PixelPhysics {
+public:
   struct Particle {
     PixelIndex index;
     vector16 pos;      // pos within hexagonal inner-particle dof space
@@ -451,18 +496,21 @@ class PixelPhysics {
     Particle(PixelIndex index, vector16 pos, vector16 velocity) : index(index), pos(pos), velocity(velocity) {};
   };
   vector<Particle> particles;
-  uint16_t count; // count of particles
-  uint16_t particleMap[SIZE] = {-1}; // map from physical led index to particle index
+  // uint16_t count; // target count of particles
+  optional<PixelIndex> particleMap[SIZE]; // map from physical led index to particle index
+  uint8_t accelScaling;
+  uint8_t elasticity;
 public:
-  PixelPhysics(ItemGeometry<SIZE> geometry, PixelIndex particleCount, uint8_t accelScaling, uint8_t elasticity) : count(particleCount) {
+  PixelPhysics(ItemGeometry<SIZE> &geometry, PixelIndex particleCount, uint8_t accelScaling, uint8_t elasticity) : accelScaling(accelScaling), elasticity(elasticity) {
     particles.reserve(particleCount);
     for (int i = 0; i < particleCount; ++i) {
       PixelIndex index;
       do {
-        index = random16()%SIZE;
-      } while (particleMap[index] != -1);
-      particles.push_back();
+        index = kHexaCenterIndex;// random16()%SIZE;
+      } while (particleMap[index] != nullopt);
+      particles.emplace_back();
       particles[i].index = index;
+      particleMap[index] = i;
     }
   }
 
@@ -470,30 +518,204 @@ public:
   }
 
 private:
-  inline bool point_above_line(int16_t x0, int16_t y0, int16_t dy, int16_t dx, int16_t b) {
-    return y0 > (dy*x0 + b*dx) / dx;
+  struct line16 {
+    int16_t x1, y1, x2, y2;
+    line16(int16_t x1, int16_t y1, int16_t x2, int16_t y2) : x1(x1), y1(y1), x2(x2), y2(y2) { }
+    vector16 normal(bool clockwise=true) {
+      int16_t dy = y2-y1, dx = x2-x1;
+      return clockwise ? vector16(-dy, dx) : vector16(dy, -dx);
+    }
+    int32_t A() {
+      return y2-y1;
+    }
+    int32_t B() {
+      return x1-x2;
+    }
+    int32_t C() {
+      return y1 * (x2 - x1) - (y2 - y1) * x1;
+    }
+  };
+
+  optional<line16> wallLineForBound(HexagonBounding bounding) {
+    // side-down bound, center-to-point 222
+    switch (bounding) {
+      // clockwise
+      case HexagonBounding::topright:    return line16( 222,  0,    111,  192);
+      case HexagonBounding::top:         return line16( 111,  192, -111,  192);
+      case HexagonBounding::topleft:     return line16(-111,  192, -222,  0);
+      case HexagonBounding::bottomleft:  return line16(-222,  0,   -111, -192);
+      case HexagonBounding::bottom:      return line16(-111, -192,  111, -192);
+      case HexagonBounding::bottomright: return line16( 111, -192,  222,  0);
+      case HexagonBounding::interior:
+      default: 
+        return nullopt;
+    }
   }
 
-  typedef enum : uint8_t {
-      interior    = 0,
-      topleft      = 1 << 0,
-      top          = 1 << 1,
-      topright     = 1 << 2,
-      bottomright  = 1 << 3,
-      bottom       = 1 << 4,
-      bottomleft   = 1 << 5,
-  } HexagonBounding;
+  HexagonBounding wallHexagonBounding(vector16 p) {
+    // check if given point is in its side-down hexagon-shaped wall space
+    HexagonBounding bounds = HexagonBounding::interior;
+    bool abovePosDivider = point_above_line(p,  222,128, 0); // divides plane with positive slope through origin
+    bool aboveNegDivider = point_above_line(p, -222,128, 0); // divides plane with negative slope through origin
+    if (p.y < -192 && !abovePosDivider && !aboveNegDivider) bounds |= HexagonBounding::bottom;
+    if (p.y >  192 && aboveNegDivider && abovePosDivider) bounds |= HexagonBounding::top;
+    if ( point_above_line(p, -222,128,  384) && p.y>=0 && !abovePosDivider) bounds |= HexagonBounding::topright;
+    if (!point_above_line(p,  222,128, -384) && p.y<=0 &&  aboveNegDivider) bounds |= HexagonBounding::bottomright;
+    if (!point_above_line(p, -222,128, -384) && p.y<=0 &&  abovePosDivider) bounds |= HexagonBounding::bottomleft;
+    if ( point_above_line(p,  222,128,  384) && p.y>=0 && !aboveNegDivider) bounds |= HexagonBounding::topleft;
+    return bounds;
+  }
 
-  HexagonBounding hexagonBounding(vector16 p) {
-    // check if given point is in 
-    // if (p.x < -256 || p.x > 256) return false;
-    if (p.y < -221) return HexagonBounding::bottom;
-    if (p.y > 221) return HexagonBounding::top;
-    if (point_above_line(p.x, p.y, -221,128,  442)) return HexagonBounding::topright;
-    if (!point_above_line(p.x, p.y,  221,128, -442)) return HexagonBounding::bottomright;
-    if (!point_above_line(p.x, p.y, -221,128, -442)) return HexagonBounding::bottomleft;
-    if (point_above_line(p.x, p.y,  221,128,  442)) return HexagonBounding::topleft;
-    return HexagonBounding::interior;
+  optional<line16> innerSpaceLineForBound(HexagonBounding bounding) {
+    // point-down bound, center-to-point 256
+    switch (bounding) {
+      // clockwise
+      case HexagonBounding::right:       return line16( 222, -128,  222,  128);
+      case HexagonBounding::topright:    return line16( 222,  128,  0,    256);
+      case HexagonBounding::topleft:     return line16( 0,    256, -222,  128);
+      case HexagonBounding::left:        return line16(-222,  128, -222, -128);
+      case HexagonBounding::bottomleft:  return line16(-222, -128,  0,   -256);
+      case HexagonBounding::bottomright: return line16( 0,   -256,  222, -128);
+      case HexagonBounding::interior:
+      default: 
+        return nullopt;
+    }
+  }
+
+  vector16 unitMotionAcrossBound(HexagonBounding bound) {
+    // point-down bound
+    switch (bound) {
+      case HexagonBounding::right:       return vector16( 255,  0);
+      case HexagonBounding::topright:    return vector16( 111,  192); // 256*sqrt(3)/2 * (cos(pi/3), sin(pi/3))
+      case HexagonBounding::topleft:     return vector16(-111,  192);
+      case HexagonBounding::left:        return vector16(-255,  0);
+      case HexagonBounding::bottomleft:  return vector16(-111, -192);
+      case HexagonBounding::bottomright: return vector16( 111, -192);
+      case HexagonBounding::interior:
+      default:
+        return vector16(0, 0);
+    }
+  }
+
+  inline bool point_above_line(vector16 p, int16_t dy, int16_t dx, int16_t b) {
+    return p.y > (dy*p.x + b*dx) / dx;
+  }
+
+  HexagonBounding innerSpaceHexagonBounding(vector16 p) {
+    // check if given point is in its point-down hexagon-shaped inner particle space
+    HexagonBounding bounds = HexagonBounding::interior;
+    bool abovePosDivider = point_above_line(p,  128,222, 0); // divides plane with positive slope through origin
+    bool aboveNegDivider = point_above_line(p, -128,222, 0); // divides plane with negative slope through origin
+    if (p.x < -222 && abovePosDivider && !aboveNegDivider) bounds |= HexagonBounding::left;
+    if (p.x >  222 && aboveNegDivider && !abovePosDivider) bounds |= HexagonBounding::right;
+    if ( point_above_line(p, -128,222,  255) && p.x>=0 &&  abovePosDivider) bounds |= HexagonBounding::topright;
+    if (!point_above_line(p,  128,222, -255) && p.x>=0 && !aboveNegDivider) bounds |= HexagonBounding::bottomright;
+    if (!point_above_line(p, -128,222, -255) && p.x<=0 && !abovePosDivider) bounds |= HexagonBounding::bottomleft;
+    if ( point_above_line(p,  128,222,  255) && p.x<=0 &&  aboveNegDivider) bounds |= HexagonBounding::topleft;
+    return bounds;
+  }
+
+  optional<PixelIndex> dstForMotion(Particle &p, HexagonBounding bounding) {
+    switch (bounding) {
+      case HexagonBounding::right:       return hexGrid[p.index].named.r;
+      case HexagonBounding::topright:    return hexGrid[p.index].named.ur;
+      case HexagonBounding::topleft:     return hexGrid[p.index].named.ul;
+      case HexagonBounding::left:        return hexGrid[p.index].named.l;
+      case HexagonBounding::bottomleft:  return hexGrid[p.index].named.dl;
+      case HexagonBounding::bottomright: return hexGrid[p.index].named.dr;
+      case HexagonBounding::interior:
+      default:
+        return nullopt;
+    }
+  }
+
+  void updateParticleAtBound(Particle &p, HexagonBounding checkBound) {
+    assert(checkBound != HexagonBounding::interior, "updateParticleAtBound should not get interior");
+    HexagonBounding particleContainment = innerSpaceHexagonBounding(p.pos);
+    logf("  particleContainment against checkBound %i = %i", checkBound, particleContainment);
+    if ((particleContainment & checkBound) != HexagonBounding::interior) {
+      logf("  Particle crossed motion checkBound %i", checkBound);
+      optional<PixelIndex> dst = dstForMotion(p, checkBound);
+      PixelIndex srcPixel = p.index;
+      if (dst.has_value()) {
+        // particle moving/colliding
+        PixelIndex dstPixel = dst.value();
+        logf("  particle at index %i check dst index %i", srcPixel, dstPixel);
+        if (particleMap[dstPixel]) {
+          // collision
+          logf("  particle at index %i collision with p%i", srcPixel, particles[particleMap[dstPixel].value()].index);
+        } else {
+          // move
+          logf("  particle at index %i move to %i", srcPixel, dstPixel);
+          particleMap[srcPixel] = nullopt;
+          particleMap[dstPixel] = p.index;
+          p.index = dstPixel;
+          p.pos -= unitMotionAcrossBound(checkBound);
+        }
+      } else {
+        logf("  Particle intersected with wall checkBound %i", checkBound);
+        auto wallBound = wallHexagonBounding(p.pos);
+        if (auto lineopt = wallLineForBound(wallBound)) {
+          // roll back the particle movement since it crossed a line
+          p.pos -= p.velocity;
+
+          logf("  pre-movement pos (%i, %i), velocity (%i, %i)", p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
+
+          line16 line = lineopt.value();
+          // v` = v−2*(v⋅n)/(n⋅n)⋅n
+          auto normal = line.normal();
+          int32_t VDotN = p.velocity.dot(normal);
+          int32_t NDotN = normal.dot(normal);
+
+          // get line as Ax + By + C = 0
+          int32_t A = line.A();
+          int32_t B = line.B();
+          int32_t C = line.C();
+
+          logf("normal = (%i,%i), VDotN = %i, NDotN = %i", normal.x, normal.y, VDotN, NDotN);
+          logf("%i*x+%i*y+%i=0", A, B, C);
+
+          // Find the parameter t where the particle trajectory intersects the line:
+          int32_t t_p = -(A * p.pos.x + B * p.pos.y + C);
+          int32_t t_q = A * p.velocity.x + B * p.velocity.y;
+          logf("t = %i/%i", t_p, t_q);
+          // Check for parallel movement
+          // assert(t_q != 0, "t_q should not be 0 if we're doing collision");
+          if (t_q != 0) {
+              // Compute intersection point
+              int16_t x_int = p.pos.x + p.velocity.x * t_p/t_q;
+              int16_t y_int = p.pos.y + p.velocity.y * t_p/t_q;
+              logf("intersection = (%i, %i)", x_int, y_int);
+
+              // Reflect the velocity
+              p.velocity.x = p.velocity.x - 2 * normal.x * VDotN/NDotN;
+              p.velocity.y = p.velocity.y - 2 * normal.y * VDotN/NDotN;
+
+              // Update particle position after the collision
+              if (t_p != 0) {
+                const int16_t ensureContained = 2;
+                p.pos.x = x_int + p.velocity.x * ensureContained * (t_q-t_p)/t_q;
+                p.pos.y = y_int + p.velocity.y * ensureContained * (t_q-t_p)/t_q;
+              }
+              
+              // elasticity
+              p.velocity.x = scale16by8(abs(p.velocity.x), elasticity) * (p.velocity.x < 0 ? -1 : 1);
+              p.velocity.y = scale16by8(abs(p.velocity.y), elasticity) * (p.velocity.y < 0 ? -1 : 1);
+
+              // sanity constraints
+              p.pos.x = constrain(p.pos.x, -0xFF, 0xFF);
+              p.pos.y = constrain(p.pos.y, -0xFF, 0xFF);
+              p.velocity.x = constrain(p.velocity.x, -0xFF, 0xFF);
+              p.velocity.y = constrain(p.velocity.y, -0xFF, 0xFF);
+          } else {
+            logf("No ricochet, is velocity 0?");
+          }
+        }
+        logf("  post-movement pos (%i, %i), velocity (%i, %i)", p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
+      }
+    } else {
+      // logf("particle did not cross checkBound %i", checkBound);
+    }
   }
 
 public:
@@ -509,30 +731,38 @@ public:
   void clear() {
   }
 
+  inline int16_t scaleAccel(int16_t val) {
+    return min((int)0xFF, (int)max((int)-0xFF, (int)(accelScaling * val / 10000)));
+  }
+
   void update(ICM_20948_AGMT_t agmt) {
+    // x across hexa (negative when button side down)
+    // y vertical on hexa, (negative lipo usb down)
+    // z through hexa, (negative leds up)
+    logf("physics accel = %i, %i, %i", agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
+    vector16 accelVector(-scaleAccel(agmt.acc.axes.x), scaleAccel(agmt.acc.axes.y));
+    logf("scaled accel = %i, %i", accelVector.x, accelVector.y);
+    assert(abs(accelVector.x) <= 0xFF, "accelVector.x == %i", accelVector.x);
+    assert(abs(accelVector.y) <= 0xFF, "accelVector.y == %i", accelVector.y);
+
     vector<Particle> lastParticles = particles;
-    for (int i = 0; i < count; ++i) {
-      particles[i].velocity += vector16(agmt.acc.axes.x, agmt.acc.axes.y);
-      if (abs(particles[i].velocity) >= 0xFF) {
-        // cap motion at 255 == 1px/frame
-        particles[i].velocity -= 0xFF * (particles[i].velocity > 0 ? 1 : -1);
-      }
-      particles[i].pos += particles[i].velocity;
+    for (int p = 0; p < particles.size(); ++p) {
+      logf("update motion, consider particle %i", p);
+      particles[p].velocity += accelVector;
+      particles[p].velocity.x = constrain(particles[p].velocity.x, -0xFF, 0xFF);
+      particles[p].velocity.y = constrain(particles[p].velocity.y, -0xFF, 0xFF);
+
+      particles[p].pos += particles[p].velocity;
+      logf("  p%i now has pos (%i, %i), velocity (%i, %i)", p, particles[p].pos.x, particles[p].pos.y, particles[p].velocity.x, particles[p].velocity.y);
     }
-    for (int i = 0; i < count; ++i) {
-      HexagonBounding bounding = hexagonBounding(particles[i].pos);
-      PixelIndex moveToIndex;
-      switch (bounding) {
-        case topleft: 
-          ledgraph.adjacencies(particles[i].index, EdgeType::geometric);
-          break;
-        case top: break;
-        case topright: break;
-        case bottomright: break;
-        case bottom: break;
-        case bottomleft: break;
-        case interior: continue;
-      }
+    for (int p = 0; p < particles.size(); ++p) {
+      logf("check collision, consider particle %i", p);
+      updateParticleAtBound(particles[p], HexagonBounding::right);
+      updateParticleAtBound(particles[p], HexagonBounding::topright);
+      updateParticleAtBound(particles[p], HexagonBounding::topleft);
+      updateParticleAtBound(particles[p], HexagonBounding::left);
+      updateParticleAtBound(particles[p], HexagonBounding::bottomleft);
+      updateParticleAtBound(particles[p], HexagonBounding::bottomright);
     }
     /*
     scenarios:
@@ -548,15 +778,24 @@ public:
 
 class BouncyPixels : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
-  const 
-  vector<PixelIndex> indexes;
-  BouncyPixels() {
-
-
-    this->prepareTrackedColors(2);
+  PixelPhysics<LED_COUNT> physics;
+  BouncyPixels() : physics(ledgeometry, 1, 0x06, 0xAF) {
+    this->prepareTrackedColors(1);
+    minBrightness = 50;
+  }
+  ~BouncyPixels() {
+    this->releaseTrackedColors();
   }
 
   void update() {
+    auto agmt = MotionManager::manager().agmt;
+    // logf("physics accel = %i, %i, %i", agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
+    ctx.leds.fill_solid(CRGB::Black);
+    physics.update(MotionManager::manager().agmt);
+    int i = 0;
+    for (PixelPhysics<LED_COUNT>::Particle p : physics.particles) {
+      ctx.leds[p.index] = getTrackedColor(i++);
+    }
   }
 
   const char *description() {
