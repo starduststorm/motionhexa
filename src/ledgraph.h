@@ -9,6 +9,7 @@
 #include <optional>
 
 #include "drawing.h"
+#include "hexaphysics.h"
 
 using namespace std;
 
@@ -207,58 +208,6 @@ public:
     }
 };
 ItemGeometry<LED_COUNT> ledgeometry(ledgraph);
-
-/* 
-logical hex pixel arrangement orientation convention is "point down" e.g. 
-   .
-.     .
-   .
-.     .
-   .
-even though the walls of the board are "side down" e.g.
- . .
-. . .
- . .
- */
-
-template<typename T>
-class HexGrid {
-public:    
-    class HexNode {
-        public:
-        T value;
-        union {
-            struct {
-                optional<PixelIndex> ul, ur, r, dr, dl, l;
-            } named;
-            optional<PixelIndex> neighbors[6];
-        };
-        HexNode(T val) : value(val) { 
-            for (int n = 0; n < 6; ++n) {
-                neighbors[n] = optional<PixelIndex>();
-            }
-         }
-        uint8_t neighborCount() {
-            int n = 0;
-            for (int j = 0; j < 6; ++j) {
-                if (neighbors[j].has_value()) { n++; }
-            }
-            return n;
-        }
-    };
-    vector<HexNode> nodes;
-    int size;
-    HexGrid(uint16_t size) : size(size) {}
-    void populate() {
-        nodes.reserve(size);
-        for (int i = 0; i < size; ++i) {
-            nodes.emplace_back(i);
-        }
-    }
-    HexNode &operator[](uint16_t index) {
-        return nodes[index];
-    }
-};
 
 HexGrid<PixelIndex> hexGrid(LED_COUNT);
 
