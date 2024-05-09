@@ -181,7 +181,7 @@ void loop() {
     firstLoop = false;
   }
 
-  FastLED.setBrightness(0x10);
+  FastLED.setBrightness(0x20);
   patternManager.loop();
   controls.update();
   

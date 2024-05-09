@@ -9,7 +9,7 @@
 
 using namespace std;
 
-#define DEBUG_PHYSICS 1
+#define DEBUG_PHYSICS 0
 #if DEBUG_PHYSICS
 #define plogf(format, ...) logf(format, ## __VA_ARGS__)
 #else
@@ -34,6 +34,9 @@ struct vector16 {
   vector16 operator-(const vector16 &other) {
     return vector16(x-other.x, y-other.y);
   }
+  vector16 operator*(const int16_t multiplicand) {
+    return vector16(x*multiplicand, y*multiplicand);
+  }
   vector16 operator/(const int16_t divisor) {
     return vector16(x/divisor, y/divisor);
   }
@@ -53,9 +56,9 @@ struct vector16 {
     return *this;
   }
   vector16 scale8(uint8_t scaleBy) {
-    int16_t x = scale16by8(abs(x), scaleBy) * (x < 0 ? -1 : 1);
-    int16_t y = scale16by8(abs(x), scaleBy) * (x < 0 ? -1 : 1);
-    return vector16(x, y);
+    int16_t sx = scale16by8(abs(x), scaleBy) * (x < 0 ? -1 : 1);
+    int16_t sy = scale16by8(abs(y), scaleBy) * (y < 0 ? -1 : 1);
+    return vector16(sx, sy);
   }
 };
 
@@ -270,19 +273,19 @@ private:
       } else if (!node.named.ur && !node.named.r) {
         // top right side
         node.named.ur = node.named.ul->named.r;
-        node.named.r = edges.emplace_back(new HexNode(urLine));
+        node.named.r = edges.emplace_back(new HexNode(node.named.dr ? urLine : rCornerLine));
         if (!node.named.dr) {
           // right corner
-          node.named.dr = edges.emplace_back(new HexNode(rCornerLine));
+          node.named.dr = edges.emplace_back(new HexNode(drLine));
           assert(node.named.dr && node.named.dr->isEdgeNode(), "node.named.dr");
         }
       } else if (!node.named.ul && !node.named.l) {
         // top left side
         node.named.ul = node.named.ur->named.l;
-        node.named.l = edges.emplace_back(new HexNode(ulLine));
+        node.named.l = edges.emplace_back(new HexNode(node.named.dl ? ulLine : lCornerLine));
         if (!node.named.dl) {
           // left corner
-          node.named.dl = edges.emplace_back(new HexNode(lCornerLine));
+          node.named.dl = edges.emplace_back(new HexNode(dlLine));
         }
       } else if (!node.named.dl && !node.named.l) {
         // bottom left side
@@ -416,12 +419,12 @@ private:
   vector16 unitMotionAcrossBound(HexagonBounding bound) {
     // point-down bound
     switch (bound) {
-      case HexagonBounding::right:       return vector16( 255,  0);
-      case HexagonBounding::topright:    return vector16( 111,  192); // 256*sqrt(3)/2 * (cos(pi/3), sin(pi/3))
-      case HexagonBounding::topleft:     return vector16(-111,  192);
-      case HexagonBounding::left:        return vector16(-255,  0);
-      case HexagonBounding::bottomleft:  return vector16(-111, -192);
-      case HexagonBounding::bottomright: return vector16( 111, -192);
+      case HexagonBounding::right:       return vector16( 222,  0)*2;
+      case HexagonBounding::topright:    return vector16( 111,  192)*2; // 256*sqrt(3)/2 * (cos(pi/3), sin(pi/3))
+      case HexagonBounding::topleft:     return vector16(-111,  192)*2;
+      case HexagonBounding::left:        return vector16(-222,  0)*2;
+      case HexagonBounding::bottomleft:  return vector16(-111, -192)*2;
+      case HexagonBounding::bottomright: return vector16( 111, -192)*2;
       case HexagonBounding::interior:
       default:
         return vector16(0, 0);
@@ -438,12 +441,15 @@ private:
     HexagonBounding bounds = HexagonBounding::interior;
     bool abovePosDivider = point_above_line(p,  128,222, 0); // divides plane with positive slope through origin
     bool aboveNegDivider = point_above_line(p, -128,222, 0); // divides plane with negative slope through origin
-    if (p.x < -222 && abovePosDivider && !aboveNegDivider) bounds |= HexagonBounding::left;
-    if (p.x >  222 && aboveNegDivider && !abovePosDivider) bounds |= HexagonBounding::right;
-    if ( point_above_line(p, -128,222,  255) && p.x>=0 &&  abovePosDivider) bounds |= HexagonBounding::topright;
-    if (!point_above_line(p,  128,222, -255) && p.x>=0 && !aboveNegDivider) bounds |= HexagonBounding::bottomright;
-    if (!point_above_line(p, -128,222, -255) && p.x<=0 && !abovePosDivider) bounds |= HexagonBounding::bottomleft;
-    if ( point_above_line(p,  128,222,  255) && p.x<=0 &&  aboveNegDivider) bounds |= HexagonBounding::topleft;
+    
+    // FIXME: region-side-bounds are commented, need to test/confirm that this is correct
+
+    if (p.x < -222/* && abovePosDivider && !aboveNegDivider*/) bounds |= HexagonBounding::left;
+    if (p.x >  222/* && aboveNegDivider && !abovePosDivider*/) bounds |= HexagonBounding::right;
+    if ( point_above_line(p, -128,222,  255)/* && p.x>=0 &&  abovePosDivider*/) bounds |= HexagonBounding::topright;
+    if (!point_above_line(p,  128,222, -255)/* && p.x>=0 && !aboveNegDivider*/) bounds |= HexagonBounding::bottomright;
+    if (!point_above_line(p, -128,222, -255)/* && p.x<=0 && !abovePosDivider*/) bounds |= HexagonBounding::bottomleft;
+    if ( point_above_line(p,  128,222,  255)/* && p.x<=0 &&  aboveNegDivider*/) bounds |= HexagonBounding::topleft;
     return bounds;
   }
 
@@ -465,7 +471,7 @@ private:
     assert(checkBound != HexagonBounding::interior, "updateParticleAtBound should not get interior");
     HexagonBounding particleContainment = innerSpaceHexagonBounding(p.pos);
     if ((particleContainment & checkBound) != HexagonBounding::interior) {
-      // plogf("  Particle crossed motion checkBound %i", checkBound);
+      plogf("Particle pos=(%i,%i) crossed motion checkBound %i", p.pos.x, p.pos.y, checkBound);
       HexGrid<PixelIndex>::HexNode *dst = dstForMotion(p, checkBound);
       PixelIndex srcPixel = p.index;
       if (dst->isDataNode()) {
@@ -482,20 +488,22 @@ private:
           // convert p1 into p2's coordinate space
           vector16 pos1 = p.pos - unitMotionAcrossBound(checkBound);
           plogf("  pre-collision points in same coordinate space: p1=(%i, %i), p2=(%i, %i)", pos1.x, pos1.y, p2.pos.x, p2.pos.y);
-          vector16 dp = vector16(p2.pos.x - pos1.x, p2.pos.y - pos1.y);          
+          vector16 dp = p2.pos - pos1;
           vector16 dv = p2.velocity - p.velocity;
-          plogf("  dp=(%i,%i), dv=(%i,%i)", dp.x, dp.y, dv.x, dv.y);
+          plogf("    dp=(%i,%i), dv=(%i,%i)", dp.x, dp.y, dv.x, dv.y);
           int dpDotDv = dp.dot(dv);
           int dpDotDp = dp.dot(dp);
-          plogf("  dpDotDv=%i, dpDotDp=%i", dpDotDv, dpDotDp);
+          plogf("    dpDotDv=%i, dpDotDp=%i", dpDotDv, dpDotDp);
           // assert(dpDotDp != 0, "points should not overlap");
           if (dpDotDp != 0) {
-            vector16 dv1 = vector16(dp.x*(2 * dpDotDv) / dpDotDp, dp.y*(2 * dpDotDv) / dpDotDp);
-            vector16 dv2 = vector16(-dp.x*(2 * -dpDotDv) / dpDotDp, -dp.y*(2 * -dpDotDv) / dpDotDp);
+            vector16 dv1 = vector16(dp.x * dpDotDv / dpDotDp, 2 * dp.y * dpDotDv / dpDotDp);
+            vector16 dv2 = vector16(dp.x * -dpDotDv / dpDotDp, 2 * dp.y * -dpDotDv / dpDotDp);
+            plogf("  unscaled dv1=(%i,%i) dv2=(%i,%i)", dv1.x, dv1.y, dv2.x, dv2.y);
             dv1 = dv1.scale8(elasticity);
             dv2 = dv2.scale8(elasticity);
+            plogf("    scaled dv1=(%i,%i) dv2=(%i,%i)", dv1.x, dv1.y, dv2.x, dv2.y);
 
-            plogf("  pre-collision velocities p1=(%i, %i), p2=(%i, %i)", p.velocity.x, p.velocity.y, p2.velocity.x, p2.velocity.y);
+            plogf("  pre-collision  p1=(%i, %i), p2=(%i, %i)", p.velocity.x, p.velocity.y, p2.velocity.x, p2.velocity.y);
             p.velocity += dv1;
             p2.velocity += dv2;
             plogf("  post-collision velocities p1=(%i, %i), p2=(%i, %i)", p.velocity.x, p.velocity.y, p2.velocity.x, p2.velocity.y);
@@ -516,10 +524,12 @@ private:
         
         plogf("  Particle intersected with wall via checkBound %i", checkBound);
         line16 line = dst->edgeLine();
+        plogf("    wall line points (%i,%i), (%i,%i)", line.x1, line.y1, line.x2, line.y2);
 
         // roll back the particle movement since it crossed a line
-        p.pos -= p.velocity;
         plogf("  pre-wall pos (%i, %i), velocity (%i, %i)", p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
+        p.pos -= p.velocity;
+        plogf("    rolled back to (%i, %i)", p.pos.x, p.pos.y);
 
         // v` = v−2*(v⋅n)/(n⋅n)⋅n
         auto normal = line.normal();
@@ -531,24 +541,27 @@ private:
         int32_t B = line.B();
         int32_t C = line.C();
 
-        // plogf("normal = (%i,%i), VDotN = %i, NDotN = %i", normal.x, normal.y, VDotN, NDotN);
-        // plogf("%i*x+%i*y+%i=0", A, B, C);
+        plogf("    normal = (%i,%i), VDotN = %i, NDotN = %i", normal.x, normal.y, VDotN, NDotN);
+        plogf("      %i*x+%i*y+%i=0", A, B, C);
 
         // Find the parameter t where the particle trajectory intersects the line:
         int32_t t_p = -(A * p.pos.x + B * p.pos.y + C);
         int32_t t_q = A * p.velocity.x + B * p.velocity.y;
-        // plogf("t = %i/%i", t_p, t_q);
+        plogf("      t = %i/%i", t_p, t_q);
         // Check for parallel movement
         // assert(t_q != 0, "t_q should not be 0 if we're doing collision");
         if (t_q != 0) {
             // Compute intersection point
             int16_t x_int = p.pos.x + p.velocity.x * t_p/t_q;
             int16_t y_int = p.pos.y + p.velocity.y * t_p/t_q;
-            // plogf("intersection = (%i, %i)", x_int, y_int);
+            plogf("    intersection = (%i, %i)", x_int, y_int);
 
             // Reflect the velocity
-            p.velocity.x = p.velocity.x - 2 * normal.x * VDotN/NDotN;
-            p.velocity.y = p.velocity.y - 2 * normal.y * VDotN/NDotN;
+            vector16 dv(-2 * normal.x * VDotN/NDotN, -2 * normal.y * VDotN/NDotN);
+            plogf("    dv = (%i,%i)", dv.x, dv.y);
+            dv = dv.scale8(elasticity);
+            plogf("      scaled dv = (%i,%i)", dv.x, dv.y);
+            p.velocity += dv;
 
             // Update particle position after the collision
             const int16_t ensureContained = 2;
@@ -560,8 +573,10 @@ private:
             p.velocity.y = scale16by8(abs(p.velocity.y), elasticity) * (p.velocity.y < 0 ? -1 : 1);
         } else {
           plogf("No ricochet, is velocity 0?");
+          // roll motion forward again so we don't get stuck
+          p.pos += p.velocity;
         }
-        // plogf("  post-wall pos (%i, %i), velocity (%i, %i)", p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
+        plogf("  post-wall pos (%i, %i), velocity (%i, %i)", p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
       }
     } else {
       // plogf("particle did not cross checkBound %i", checkBound);
@@ -596,7 +611,7 @@ public:
     // z through hexa, (negative leds up)
     // plogf("physics accel = %i, %i, %i", agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
     vector16 accelVector(scaleAccel(accel.x), scaleAccel(accel.y));
-    // plogf("scaled accel = %i, %i", accelVector.x, accelVector.y);
+    plogf("PHYSICS UPDATE scaled accel = %i, %i", accelVector.x, accelVector.y);
     assert(abs(accelVector.x) <= 0xFF, "accelVector.x == %i", accelVector.x);
     assert(abs(accelVector.y) <= 0xFF, "accelVector.y == %i", accelVector.y);
 
