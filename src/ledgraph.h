@@ -180,99 +180,26 @@ public:
 Graph ledgraph;
 const uint16_t kHexaCenterIndex = 135;
 const uint8_t kMeridian = 19;
+const float pixelSpacing = 3.9;
 
-struct Point {
-    int x,y;
-    Point() : x(0), y(0) {};
-    Point(int x, int y) : x(x), y(y) {};
-    static Point fromMM(float x, float y) {
-        return Point(1000*x, 1000*y);
-    }
-};
-
-// integral positions given in micrometers relative to center pixel at (0,0)
-template<int SIZE>
-class ItemGeometry {
-    Point positions[SIZE];
-    Graph &graph;
-public:
-    ItemGeometry(Graph g) : graph(g) {};
-    inline void setPosition(PixelIndex index, Point pt) {
-        positions[index] = pt;
-    }
-    inline Point position(PixelIndex index) {
-        return positions[index];
-    }
-    vector<Edge> nearbyItems(PixelIndex index) {
-        return graph.adjacencies(index);
-    }
-};
-ItemGeometry<LED_COUNT> ledgeometry(ledgraph);
-
-HexGrid<PixelIndex> hexGrid(LED_COUNT);
+HexGrid<PixelIndex> hexGrid(kMeridian, pixelSpacing);
 
 void initLEDGraph() {
-    hexGrid.populate();
-    const int kSidelen = lround((3 + sqrt(9 - 12 * (1 - LED_COUNT))) / 6); // 10
-    assert(kSidelen == 10, "10");
-    const int kMeridian = 2*kSidelen-1;
+    hexGrid.init();
+    assert(hexGrid.valueCount() == LED_COUNT, "led count issue");
     ledgraph = Graph({}, LED_COUNT);
-    int row = 0;
-    int rowCounts[kMeridian] = {0};
-    for (int r = 0; r<kMeridian; ++r) {
-        rowCounts[r] = kSidelen + (r<kMeridian/2 ? r : kMeridian-r-1);
-    }
-    int rowStarts[kMeridian] = {0};
-    for (int r = 0; r<kMeridian; ++r) {
-        rowStarts[r] = (r>0 ? rowStarts[r-1] + rowCounts[r-1] : 0);
-    }
-    for (int i = 0; i < LED_COUNT; ++i) {
-        if (row+1 < kMeridian && i >= rowStarts[row+1]) {
-            row++;
+    for (HexGrid<PixelIndex>::HexNode *node : hexGrid.valueNodes()) {
+        if (node->named.r && node->named.r->isDataNode()) {
+            ledgraph.addEdge(Edge(node->data(), node->named.r->data(), Edge::geometric, 0));
         }
-        bool topSide = rowCounts[row] < rowCounts[row+1];
-        int indexInRow = i - rowStarts[row];
-        int rightToLeft = row % 2;
-        
-        // Compute pixel physical position
-        const float pixelSpacing = 3.9;
-        const float colSpacing = 3.3774990747593105; // sin(2*PI/6)*pixelSpacing
-        int centerRow = kSidelen-1;
-        float y = colSpacing * (row - centerRow);
-        float x = pixelSpacing * (indexInRow - rowCounts[row]/2) + (rightToLeft ? 0 : pixelSpacing/2);
-        ledgeometry.setPosition(i, Point::fromMM(x,y));
-
-        // Find Neighbors
-        if (rightToLeft) {
-            if (i > rowStarts[row]) {
-                ledgraph.addEdge(Edge(i, i-1, Edge::geometric, 0x7F));
-                hexGrid.nodes[i].named.r = i-1;
-                hexGrid.nodes[i-1].named.l = i;
-            }
-        } else {
-            if (i < rowStarts[row] + rowCounts[row] - 1) {
-                ledgraph.addEdge(Edge(i, i+1, Edge::geometric, 0));
-                hexGrid.nodes[i].named.r = i+1;
-                hexGrid.nodes[i+1].named.l = i;
-            }
+        if (node->named.dl && node->named.dl->isDataNode()) {
+            ledgraph.addEdge(Edge(node->data(), node->named.dl->data(), Edge::geometric, 0xAB/*170.667*/));
         }
-        if (row+1 < kMeridian) {
-            int rightToLeftCorrection = (rightToLeft ? -1 : 0);
-            if (topSide || (!rightToLeft && i > rowStarts[row]) || (rightToLeft && i < rowStarts[row] + rowCounts[row]-1)) {
-                int dl = (rowStarts[row+1] + rowCounts[row+1]) - (i - rowStarts[row]) + (topSide ? -1 : 0) + rightToLeftCorrection;
-                ledgraph.addEdge(Edge(i, dl, Edge::geometric, 0xAB/*170.667*/));
-                hexGrid.nodes[i].named.dl = dl;
-                hexGrid.nodes[dl].named.ur = i;
-            }
-            if (topSide || (!rightToLeft && i < rowStarts[row]+rowCounts[row]-1) || (rightToLeft && i > rowStarts[row])) {
-                int dr = (rowStarts[row+1] + rowCounts[row+1]) - (i - rowStarts[row]) + (topSide ? -1 : 0) + rightToLeftCorrection + (rightToLeft ? 1 : -1);
-                ledgraph.addEdge(Edge(i, dr, Edge::geometric, 0xD5/*213.333*/));
-                hexGrid.nodes[i].named.dr = dr;
-                hexGrid.nodes[dr].named.ul = i;
-            }
+        if (node->named.dr && node->named.dr->isDataNode()) {
+            ledgraph.addEdge(Edge(node->data(), node->named.dr->data(), Edge::geometric, 0xD5/*213.333*/));
         }
     }
-}
+};
 
 // FIXME: can this not have to encode the count this way?
 typedef CustomDrawingContext<LED_COUNT, 1, CRGB, CRGBArray<LED_COUNT> > DrawingContext;

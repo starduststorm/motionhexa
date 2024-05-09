@@ -428,7 +428,7 @@ public:
 
 class BouncyPixels : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
-  const PixelIndex pixelCount = 50;
+  const PixelIndex pixelCount = 3;
   PixelPhysics<LED_COUNT> physics;
   BouncyPixels() : physics(hexGrid, pixelCount, 0x06, 0xAF) {
     this->prepareTrackedColors(pixelCount);
@@ -446,7 +446,8 @@ public:
     physics.update(accel);
     int i = 0;
     for (PixelPhysics<LED_COUNT>::Particle *p : physics.particles) {
-      ctx.leds[p->index] = getTrackedColor(i++);
+      // ctx.leds[p->index] = getTrackedColor(i++);
+      ctx.leds[p->index] = CHSV(i++ * 0xFF/3, 0xFF, 0xFF);
     }
   }
 

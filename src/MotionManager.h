@@ -148,7 +148,7 @@ public:
   // }
 
   void accelerationAtPixelIndex(PixelIndex index) {
-    Point pos = ledgeometry.position(index); // in um
+    UMPoint pos = hexGrid.position(index); // in um
 
   }
 
