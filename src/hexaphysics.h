@@ -239,7 +239,7 @@ private:
 
     int16_t vertexDistance=222, sideDistance=192, yintercept=384, x1=111; // center-to-point 222
     // clockwise for correct normal orientation
-    line16 urLine(vertexDistance,  0,              x1,              sideDistance);
+    line16 urLine(vertexDistance,   0,              x1,              sideDistance);
     line16 uLine ( x1,              sideDistance,  -x1,              sideDistance);
     line16 ulLine(-x1,              sideDistance,  -vertexDistance,  0);
     line16 dlLine(-vertexDistance,  0,             -x1,             -sideDistance);
@@ -467,21 +467,21 @@ private:
     }
   }
 
-  void updateParticleAtBound(Particle &p, HexagonBounding checkBound) {
+  void updateParticleAtBound(int label, Particle &p, HexagonBounding checkBound) {
     assert(checkBound != HexagonBounding::interior, "updateParticleAtBound should not get interior");
     HexagonBounding particleContainment = innerSpaceHexagonBounding(p.pos);
     if ((particleContainment & checkBound) != HexagonBounding::interior) {
-      plogf("Particle pos=(%i,%i) crossed motion checkBound %i", p.pos.x, p.pos.y, checkBound);
+      plogf("Particle %i pos=(%i,%i) v=(%i,%i) crossed motion checkBound %i", label, p.pos.x, p.pos.y, p.velocity.x, p.velocity.y, checkBound);
       HexGrid<PixelIndex>::HexNode *dst = dstForMotion(p, checkBound);
       PixelIndex srcPixel = p.index;
       if (dst->isDataNode()) {
         // particle moving/colliding
         PixelIndex dstPixel = dst->data();
-        plogf("  particle at index %i check dst index %i", srcPixel, dstPixel);
+        plogf("  particle %i at index %i check dst index %i", label, srcPixel, dstPixel);
         if (particleMap[dstPixel]) {
           Particle &p2 = *(particleMap[dstPixel]);
           // collision
-          plogf("  particle at pixel %i v=(%i,%i) collision with pixel %i v=(%i,%i)", srcPixel, p.velocity.x, p.velocity.y, dstPixel, p2.velocity.x, p2.velocity.y);
+          plogf("  particle %i at pixel %i v=(%i,%i) collision with pixel %i v=(%i,%i)", label, srcPixel, p.velocity.x, p.velocity.y, dstPixel, p2.velocity.x, p2.velocity.y);
           // roll back motion because otherwise p1 may have already skipped past p2
           p.pos -= p.velocity;
           p2.pos -= p2.velocity;
@@ -495,9 +495,10 @@ private:
           int dpDotDp = dp.dot(dp);
           plogf("    dpDotDv=%i, dpDotDp=%i", dpDotDv, dpDotDp);
           // assert(dpDotDp != 0, "points should not overlap");
+          const int mult = 1; // sometimes it's interesting to boost elasticity a lot
           if (dpDotDp != 0) {
-            vector16 dv1 = vector16(dp.x * dpDotDv / dpDotDp, 2 * dp.y * dpDotDv / dpDotDp);
-            vector16 dv2 = vector16(dp.x * -dpDotDv / dpDotDp, 2 * dp.y * -dpDotDv / dpDotDp);
+            vector16 dv1 = vector16(mult*dp.x * dpDotDv / dpDotDp, mult*dp.y * dpDotDv / dpDotDp);
+            vector16 dv2 = vector16(mult*dp.x * -dpDotDv / dpDotDp, mult*dp.y * -dpDotDv / dpDotDp);
             plogf("  unscaled dv1=(%i,%i) dv2=(%i,%i)", dv1.x, dv1.y, dv2.x, dv2.y);
             dv1 = dv1.scale8(elasticity);
             dv2 = dv2.scale8(elasticity);
@@ -522,7 +523,7 @@ private:
         }
       } else {
         
-        plogf("  Particle intersected with wall via checkBound %i", checkBound);
+        plogf("  Particle %i intersected with wall via checkBound %i", label, checkBound);
         line16 line = dst->edgeLine();
         plogf("    wall line points (%i,%i), (%i,%i)", line.x1, line.y1, line.x2, line.y2);
 
@@ -544,13 +545,16 @@ private:
         plogf("    normal = (%i,%i), VDotN = %i, NDotN = %i", normal.x, normal.y, VDotN, NDotN);
         plogf("      %i*x+%i*y+%i=0", A, B, C);
 
-        // Find the parameter t where the particle trajectory intersects the line:
-        int32_t t_p = -(A * p.pos.x + B * p.pos.y + C);
-        int32_t t_q = A * p.velocity.x + B * p.velocity.y;
+        // Find the parameter t=p/q where the particle trajectory intersects the line:
+        int32_t t_p = abs(-(A * p.pos.x + B * p.pos.y + C));
+        int32_t t_q = abs(A * p.velocity.x + B * p.velocity.y);
         plogf("      t = %i/%i", t_p, t_q);
-        // Check for parallel movement
-        // assert(t_q != 0, "t_q should not be 0 if we're doing collision");
-        if (t_q != 0) {
+        if (t_p > t_q) {
+          // sometimes this happens when we do wall collision for a point already outside the wall
+          plogf("    t_p > t_q, fixing..");
+          t_q = t_p;
+        }
+        if (t_q != 0) { // Check for parallel movement
             // Compute intersection point
             int16_t x_int = p.pos.x + p.velocity.x * t_p/t_q;
             int16_t y_int = p.pos.y + p.velocity.y * t_p/t_q;
@@ -564,9 +568,8 @@ private:
             p.velocity += dv;
 
             // Update particle position after the collision
-            const int16_t ensureContained = 2;
-            p.pos.x = x_int + p.velocity.x * ensureContained * (t_q-t_p)/t_q;
-            p.pos.y = y_int + p.velocity.y * ensureContained * (t_q-t_p)/t_q;
+            p.pos.x = x_int + p.velocity.x * (t_q-t_p)/t_q;
+            p.pos.y = y_int + p.velocity.y * (t_q-t_p)/t_q;
             
             // elasticity
             p.velocity.x = scale16by8(abs(p.velocity.x), elasticity) * (p.velocity.x < 0 ? -1 : 1);
@@ -627,12 +630,12 @@ public:
     }
     for (int p = 0; p < particles.size(); ++p) {
       // plogf("check collision, consider particle %i", p);
-      updateParticleAtBound(*particles[p], HexagonBounding::right);
-      updateParticleAtBound(*particles[p], HexagonBounding::topright);
-      updateParticleAtBound(*particles[p], HexagonBounding::topleft);
-      updateParticleAtBound(*particles[p], HexagonBounding::left);
-      updateParticleAtBound(*particles[p], HexagonBounding::bottomleft);
-      updateParticleAtBound(*particles[p], HexagonBounding::bottomright);
+      updateParticleAtBound(p, *particles[p], HexagonBounding::right);
+      updateParticleAtBound(p, *particles[p], HexagonBounding::topright);
+      updateParticleAtBound(p, *particles[p], HexagonBounding::topleft);
+      updateParticleAtBound(p, *particles[p], HexagonBounding::left);
+      updateParticleAtBound(p, *particles[p], HexagonBounding::bottomleft);
+      updateParticleAtBound(p, *particles[p], HexagonBounding::bottomright);
     }
   }
 };
