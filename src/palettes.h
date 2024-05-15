@@ -860,11 +860,12 @@ public:
   }
 
   CRGB getMirroredPaletteColor(uint16_t n, uint8_t brightness = 0xFF) {
-    n = n % 0x200;
+    n = n % 0x200 - 2;
     if (n < 0xFF) {
       return ColorFromPalette(getPalette(), n, brightness);
     } else {
-      return ColorFromPalette(getPalette(), 0x100-(n-0x100), brightness);
+      n-=0xFF;
+      return ColorFromPalette(getPalette(), 0xFF-n, brightness);
     }
   }
 
