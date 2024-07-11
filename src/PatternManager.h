@@ -69,7 +69,7 @@ public:
   void stopPattern() {
     if (activePattern) {
       activePattern->stop();
-      if (activePattern != TestIdlePattern) {
+      if (activePattern != TestIdlePattern()) {
         delete activePattern;
       }
       activePattern = NULL;
