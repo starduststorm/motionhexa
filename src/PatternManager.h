@@ -28,15 +28,17 @@ class PatternManager {
   Pattern *TestIdlePattern() {
     static Pattern *testIdlePattern = NULL;
     if (testIdlePattern == NULL) {
-      testIdlePattern = new BouncyPixels();
+      // testIdlePattern = new TriBounce();
     }
     return testIdlePattern;
   }
 
 public:
   PatternManager(BufferType &ctx) : ctx(ctx) {
-    patternConstructors.push_back(&(construct<TestPattern>));
-    patternConstructors.push_back(&(construct<BouncyPixels>));
+    patternConstructors.push_back(&(construct<PulseHexa>));
+    patternConstructors.push_back(&(construct<TriBounce>));
+    patternConstructors.push_back(&(construct<PixelDust>));
+    patternConstructors.push_back(&(construct<RandomDust>));
   }
 
   ~PatternManager() {
@@ -134,7 +136,6 @@ public:
         startPatternAtIndex(choice);
       }
     }
-    // controls.update();
   }
 };
 

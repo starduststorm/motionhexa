@@ -18,49 +18,54 @@ using namespace std;
 
 typedef uint16_t PixelIndex;
 
-struct vector16 {
-  int16_t x,y;
-  vector16() : x(0), y(0) {}
-  vector16(int16_t x, int16_t y) : x(x), y(y) {}
-  int32_t dot(const vector16 &other) {
+template<typename T>
+struct vectorT {
+  T x,y;
+  vectorT() : x(0), y(0) {}
+  vectorT(T x, T y) : x(x), y(y) {}
+  int32_t dot(const vectorT<T> &other) {
     return x*other.x + y*other.y;
   }
-  vector16 operator-() {
-    return vector16(-x, -y);
+  virtual const vectorT<T> operator-() {
+    return vectorT<T>(-x, -y);
   }
-  vector16 operator+(const vector16 &other) {
-    return vector16(x+other.x, y+other.y);
+  virtual const vectorT<T> operator+(const vectorT<T> &other) {
+    return vectorT<T>(x+other.x, y+other.y);
   }
-  vector16 operator-(const vector16 &other) {
-    return vector16(x-other.x, y-other.y);
+  virtual const vectorT<T> operator-(const vectorT<T> &other) {
+    return vectorT<T>(x-other.x, y-other.y);
   }
-  vector16 operator*(const int16_t multiplicand) {
-    return vector16(x*multiplicand, y*multiplicand);
+  virtual const vectorT<T> operator*(const T multiplicand) {
+    return vectorT<T>(x*multiplicand, y*multiplicand);
   }
-  vector16 operator/(const int16_t divisor) {
-    return vector16(x/divisor, y/divisor);
+  virtual const vectorT<T> operator/(const T divisor) {
+    return vectorT<T>(x/divisor, y/divisor);
   }
-  vector16 &operator=(const vector16 &other) {
+  virtual vectorT<T> &operator=(const vectorT<T> &other) {
     x = other.x;
     y = other.y;
     return *this;
   }
-  vector16 &operator+=(const vector16 &other) {
+  virtual vectorT<T> &operator+=(const vectorT<T> &other) {
     x += other.x;
     y += other.y;
     return *this;
   }
-  vector16 &operator-=(const vector16 &other) {
+  virtual vectorT<T> &operator-=(const vectorT<T> &other) {
     x -= other.x;
     y -= other.y;
     return *this;
   }
-  vector16 scale8(uint8_t scaleBy) {
+  vectorT<T> scale8(uint8_t scaleBy) {
     int16_t sx = scale16by8(abs(x), scaleBy) * (x < 0 ? -1 : 1);
     int16_t sy = scale16by8(abs(y), scaleBy) * (y < 0 ? -1 : 1);
-    return vector16(sx, sy);
+    return vectorT<T>(sx, sy);
   }
 };
+
+typedef vectorT<int8_t> vector8;
+typedef vectorT<int16_t> vector16;
+typedef vectorT<int32_t> vector32;
 
 struct line16 {
   int16_t x1, y1, x2, y2;
@@ -84,11 +89,12 @@ struct line16 {
     return y1 * (x2 - x1) - (y2 - y1) * x1;
   }
 };
-struct UMPoint {
+struct UMPoint : vector32 {
   // point operating on integral micrometers
-  int32_t x,y;
-  UMPoint() : x(0), y(0) {};
-  UMPoint(int32_t x, int32_t y) : x(x), y(y) {};
+  UMPoint() : vector32() {};
+  UMPoint(int32_t x, int32_t y) : vector32(x,y) {};
+  UMPoint(const vector32 &v) : UMPoint(v.x, v.y) {}
+  UMPoint(const vector32 &&v) noexcept : UMPoint(v.x, v.y) {}
   static UMPoint fromMM(float x, float y) {
     return UMPoint(1000*x, 1000*y);
   }
@@ -161,6 +167,7 @@ private:
   const float spacing;
   
   inline void setPosition(T index, UMPoint pt) {
+    logf("setPosition %i = (%i, %i)", index, pt.x, pt.y);
     positions[index] = pt;
   }
 
@@ -171,6 +178,11 @@ private:
     const T kMeridianWithEdges = kMeridian+2;
     const T kSidelenWithEdges = (kMeridianWithEdges+1) >> 1;
     _totalCount = kMeridianWithEdges + (kMeridianWithEdges-kSidelenWithEdges) * (kSidelenWithEdges + kMeridianWithEdges-1); // meridian + 2*(sum of rows from meridian to side)
+
+    positions.reserve(_valueCount);
+    for (int i = 0 ; i < _valueCount; ++i) {
+      positions.emplace_back();
+    }
 
     nodes.reserve(_totalCount);
     for (int i = 0; i < _valueCount; ++i) {
@@ -202,7 +214,8 @@ private:
         const float colSpacing = sin(2*PI/6)*spacing; // 3.3774990747593105 when spacing == 3.9
         int centerRow = kSidelen-1;
         float y = colSpacing * (row - centerRow);
-        float x = spacing * (indexInRow - rowCounts[row]/2) + (rightToLeft ? 0 : spacing/2);
+        float x = (rightToLeft ? -1 : 1) * spacing * (indexInRow - rowCounts[row]/2) + (rightToLeft ? 0 : spacing/2);
+        // logf("spacing: i=%i, row=%i, indexInRow=%i, rowCounts[row]=%i, rightToLeft=%i, x,y=(%f,%f)", i, row, indexInRow, rowCounts[row], rightToLeft, x, y);
         setPosition(i, UMPoint::fromMM(x,y));
       }
 
@@ -219,14 +232,19 @@ private:
         }
       }
       if (row+1 < kMeridian) {
-        int rightToLeftCorrection = (rightToLeft ? -1 : 0);
-        if (topSide || (!rightToLeft && i > rowStarts[row]) || (rightToLeft && i < rowStarts[row] + rowCounts[row]-1)) {
-          int dl = (rowStarts[row+1] + rowCounts[row+1]) - (i - rowStarts[row]) + (topSide ? -1 : 0) + rightToLeftCorrection;
+        int indexInRow = i - rowStarts[row];
+        bool pastNearHexSide = i > rowStarts[row];
+        bool beforeFarHexSide = i < rowStarts[row] + rowCounts[row]-1;
+        int topSideCorrection = (topSide ? -1 : 0);
+        if (topSide || (!rightToLeft && pastNearHexSide) || (rightToLeft && beforeFarHexSide)) {
+          int rightToLeftCorrection = (rightToLeft ? -1 : 0);
+          int dl = (rowStarts[row+1] + rowCounts[row+1]) - indexInRow + topSideCorrection + rightToLeftCorrection;
           nodes[i]->named.dl = nodes[dl];
           nodes[dl]->named.ur = nodes[i];
         }
-        if (topSide || (!rightToLeft && i < rowStarts[row]+rowCounts[row]-1) || (rightToLeft && i > rowStarts[row])) {
-          int dr = (rowStarts[row+1] + rowCounts[row+1]) - (i - rowStarts[row]) + (topSide ? -1 : 0) + rightToLeftCorrection + (rightToLeft ? 1 : -1);
+        if (topSide || (!rightToLeft && beforeFarHexSide) || (rightToLeft && pastNearHexSide)) {
+          int rightToLeftCorrection = (rightToLeft ? 0 : -1);
+          int dr = (rowStarts[row+1] + rowCounts[row+1]) - indexInRow + topSideCorrection + rightToLeftCorrection;
           nodes[i]->named.dr = nodes[dr];
           nodes[dr]->named.ul = nodes[i];
         }
@@ -346,7 +364,6 @@ public:
   }
   HexGrid(T meridian, float spacing=0) : meridian(meridian), spacing(spacing) {
     // spacing == 0 means disable geometry features
-    
   }
   HexNode *operator[](uint16_t index) {
     return nodes[index];
@@ -390,9 +407,10 @@ public:
   Particle *particleMap[SIZE] = {0}; // map from physical led index to particle
   uint8_t accelScaling;
   uint8_t elasticity;
+  uint8_t elasticityMultiplier; // adds particle-to-particle bounce in case 100% isn't enough ;)
   HexGrid<PixelIndex> &hexGrid;
 public:
-  PixelPhysics(HexGrid<PixelIndex> &hexGrid, PixelIndex particleCount, uint8_t accelScaling, uint8_t elasticity) : hexGrid(hexGrid), accelScaling(accelScaling), elasticity(elasticity) {
+  PixelPhysics(HexGrid<PixelIndex> &hexGrid, PixelIndex particleCount, uint8_t accelScaling, uint8_t elasticity, uint8_t elasticityMultiplier=1) : hexGrid(hexGrid), accelScaling(accelScaling), elasticity(elasticity), elasticityMultiplier(elasticityMultiplier) {
     particles.reserve(particleCount);
     for (int i = 0; i < particleCount; ++i) {
       PixelIndex index;
@@ -416,7 +434,7 @@ public:
 
 private:
 
-  vector16 unitMotionAcrossBound(HexagonBounding bound) {
+  const vector16 unitMotionAcrossBound(HexagonBounding bound) {
     // point-down bound
     switch (bound) {
       case HexagonBounding::right:       return vector16( 222,  0)*2;
@@ -486,7 +504,7 @@ private:
           p.pos -= p.velocity;
           p2.pos -= p2.velocity;
           // convert p1 into p2's coordinate space
-          vector16 pos1 = p.pos - unitMotionAcrossBound(checkBound);
+          const vector16 pos1 = p.pos - unitMotionAcrossBound(checkBound);
           plogf("  pre-collision points in same coordinate space: p1=(%i, %i), p2=(%i, %i)", pos1.x, pos1.y, p2.pos.x, p2.pos.y);
           vector16 dp = p2.pos - pos1;
           vector16 dv = p2.velocity - p.velocity;
@@ -495,10 +513,9 @@ private:
           int dpDotDp = dp.dot(dp);
           plogf("    dpDotDv=%i, dpDotDp=%i", dpDotDv, dpDotDp);
           // assert(dpDotDp != 0, "points should not overlap");
-          const int mult = 1; // sometimes it's interesting to boost elasticity a lot
           if (dpDotDp != 0) {
-            vector16 dv1 = vector16(mult*dp.x * dpDotDv / dpDotDp, mult*dp.y * dpDotDv / dpDotDp);
-            vector16 dv2 = vector16(mult*dp.x * -dpDotDv / dpDotDp, mult*dp.y * -dpDotDv / dpDotDp);
+            vector16 dv1 = vector16(elasticityMultiplier*dp.x * dpDotDv / dpDotDp, elasticityMultiplier*dp.y * dpDotDv / dpDotDp);
+            vector16 dv2 = vector16(elasticityMultiplier*dp.x * -dpDotDv / dpDotDp, elasticityMultiplier*dp.y * -dpDotDv / dpDotDp);
             plogf("  unscaled dv1=(%i,%i) dv2=(%i,%i)", dv1.x, dv1.y, dv2.x, dv2.y);
             dv1 = dv1.scale8(elasticity);
             dv2 = dv2.scale8(elasticity);
@@ -550,7 +567,7 @@ private:
         int32_t t_q = abs(A * p.velocity.x + B * p.velocity.y);
         plogf("      t = %i/%i", t_p, t_q);
         if (t_p > t_q) {
-          // sometimes this happens when we do wall collision for a point already outside the wall
+          // this happens when we do wall collision for a point already outside the wall, since pixel-neighbor hexa shape is rotated compared to from wall shape
           plogf("    t_p > t_q, fixing..");
           t_q = t_p;
         }
@@ -570,10 +587,6 @@ private:
             // Update particle position after the collision
             p.pos.x = x_int + p.velocity.x * (t_q-t_p)/t_q;
             p.pos.y = y_int + p.velocity.y * (t_q-t_p)/t_q;
-            
-            // elasticity
-            p.velocity.x = scale16by8(abs(p.velocity.x), elasticity) * (p.velocity.x < 0 ? -1 : 1);
-            p.velocity.y = scale16by8(abs(p.velocity.y), elasticity) * (p.velocity.y < 0 ? -1 : 1);
         } else {
           plogf("No ricochet, is velocity 0?");
           // roll motion forward again so we don't get stuck
@@ -590,36 +603,61 @@ private:
     p.velocity.x = constrain(p.velocity.x, -0xFF, 0xFF);
     p.velocity.y = constrain(p.velocity.y, -0xFF, 0xFF);
   }
-
 public:
   void setPosition(int particleIndex, PixelIndex position) {
+    assert(particleMap[position] == NULL, "attempt to move one particle on top of another");
+    particleMap[particles[particleIndex]->index] = NULL;
+    particleMap[position] = particles[particleIndex];
+    particles[particleIndex]->index = position;
   }
 
-  void addParticle() {
+  void addParticle(PixelIndex index) {
+    assert(particles.size() < SIZE, "added too many particles");
+    if (particles.size() < SIZE) {
+      while (particleMap[index] != NULL) {
+        index = random16()%SIZE;
+      } 
+      Particle *p = new Particle();
+      p->index = index;
+      particles.emplace_back(p);
+      particleMap[index] = p;
+    }
   }
 
-  void removeParticle() {
+  void removeParticle(unsigned int particleIndex) {
+    Particle *p = particles[particleIndex];
+    particles.erase(std::next(particles.begin(), particleIndex));
+    particleMap[p->index] = NULL;
+    delete p;
   }
 
   void clear() {
+    typename vector<PixelPhysics<SIZE>::Particle *>::reverse_iterator it;
+    for (it = particles.rbegin(); it < particles.rend(); --it) {
+      delete *it;
+    }
+    particles.clear();
+    for (int i = 0; i < SIZE; ++i) {
+      particleMap[i] = NULL;
+    }
   }
 
   inline int16_t scaleAccel(int16_t val) {
     return min((int)0xFF, (int)max((int)-0xFF, (int)(accelScaling * val / 10000)));
   }
 
-  void update(vector16 accel) {
+  void update(std::function<vector16(PixelIndex)> accelForIndex) {
     // x across hexa (negative when button side down)
     // y vertical on hexa, (negative lipo usb down)
     // z through hexa, (negative leds up)
-    // plogf("physics accel = %i, %i, %i", agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
-    vector16 accelVector(scaleAccel(accel.x), scaleAccel(accel.y));
-    plogf("PHYSICS UPDATE scaled accel = %i, %i", accelVector.x, accelVector.y);
-    assert(abs(accelVector.x) <= 0xFF, "accelVector.x == %i", accelVector.x);
-    assert(abs(accelVector.y) <= 0xFF, "accelVector.y == %i", accelVector.y);
-
     vector<Particle *> lastParticles = particles;
     for (int p = 0; p < particles.size(); ++p) {
+      vector16 accelVector = accelForIndex(particles[p]->index);
+      accelVector = vector16(scaleAccel(accelVector.x), scaleAccel(accelVector.y));
+      // plogf("PHYSICS UPDATE scaled accel = %i, %i", accelVector.x, accelVector.y);
+      assert(abs(accelVector.x) <= 0xFF, "accelVector.x == %i", accelVector.x);
+      assert(abs(accelVector.y) <= 0xFF, "accelVector.y == %i", accelVector.y);
+
       // plogf("update motion, consider particle %i", p);
       particles[p]->velocity += accelVector;
       particles[p]->velocity.x = constrain(particles[p]->velocity.x, -0xFF, 0xFF);
@@ -629,7 +667,6 @@ public:
       // plogf("  p%i now has pos (%i, %i), velocity (%i, %i)", p, particles[p]->pos.x, particles[p]->pos.y, particles[p]->velocity.x, particles[p]->velocity.y);
     }
     for (int p = 0; p < particles.size(); ++p) {
-      // plogf("check collision, consider particle %i", p);
       updateParticleAtBound(p, *particles[p], HexagonBounding::right);
       updateParticleAtBound(p, *particles[p], HexagonBounding::topright);
       updateParticleAtBound(p, *particles[p], HexagonBounding::topleft);
@@ -637,6 +674,12 @@ public:
       updateParticleAtBound(p, *particles[p], HexagonBounding::bottomleft);
       updateParticleAtBound(p, *particles[p], HexagonBounding::bottomright);
     }
+  }
+
+  void update(vector16 accel) {
+    update([accel](PixelIndex index) {
+      return accel;
+    });
   }
 };
 

@@ -371,13 +371,9 @@ public:
 
 /* ------------------------------------------------------------------------------- */
 
-class TestPattern : public Pattern, PaletteRotation<CRGBPalette256> {
-public:
+struct HexaShells {
   vector<set<int> > shells = vector<set<int> >();
-  TestPattern() {
-    maxColorJump = 7;
-    secondsPerPalette = 20;
-
+  HexaShells() {
     uint8_t lit[LED_COUNT] = {0};
     shells.emplace_back();
     shells[0].insert(kHexaCenterIndex);
@@ -405,11 +401,20 @@ public:
       }
     }
   }
+};
+
+class PulseHexa : public Pattern, PaletteRotation<CRGBPalette256> {
+public:
+  HexaShells hexaShells;
+  PulseHexa() {
+    maxColorJump = 7;
+    secondsPerPalette = 20;
+  }
 
   void update() {
-    for (int s = 0 ; s < shells.size(); ++s) {
-      for (int px : shells[s]) {
-        uint8_t brightness = beatsin8(60, 0, 255, 0, -beatsin16(2, 250, 350)*s/shells.size());
+    for (int s = 0 ; s < hexaShells.shells.size(); ++s) {
+      for (int px : hexaShells.shells[s]) {
+        uint8_t brightness = beatsin8(60, 0, 255, 0, -beatsin16(2, 250, 350)*s/hexaShells.shells.size());
         brightness = scale8(brightness, brightness);
         // ctx.leds[px] = CHSV(millis()/20+s*10, 0xFF, brightness);
         CRGB c = this->getMirroredPaletteColor(millis()/100 + s*15);
@@ -420,7 +425,7 @@ public:
   }
 
   const char *description() {
-    return "TestPattern";
+    return "PulseHexa";
   }
 };
 
@@ -428,31 +433,87 @@ public:
 
 class BouncyPixels : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
-  const PixelIndex pixelCount = 6;
+  const PixelIndex pixelCount;
   PixelPhysics<LED_COUNT> physics;
-  BouncyPixels() : physics(hexGrid, pixelCount, 0x06, 0xFF) { //0x8F is pretty good
+  BouncyPixels(PixelIndex pixelCount, uint8_t accelScaling, uint8_t elasticity, uint8_t elasticityMultiplier=1) : physics(hexGrid, pixelCount, accelScaling, elasticity, elasticityMultiplier), pixelCount(pixelCount) {
     this->prepareTrackedColors(pixelCount);
     minBrightness = 50;
   }
-  ~BouncyPixels() {
-    this->releaseTrackedColors();
-  }
 
-  void update() {
+  virtual void update() {
     auto agmt = MotionManager::manager().agmt;
     // logf("physics accel = %i, %i, %i", agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
     ctx.leds.fill_solid(CRGB::Black);
+    // ctx.leds.fadeToBlackBy(20);
     vector16 accel(-agmt.acc.axes.x, agmt.acc.axes.y);
-    physics.update(accel);
+    // physics.update(accel);
+    auto gyro = MotionManager::manager().agmt.gyr.axes;
+    // logf("gyro = %03i, %03i, %03i", gyro.x, gyro.y, gyro.z);
+    /*
+    vector16 atPoint0 = MotionManager::manager().accelerationAtPixelIndex(0);
+    vector16 atPoint9 = MotionManager::manager().accelerationAtPixelIndex(9);
+    vector16 atPoint126 = MotionManager::manager().accelerationAtPixelIndex(126);
+    vector16 atPoint270 = MotionManager::manager().accelerationAtPixelIndex(270);
+    vector16 atPoint261 = MotionManager::manager().accelerationAtPixelIndex(261);
+    vector16 atPoint144 = MotionManager::manager().accelerationAtPixelIndex(144);
+    logf("gyro.z = %i, Acceleration at 6 points: (%i, %i), (%i, %i), (%i, %i), (%i, %i), (%i, %i), (%i, %i)", 
+                                      gyro.z,
+                                      atPoint0.x, atPoint0.y, 
+                                      atPoint9.x, atPoint9.y, 
+                                      atPoint126.x, atPoint126.y, 
+                                      atPoint270.x, atPoint270.y, 
+                                      atPoint261.x, atPoint261.y, 
+                                      atPoint144.x, atPoint144.y);*/
+    physics.update([accel](PixelIndex index) {
+      // UMPoint pos = hexGrid.position(index);
+      return MotionManager::manager().accelerationAtPixelIndex(index);
+    });
     int i = 0;
     for (PixelPhysics<LED_COUNT>::Particle *p : physics.particles) {
-      // ctx.leds[p->index] = getTrackedColor(i++);
-      ctx.leds[p->index] = CHSV(i++ * 0xFF/pixelCount, 0xFF, 0xFF);
+      CRGB color = getTrackedColor(i++);
+      // CRGB color = CHSV(i++ * 0xFF/pixelCount, 0xFF, 0xFF);
+      ctx.leds[p->index] = color;
     }
   }
 
-  const char *description() {
+  virtual const char *description() {
     return "BouncyPixels";
+  }
+};
+
+class TriBounce : public BouncyPixels {
+public:
+  TriBounce() : BouncyPixels(3, 0x07, 0xFF, 2) {
+  }
+  void update() {
+    BouncyPixels::update();
+    int i = 0;
+    for (PixelPhysics<LED_COUNT>::Particle *p : physics.particles) {
+      CRGB color = CHSV(i++ * 0xFF/pixelCount, 0xFF, 0xFA);
+      ctx.leds[p->index] = color;
+    }
+  }
+  const char *description() {
+    return "TriBounce";
+  }
+};
+
+class PixelDust : public BouncyPixels {
+public:
+  PixelDust() : BouncyPixels(60, 0x07, 0xF4) {
+  }
+  const char *description() {
+    return "PixelDust";
+  }
+};
+
+class RandomDust : public BouncyPixels {
+public:
+  RandomDust() : BouncyPixels(random8(100)+1, random8(20), random8(255)) {
+    logf("RandomDust chose pixelCount=%i, accelScaling=%i, elasticity=%i", physics.particles.size(), physics.accelScaling, physics.elasticity);
+  }
+  const char *description() {
+    return "RandomDust";
   }
 };
 

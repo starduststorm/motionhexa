@@ -44,6 +44,11 @@ I2S i2s(INPUT);
 
 #define WAIT_FOR_SERIAL 1
 
+#define PHOTOSENSOR_POWER_PIN 28
+#define PHOTOSENSOR_READ_PIN 29
+
+PhotoSensorBrightness *autoBrightness;
+
 DrawingContext ctx;
 HardwareControls controls;
 
@@ -106,8 +111,6 @@ void serialTimeoutIndicator() {
   delay(20);
 }
 
-int framelimit = 120;
-
 void setup() {
   init_serial();
   randomSeed(lsb_noise(UNCONNECTED_PIN_1, 8 * sizeof(uint32_t)));
@@ -120,47 +123,52 @@ void setup() {
 
   SPSTButton *button = controls.addButton(25);
   button->onSinglePress([]() {
-    if (framelimit == 5) {
-      framelimit = 120;
-    } else {
-      framelimit = 5;
-    }
+    patternManager.nextPattern();
+  });
+  button->onDoublePress([]() {
+    patternManager.previousPattern();
+  });
+  button->onLongPress([]() {
+    DrawModal(120, 400, [](unsigned long elapsed) {
+      ctx.leds.fadeToBlackBy(30);
+      for (int i=0; i < 3; ++i) {
+        ctx.leds[random16()%LED_COUNT] = CRGB::White;
+      }
+    });
+    patternManager.enablePatternAutoRotate();
   });
   
-
-  fc.tick();
-
-  patternManager.setup();
-
   initLEDGraph();
   assert(ledgraph.adjList.size() == LED_COUNT, "adjlist size should match LED_COUNT");
 
-  
-  gpio_init(11);
-  gpio_set_dir(11, GPIO_OUT);
+  patternManager.setup();
 
+  autoBrightness = new PhotoSensorBrightness(PHOTOSENSOR_READ_PIN, PHOTOSENSOR_POWER_PIN);
+  autoBrightness->flipSensor = true;
+  autoBrightness->maxBrightness = 0x15; // conservative max brightness here because we have no thermistor to prevent thermal damage
+
+  fc.tick();
   setupDoneTime = millis();
 } 
 
-// drawing
-
-void drawLoop() {
-  // TODO: brightness update from sensor
-
-  FastLED.show();
-  fc.tick();
-  fc.clampToFramerate(framelimit);
-}
-
 void startupWelcome() {
-  int welcomeDuration = 500;
+  int welcomeDuration = 666;
 
   ctx.leds.fill_solid(CRGB::Black);
 
-  DrawModal(120, welcomeDuration, [](unsigned long elapsed) {
-    
-    drawLoop();
-  });
+  HexaShells hexaShells;
+   uint8_t hue = random8();
+   DrawModal(120, welcomeDuration, [hue, welcomeDuration, hexaShells](unsigned long elapsed) {
+     FastLED.setBrightness(3);
+     int s = hexaShells.shells.size() * elapsed / (welcomeDuration/3);
+     ctx.leds.fadeToBlackBy(66 - 44 * min(s,hexaShells.shells.size())/hexaShells.shells.size());
+     if (s < hexaShells.shells.size()) {
+       for (int px : hexaShells.shells[s]) {
+         uint8_t b = 0xFF - 0x66 * s/hexaShells.shells.size();
+         ctx.leds[px] = CHSV(hue, b, b);
+       }
+     }
+   });
   ctx.leds.fill_solid(CRGB::Black);
   FastLED.show();
 }
@@ -171,21 +179,18 @@ void loop() {
     return;
   }
 
-  // int32_t l, r;
-  // i2s.read32(&l, &r);
-  // Serial.printf("%d %d\r\n", l, r);
-
   static bool firstLoop = true;
   if (firstLoop) {
     startupWelcome();
     firstLoop = false;
   }
 
-  FastLED.setBrightness(0x20);
   patternManager.loop();
   controls.update();
-  
-  // graphTest(ctx);
-  drawLoop();
+  autoBrightness->loop();
+
+  FastLED.show();
+  fc.tick();
+  fc.clampToFramerate(120);
 }
 

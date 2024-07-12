@@ -109,9 +109,10 @@ void DrawModal(int fps, unsigned long durationMillis, std::function<void(unsigne
   unsigned long start = millis();
   unsigned long elapsed = 0;
   do {
+    unsigned long startMils = millis();
     tick(elapsed);
     FastLED.show();
-    FastLED.delay(delayMillis);
+    FastLED.delay(max(0, delayMillis - (millis()-startMils)));
     elapsed = millis() - start;
   } while (elapsed < durationMillis);
 }
@@ -155,6 +156,46 @@ class FrameCounter {
       }
       lastClamp = millis();
     }
+};
+
+class PhotoSensorBrightness {
+  int powerPin;
+  int readPin;
+  
+public:
+  bool flipSensor = false;
+  uint8_t minBrightness = 2;
+  uint8_t maxBrightness = 0xFF;
+  PhotoSensorBrightness(int readPin, int powerPin=-1) : readPin(readPin), powerPin(powerPin) {
+    gpio_init(readPin);
+    gpio_set_dir(readPin, GPIO_IN);
+    if (powerPin != -1) {
+      gpio_init(powerPin);
+      gpio_set_dir(powerPin, GPIO_OUT);
+    }
+  }
+  void loop() {
+    if (powerPin != -1) {
+      gpio_put(powerPin, true);
+    }
+    int photoRead = analogRead(readPin);
+    // TODO: leaving photosensor power pin on because otherwise results are inconsistent
+    if (powerPin != -1) {
+      // gpio_put(powerPin, false);
+    }
+    uint8_t targetBrightness = 0xFF * min(0x400, photoRead) / 0x400;
+    if (flipSensor) {
+      targetBrightness = 0xFF - targetBrightness;
+    }
+    targetBrightness = max(minBrightness, scale8(targetBrightness, maxBrightness));
+    uint8_t currentBrightness = FastLED.getBrightness();
+    int diff = targetBrightness - currentBrightness;
+    if (abs(diff) > 2) {
+      uint8_t nextBrightness = currentBrightness + (diff < 0 ? -1 : 1);
+      logf("currentBrightness=%i, targetBrightness=%i, setBrightness->%i", currentBrightness, targetBrightness, nextBrightness);
+      FastLED.setBrightness(nextBrightness);
+    }
+  }
 };
 
 template <uint8_t SIZE>

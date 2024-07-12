@@ -5,12 +5,10 @@
 #include <functional>
 #include <map>
 #include <vector>
-// #include <Adafruit_ICM20X.h>
-// #include <Adafruit_BNO055.h>
-// #include <Adafruit_ICM20948.h>
-// #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <ICM_20948.h>
+
+#include "hexaphysics.h"
 
 #define kTestTwirlBPM 0 // 0 for off, 5 is slowish, 17 is enough to trigger rotation overlays
 
@@ -21,10 +19,6 @@ typedef enum : unsigned int {
 
 typedef std::function<void()> ActivityHandler;
 typedef std::map<const char *, ActivityHandler> ActivityHandlerMap;
-
-struct Euler {
-  float pitch,roll,yaw; // FIXME: convert to integer math
-};
 
 class MotionManager {
 protected:
@@ -41,13 +35,6 @@ private:
   unsigned int retainCount;
   std::vector<ActivityHandlerMap> activityHandlers;
 
-  // std::map<Adafruit_BNO055::adafruit_vector_type_t, sensors_event_t> eventMap;
-  
-  // inline void cacheEventType(Adafruit_BNO0::adafruit_vector_type_t type) {
-  //   sensors_event_t event;
-  //   bno.getEvent(&event, type);
-  //   eventMap[type] = event;
-  // }
   ICM_20948_I2C icm;
   void initDMP() {
     logf("Init DMP...");
@@ -117,9 +104,8 @@ public:
   bool init(TwoWire *wire=&Wire) {
     logf("motionManager INIT");
     icm.begin(Wire, 0);
-    // hasSensor = icm.begin_I2C(0b1101000);
     hasSensor = (icm.status == ICM_20948_Stat_Ok);
-    logf("ICM20948 init = %i", hasSensor);
+    logf("  ICM20948 init = %i", hasSensor);
     if (hasSensor) {
       if (enableDMP) {
         initDMP();
@@ -146,10 +132,26 @@ public:
   //   }
   //   return eventMap[type];
   // }
+  vector16 accelerationAtPixelIndex(PixelIndex index) {
+    // imu_pos = 8.0506, 22.9692 # 108.0506, 77.0308 relative to 100,100 center
+    UMPoint P = UMPoint::fromMM(8.0506, -22.9692); // FIXME: can this be constexpr?
+    UMPoint Q = hexGrid.position(index); // in um
+    vector16 accel(-agmt.acc.axes.x, agmt.acc.axes.y);
+    // vector16 gyro(agmt.gyr.axes.x, agmt.gyr.axes.y);
+    // gyro = gyro / 1000;
+    // gyro = gyro.scale8(0x02);
+    // logf("accelerationAtPixelIndex(%03i), Q=(%i,%i), accel=(%i,%i), gryo=(%i, %i)", index, Q.x, Q.y, accel.x, accel.y, gyro.x, gyro.y);
 
-  void accelerationAtPixelIndex(PixelIndex index) {
-    UMPoint pos = hexGrid.position(index); // in um
+    // FIXME: doesn't work, oversimplified
 
+    UMPoint P2Q = Q - P;
+    if (index == 0 || index == 270) {
+      // logf("index %i P2Q = (%i, %i)", index, P2Q.x, P2Q.y);
+    }
+    auto ω_z = agmt.gyr.axes.z / 15000;
+    auto vec = vector16(accel.x + ω_z*ω_z * P2Q.x, accel.y + ω_z*ω_z * P2Q.y);
+    // logf("  => (%i, %i)", vec.x, vec.y);
+    return vec;
   }
 
   ICM_20948_AGMT_t agmt = {0};
@@ -162,24 +164,7 @@ public:
     if (!enableDMP) {
       return;
     }
-    
-    // eventMap.clear(); // new frame new events
-    // twirlCached = false;
 
-    // sensors_event_t accel = event(Adafruit_BNO055::VECTOR_ACCELEROMETER);
-
-    // sensors_event_t linear_accel = event(Adafruit_BNO055::VECTOR_LINEARACCEL);
-
-    // logf("accel, lin_accel: (%0.3f, %0.3f)", accel.acceleration.x, linear_accel.acceleration.x);
-
-
-    // Read any DMP data waiting in the FIFO
-    // Note:
-    //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFONoDataAvail if no data is available.
-    //    If data is available, readDMPdataFromFIFO will attempt to read _one_ frame of DMP data.
-    //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFOIncompleteData if a frame was present but was incomplete
-    //    readDMPdataFromFIFO will return ICM_20948_Stat_Ok if a valid frame was read.
-    //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFOMoreDataAvail if a valid frame was read _and_ the FIFO contains more (unread) data.
     icm_20948_DMP_data_t data;
     icm.readDMPdataFromFIFO(&data);
 
@@ -242,63 +227,6 @@ public:
       }
     }
   }
-
-  // accelerationAtPoint()
-  /*
-  Ok, let's apply. Acceleration (Ax, Ay, Az) and gyroscope (Gx, Gy, Gz) are sampled in the local (moving) reference frame. 
-  The distance (r_p) and angle (theta_p) from the sensor to the center of the disc is also known. 
-  Write pseudo code to compute the acceleration experienced at point Q on the disc.
-
-
-  # Define required functions
-def cross_product(v1, v2):
-    """ Calculate cross product of two vectors v1 and v2 """
-    return [v1[1]*v2[2] - v1[2]*v2[1], 
-            v1[2]*v2[0] - v1[0]*v2[2], 
-            v1[0]*v2[1] - v1[1]*v2[0]]
-
-def rotate_vector(v, theta):
-    """ Rotate vector v by angle theta in the plane """
-    return [v[0] * cos(theta) - v[1] * sin(theta),
-            v[0] * sin(theta) + v[1] * cos(theta),
-            v[2]]
-
-# Inputs
-Ax, Ay, Az = 0.0, 0.0, 0.0  # Acceleration at P (local frame)
-Gx, Gy, Gz = 0.0, 0.0, 0.0  # Gyroscope readings at P (angular velocity in rad/s)
-r_p, theta_p = 0.0, 0.0     # Distance and angle from sensor P to center C
-r_q, theta_q = 0.0, 0.0     # Distance and angle from point Q to center C
-
-# Convert polar coordinates to cartesian in the disc's local frame
-x_p = r_p * cos(theta_p)
-y_p = r_p * sin(theta_p)
-x_q = r_q * cos(theta_q)
-y_q = r_q * sin(theta_q)
-
-# Angular velocity vector
-omega = [Gx, Gy, Gz]
-
-# Tangential velocity at P due to rotation
-v_p_tan = cross_product(omega, [x_p, y_p, 0])
-
-# Rotational acceleration contributions at P
-a_p_rot = [- (Gx**2 + Gy**2 + Gz**2) * x_p, - (Gx**2 + Gy**2 + Gz**2) * y_p, 0]
-a_p_rot = [a_p_rot[i] + 2 * cross_product(omega, v_p_tan)[i] for i in range(3)]
-
-# Calculate center acceleration
-a_c = [Ax - a_p_rot[0], Ay - a_p_rot[1], Az - a_p_rot[2]]
-
-# Calculate acceleration at Q
-v_q_tan = cross_product(omega, [x_q, y_q, 0])  # Tangential velocity at Q due to rotation
-a_q_rot = [- (Gx**2 + Gy**2 + Gz**2) * x_q, - (Gx**2 + Gy**2 + Gz**2) * y_q, 0]
-a_q_rot = [a_q_rot[i] + 2 * cross_product(omega, v_q_tan)[i] for i in range(3)]
-a_q = [a_c[0] + a_q_rot[0], a_c[1] + a_q_rot[1], a_c[2] + a_q_rot[2]]
-
-# Output acceleration at Q in the local frame
-print("Acceleration at Q:", a_q)
-
-
-  */
 
 private:
   float twirlVelocityAccum;

@@ -62,11 +62,11 @@ public:
     }
   }
 
-  void point(uint8_t x, uint8_t y, CRGB c) {
+  void point(uint16_t x, uint16_t y, CRGB c, BlendMode blendMode = blendSourceOver) {
     assert(x < WIDTH, "x=%u is out of range [0,%u]", width-1);
     assert(y < HEIGHT, "x%u is out of range [0,%u]", height-1);
     if (x < width && y < height) {
-      set_px(*this, c, WIDTH*y + x, blendSourceOver, 0xFF);
+      set_px(*this, c, WIDTH*y + x, blendMode, 0xFF);
     }
   }
 };
