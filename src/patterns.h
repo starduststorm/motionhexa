@@ -438,6 +438,7 @@ public:
   BouncyPixels(PixelIndex pixelCount, uint8_t accelScaling, uint8_t elasticity, uint8_t elasticityMultiplier=1) : physics(hexGrid, pixelCount, accelScaling, elasticity, elasticityMultiplier), pixelCount(pixelCount) {
     this->prepareTrackedColors(pixelCount);
     minBrightness = 50;
+    mirrorTrackedColors = true;
   }
 
   virtual void update() {
@@ -470,7 +471,7 @@ public:
     });
     int i = 0;
     for (PixelPhysics<LED_COUNT>::Particle *p : physics.particles) {
-      CRGB color = getTrackedColor(i++);
+      CRGB color = getTrackedColor(i++, 0);
       // CRGB color = CHSV(i++ * 0xFF/pixelCount, 0xFF, 0xFF);
       ctx.leds[p->index] = color;
     }

@@ -806,7 +806,7 @@ private:
   PaletteType currentPalette;
   PaletteType targetPalette;
 protected:
-  uint8_t *colorIndexes = NULL;
+  uint16_t *colorIndexes = NULL;
 private:
   uint8_t colorIndexCount = 0;
 
@@ -819,6 +819,7 @@ public:
   uint8_t minBrightness = 0;
   uint8_t maxColorJump = 0xFF;
   bool pauseRotation = false;
+  bool mirrorTrackedColors; // uses a mod 0x200 colorIndex as input
   
   PaletteRotation(int minBrightness=0) {
     this->minBrightness = minBrightness;
@@ -855,32 +856,42 @@ public:
     assignPalette(&currentPalette);
   }
 
+  CRGB getPaletteColor(PaletteType& palette, uint8_t n, uint8_t brightness=0xFF) {
+    return ColorFromPalette(palette, n, brightness);
+  }
+
   CRGB getPaletteColor(uint8_t n, uint8_t brightness = 0xFF) {
-    return ColorFromPalette(getPalette(), n, brightness);
+    return getPaletteColor(getPalette(), n, brightness);
   }
 
-  CRGB getMirroredPaletteColor(uint16_t n, uint8_t brightness = 0xFF) {
-    n = n % 0x200 - 2;
-    if (n < 0xFF) {
-      return ColorFromPalette(getPalette(), n, brightness);
-    } else {
-      n-=0xFF;
-      return ColorFromPalette(getPalette(), 0xFF-n, brightness);
+  CRGB getMirroredPaletteColor(PaletteType& palette, uint16_t n, uint8_t brightness = 0xFF, uint8_t *outColorIndex=NULL) {
+    n = n % 0x200;
+    if (n >= 0x100) {
+      n = 0x200 - n - 1;
     }
+    if (outColorIndex) {
+      *outColorIndex = n;
+    }
+    return ColorFromPalette(palette, n, brightness);
   }
 
-  CRGB getTrackedColor(uint8_t n, uint8_t *colorIndex=NULL) {
+  CRGB getMirroredPaletteColor(uint16_t n, uint8_t brightness = 0xFF, uint8_t *outColorIndex=NULL) {
+    return getMirroredPaletteColor(getPalette(), n, brightness, outColorIndex);
+  }
+
+  CRGB getTrackedColor(uint8_t n, uint8_t shiftBy=1, uint8_t *colorIndex=NULL) {
     assert(n < colorIndexCount, "getTrackedColor: index (%u) must be less than tracked color count (%u)", n, colorIndexCount);
     if (n >= colorIndexCount) {
       return CRGB::Black;
     }
     PaletteType& palette = getPalette();
-    CRGB color = ColorFromPalette(palette, colorIndexes[n]);
-    while (linearBrightness(color) < minBrightness) {
-      colorIndexes[n] = addmod8(colorIndexes[n], 1, 0xFF);
-      color = ColorFromPalette(palette, colorIndexes[n]);
-    }
-    if (colorIndex) {
+    CRGB color;
+    do {
+      colorIndexes[n] = (colorIndexes[n] + shiftBy) % (mirrorTrackedColors ? 0x200 : 0x100);
+      shiftBy = (shiftBy > 0 ? 1 : 0); // only shift by more than 1 on the first loop, if requested
+      color = (mirrorTrackedColors ? getMirroredPaletteColor(palette, colorIndexes[n], 0xFF, colorIndex) : getPaletteColor(palette, colorIndexes[n]));
+    } while (linearBrightness(color) < minBrightness);
+    if (colorIndex && !mirrorTrackedColors) {
       *colorIndex = colorIndexes[n];
     }
     return color;
@@ -888,7 +899,7 @@ public:
 
   void shiftTrackedColors(uint8_t addend) {
     for (unsigned i = 0; i < colorIndexCount; ++i) {
-      colorIndexes[i] = addmod8(colorIndexes[i], addend, 0xFF);
+      colorIndexes[i] = (colorIndexes[i] + addend) % (mirrorTrackedColors ? 0x200 : 0x100);
     }
   }
 
@@ -897,7 +908,7 @@ public:
       delete [] colorIndexes;
     }
     colorIndexCount = count;
-    colorIndexes = new uint8_t[colorIndexCount];
+    colorIndexes = new uint16_t[colorIndexCount];
     for (unsigned i = 0; i < colorIndexCount; ++i) {
       colorIndexes[i] = paletteCyles * 0xFF * i / colorIndexCount;
     }
