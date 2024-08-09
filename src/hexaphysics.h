@@ -365,6 +365,11 @@ public:
   HexGrid(T meridian, float spacing=0) : meridian(meridian), spacing(spacing) {
     // spacing == 0 means disable geometry features
   }
+  ~HexGrid() {
+    for (int i = nodes.size()-1; i >=0; --i) {
+      delete nodes[i];
+    }
+  }
   HexNode *operator[](uint16_t index) {
     return nodes[index];
   }

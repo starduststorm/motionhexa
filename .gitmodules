@@ -1,0 +1,3 @@
+[submodule "lib/dustlib"]
+	path = lib/dustlib
+	url = git@github.com:starduststorm/dustlib.git
