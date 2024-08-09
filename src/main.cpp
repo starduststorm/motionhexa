@@ -31,18 +31,18 @@ I2S i2s(INPUT);
 #define FASTLED_USE_GLOBAL_BRIGHTNESS 1
 #define FASTLED_ALLOW_INTERRUPTS 0
 #include <FastLED.h>
+#include <functional>
 
-#include "util.h"
+#include <util.h>
+
 #include "drawing.h"
 #include "PatternManager.h"
 #include "ledgraph.h"
 #include "controls.h"
 
-#include <functional>
-
 #include "MotionManager.h"
 
-#define WAIT_FOR_SERIAL 1
+#define WAIT_FOR_SERIAL 0
 
 #define PHOTOSENSOR_POWER_PIN 28
 #define PHOTOSENSOR_READ_PIN 29
@@ -147,7 +147,6 @@ void setup() {
   autoBrightness->flipSensor = true;
   autoBrightness->maxBrightness = 0x15; // conservative max brightness here because we have no thermistor to prevent thermal damage
 
-  fc.tick();
   setupDoneTime = millis();
 } 
 
@@ -188,9 +187,9 @@ void loop() {
   patternManager.loop();
   controls.update();
   autoBrightness->loop();
+  
 
   FastLED.show();
-  fc.tick();
+  fc.loop();
   fc.clampToFramerate(120);
 }
-

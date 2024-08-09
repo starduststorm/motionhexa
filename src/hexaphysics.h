@@ -5,7 +5,7 @@
 #include <optional>
 #include <FastLED.h>
 
-#include "util.h"
+#include <util.h>
 
 using namespace std;
 

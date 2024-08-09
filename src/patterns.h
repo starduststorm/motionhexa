@@ -6,8 +6,9 @@
 #include <functional>
 #include <optional>
 
-#include "util.h"
-#include "palettes.h"
+#include <util.h>
+#include <paletting.h>
+
 #include "ledgraph.h"
 #include "drawing.h"
 #include "MotionManager.h"
@@ -437,7 +438,7 @@ public:
   PixelPhysics<LED_COUNT> physics;
   BouncyPixels(PixelIndex pixelCount, uint8_t accelScaling, uint8_t elasticity, uint8_t elasticityMultiplier=1) : physics(hexGrid, pixelCount, accelScaling, elasticity, elasticityMultiplier), pixelCount(pixelCount) {
     this->prepareTrackedColors(pixelCount);
-    minBrightness = 50;
+    minBrightness = 15;
     mirrorTrackedColors = true;
   }
 
