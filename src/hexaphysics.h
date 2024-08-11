@@ -370,7 +370,7 @@ public:
       delete nodes[i];
     }
   }
-  HexNode *operator[](uint16_t index) {
+  HexNode *operator[](uint16_t index) const {
     return nodes[index];
   }
 };
@@ -413,9 +413,9 @@ public:
   uint8_t accelScaling;
   uint8_t elasticity;
   uint8_t elasticityMultiplier; // adds particle-to-particle bounce in case 100% isn't enough ;)
-  HexGrid<PixelIndex> &hexGrid;
+  const HexGrid<PixelIndex> &hexGrid;
 public:
-  PixelPhysics(HexGrid<PixelIndex> &hexGrid, PixelIndex particleCount, uint8_t accelScaling, uint8_t elasticity, uint8_t elasticityMultiplier=1) : hexGrid(hexGrid), accelScaling(accelScaling), elasticity(elasticity), elasticityMultiplier(elasticityMultiplier) {
+  PixelPhysics(const HexGrid<PixelIndex> &hexGrid, PixelIndex particleCount, uint8_t accelScaling, uint8_t elasticity, uint8_t elasticityMultiplier=1) : hexGrid(hexGrid), accelScaling(accelScaling), elasticity(elasticity), elasticityMultiplier(elasticityMultiplier) {
     particles.reserve(particleCount);
     for (int i = 0; i < particleCount; ++i) {
       PixelIndex index;
@@ -430,11 +430,9 @@ public:
   }
 
   ~PixelPhysics() {
-    logf("~PixelPhysics");
     for (Particle *p : particles) {
       delete p;
     }
-    logf("~PixelPhysics done");
   }
 
 private:
@@ -476,7 +474,7 @@ private:
     return bounds;
   }
 
-  HexGrid<PixelIndex>::HexNode *dstForMotion(Particle &p, HexagonBounding bounding) {
+  HexGrid<PixelIndex>::HexNode *dstForMotion(const Particle &p, HexagonBounding bounding) {
     switch (bounding) {
       case HexagonBounding::right:       return hexGrid[p.index]->named.r;
       case HexagonBounding::topright:    return hexGrid[p.index]->named.ur;
