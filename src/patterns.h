@@ -8,68 +8,12 @@
 
 #include <util.h>
 #include <paletting.h>
+#include <patterning.h>
 
 #include "ledgraph.h"
 #include "drawing.h"
 #include "MotionManager.h"
 #include "hexaphysics.h"
-
-class Pattern {
-private:  
-  long startTime = -1;
-  long stopTime = -1;
-  long lastUpdateTime = -1;
-public:
-  DrawingContext ctx;
-  virtual ~Pattern() { }
-
-  void start() {
-    logf("Starting %s", description());
-    startTime = millis();
-    stopTime = -1;
-    setup();
-  }
-
-  void loop() {
-    update();
-    lastUpdateTime = millis();
-  }
-
-  virtual bool wantsToIdleStop() {
-    return true;
-  }
-
-  virtual bool wantsToRun() {
-    // for idle patterns that require microphone input and may opt not to run if there is no sound
-    return true;
-  }
-
-  virtual void setup() { }
-
-  void stop() {
-    logf("Stopping %s", description());
-    startTime = -1;
-  }
-
-  virtual void update() { }
-  
-  virtual const char *description() = 0;
-
-public:
-  bool isRunning() {
-    return startTime != -1;
-  }
-
-  unsigned long runTime() {
-    return startTime == -1 ? 0 : millis() - startTime;
-  }
-
-  unsigned long frameTime() {
-    return (lastUpdateTime == -1 ? 0 : millis() - lastUpdateTime);
-  }
-};
-
-/* ------------------------------------------------------------------------------------------------------ */
 
 // a lil patternlet that can be instantiated to run bits
 class BitsFiller {
@@ -404,6 +348,7 @@ struct HexaShells {
   }
 };
 
+// FIXME: pull out PaletteRotation in favor of sharedColorManager?
 class PulseHexa : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
   HexaShells hexaShells;
@@ -437,9 +382,7 @@ public:
   const PixelIndex pixelCount;
   PixelPhysics<LED_COUNT> physics;
   BouncyPixels(PixelIndex pixelCount, uint8_t accelScaling, uint8_t elasticity, uint8_t elasticityMultiplier=1) : physics(hexGrid, pixelCount, accelScaling, elasticity, elasticityMultiplier), pixelCount(pixelCount) {
-    this->prepareTrackedColors(pixelCount);
     minBrightness = 15;
-    mirrorTrackedColors = true;
   }
 
   virtual void update() {
@@ -472,7 +415,7 @@ public:
     });
     int i = 0;
     for (PixelPhysics<LED_COUNT>::Particle *p : physics.particles) {
-      CRGB color = getTrackedColor(i++, 0);
+      CRGB color = getShiftingPaletteColor(0xFF * i / physics.particles.size());
       // CRGB color = CHSV(i++ * 0xFF/pixelCount, 0xFF, 0xFF);
       ctx.leds[p->index] = color;
     }

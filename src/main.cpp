@@ -33,16 +33,18 @@ I2S i2s(INPUT);
 #include <FastLED.h>
 #include <functional>
 
+#define DUSTLIB_SHARED_COLORMANAGER true
 #include <util.h>
+#include <patterning.h>
 
 #include "drawing.h"
-#include "PatternManager.h"
+#include "patterns.h"
 #include "ledgraph.h"
 #include "controls.h"
 
 #include "MotionManager.h"
 
-#define WAIT_FOR_SERIAL 0
+#define WAIT_FOR_SERIAL 1
 
 #define PHOTOSENSOR_POWER_PIN 28
 #define PHOTOSENSOR_READ_PIN 29
@@ -119,23 +121,25 @@ void setup() {
   init_i2c();
   init_i2s();
   init_spi();
+
+  MotionManager::manager().init();
+  
   FastLED.addLeds<SK9822, LED_SPI0_TX, LED_SPI0_SCK, BGR, DATA_RATE_MHZ(16)>(ctx.leds, LED_COUNT);//.setCorrection(0xFFB0C0);
 
+  // patternManager.setTestPattern<PulseHexa>();
+  
+  patternManager.registerPattern<PulseHexa>();
+  patternManager.registerPattern<TriBounce>();
+  patternManager.registerPattern<PixelDust>();
+  patternManager.registerPattern<RandomDust>();
+  
+  IndexedPatternRunner *indexedRunner = patternManager.setupIndexedPattern(1);
   SPSTButton *button = controls.addButton(25);
-  button->onSinglePress([]() {
-    patternManager.nextPattern();
+  button->onSinglePress([indexedRunner]() {
+    indexedRunner->nextPattern();
   });
-  button->onDoublePress([]() {
-    patternManager.previousPattern();
-  });
-  button->onLongPress([]() {
-    DrawModal(120, 400, [](unsigned long elapsed) {
-      ctx.leds.fadeToBlackBy(30);
-      for (int i=0; i < 3; ++i) {
-        ctx.leds[random16()%LED_COUNT] = CRGB::White;
-      }
-    });
-    patternManager.enablePatternAutoRotate();
+  button->onDoublePress([indexedRunner]() {
+    indexedRunner->previousPattern();
   });
   
   initLEDGraph();
@@ -184,11 +188,12 @@ void loop() {
     firstLoop = false;
   }
 
+  MotionManager::manager().loop();
+
   patternManager.loop();
   controls.update();
   autoBrightness->loop();
   
-
   FastLED.show();
   fc.loop();
   fc.clampToFramerate(120);

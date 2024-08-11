@@ -4,14 +4,7 @@
 
 #include <stack>
 #include <FastLED.h>
-
-// Workaround for linker issues when using copy-constructors for DrawStyle struct (since something is built with -fno-exceptions)
-// https://forum.pjrc.com/threads/57192-Teensy-4-0-linker-issues-with-STL-libraries
-extern "C"{
-  int __exidx_start(){ return -1;}
-  int __exidx_end(){ return -1; }
-}
-//
+#include <util.h>
 
 enum BlendMode {
   blendSourceOver, blendBrighten, blendDarken, blendSubtract, /* add blending? but how to encode alpha? need CRGBA buffers, probs not worth it with current resolution */
@@ -20,53 +13,55 @@ enum BlendMode {
 struct DrawStyle {
 public:
   BlendMode blendMode = blendSourceOver;
-  bool wrap = false;
 };
 
-template<uint16_t WIDTH, uint16_t HEIGHT, class PixelType, typename PixelSetType>
-class CustomDrawingContext {
+template<int COUNT, class PixelType=CRGB, template<int SIZE> typename PixelSetType=CRGBArray>
+class PixelStorage {
 private:
-  void set_px(CustomDrawingContext<WIDTH, HEIGHT, PixelType, PixelSetType> &dstCtx, PixelType src, int index, BlendMode blendMode, uint8_t brightness) {
+  inline void set_px(PixelType src, int index, BlendMode blendMode, uint8_t brightness) {
     src.nscale8(brightness);
     switch (blendMode) {
       case blendSourceOver:
-        dstCtx.leds[index] = src;
+        leds[index] = src;
         break;
       case blendBrighten: {
-        PixelType dst = dstCtx.leds[index];
-        dstCtx.leds[index] = PixelType(std::max(src.r, dst.r), std::max(src.g, dst.g), std::max(src.b, dst.b));
+        PixelType dst = leds[index];
+        leds[index] = PixelType(std::max(src.r, dst.r), std::max(src.g, dst.g), std::max(src.b, dst.b));
         break;
       }
       case blendDarken: {
-        PixelType dst = dstCtx.leds[index];
-        dstCtx.leds[index] = PixelType(std::min(src.r, dst.r), std::min(src.g, dst.g), std::min(src.b, dst.b));
+        PixelType dst = leds[index];
+        leds[index] = PixelType(std::min(src.r, dst.r), std::min(src.g, dst.g), std::min(src.b, dst.b));
+        break;
       }
       case blendSubtract: {
-        PixelType dst = dstCtx.leds[index];
-        dstCtx.leds[index] = dst - src;
+        PixelType dst = leds[index];
+        leds[index] = dst - src;
+        break;
       }
     }
   }
 public:
-  PixelSetType leds;
-  const uint16_t width = WIDTH;
-  const uint16_t height = HEIGHT;
-  CustomDrawingContext() {  
+  PixelSetType<COUNT> leds;
+  const uint16_t count;
+  PixelStorage() : count(COUNT) {
     leds.fill_solid(CRGB::Black);
   }
   
-  void blendIntoContext(CustomDrawingContext<WIDTH, HEIGHT, PixelType, PixelSetType> &otherContext, BlendMode blendMode, uint8_t brightness=0xFF) {
-    assert(otherContext.leds.size() == this->leds.size(), "context blending requires same-size buffers");
-    for (int i = 0; i < leds.size(); ++i) {
-      set_px(otherContext, leds[i], i, blendMode, brightness);
+  void blendIntoContext(PixelStorage<COUNT, PixelType, PixelSetType> &otherContext, BlendMode blendMode, uint8_t brightness=0xFF) {
+    if (brightness > 0) {
+      // TODO: if blendMode is sourceOver can we use memcpy?
+      assert(otherContext.leds.size() == this->leds.size(), "context blending requires same-size buffers");
+      for (int i = 0; i < leds.size(); ++i) {
+        otherContext.set_px(leds[i], i, blendMode, brightness);
+      }
     }
   }
 
-  void point(uint16_t x, uint16_t y, CRGB c, BlendMode blendMode = blendSourceOver) {
-    assert(x < WIDTH, "x=%u is out of range [0,%u]", width-1);
-    assert(y < HEIGHT, "x%u is out of range [0,%u]", height-1);
-    if (x < width && y < height) {
-      set_px(*this, c, WIDTH*y + x, blendMode, 0xFF);
+  void point(unsigned int index, CRGB c, BlendMode blendMode = blendSourceOver) {
+    assert(index < COUNT, "index=%u is out of range [0,%u]", count-1);  
+    if (index < COUNT) {
+      set_px(index, blendMode, 0xFF);
     }
   }
 };

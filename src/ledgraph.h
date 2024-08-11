@@ -201,8 +201,7 @@ void initLEDGraph() {
     }
 };
 
-// FIXME: can this not have to encode the count this way?
-typedef CustomDrawingContext<LED_COUNT, 1, CRGB, CRGBArray<LED_COUNT> > DrawingContext;
+typedef PixelStorage<LED_COUNT> DrawingContext;
 
 void graphTest(DrawingContext &ctx) {
     ctx.leds.fill_solid(CRGB::Black);
