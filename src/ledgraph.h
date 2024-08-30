@@ -40,11 +40,13 @@ typedef union {
 
 struct Edge {
     typedef enum : uint8_t {
-        none             = 0,
-        inbound          = 1 << 0,
-        outbound         = 1 << 1,
-        geometric        = 1 << 2,
-        all              = 0xFF,
+        none              = 0,
+        clockwise         = 1 << 0,
+        counterclockwise  = 1 << 1,
+        geometric         = 1 << 2,
+        inbound           = 1 << 3,
+        outbound          = 1 << 4,
+        all               = 0xFF,
     } EdgeType;
     
     PixelIndex from, to;
@@ -57,9 +59,11 @@ struct Edge {
 
     Edge transpose() {
         EdgeTypes transposeTypes = none;
+        if (types & clockwise) transposeTypes |= counterclockwise;
+        if (types & counterclockwise) transposeTypes |= clockwise;
+        if (types & geometric) transposeTypes |= geometric;
         if (types & inbound) transposeTypes |= outbound;
         if (types & outbound) transposeTypes |= inbound;
-        if (types & geometric) transposeTypes |= geometric;
         return Edge(to, from, transposeTypes, (transposeTypes&EdgeType::geometric ? angle+0x7F : 0));
     }
 };
@@ -184,6 +188,36 @@ const float pixelSpacing = 3.9;
 
 HexGrid<PixelIndex> hexGrid(kMeridian, pixelSpacing);
 
+// clockwise degrees, for integer math
+static int angleForDirection(HexagonBounding dir) {
+    switch (dir) {
+    case HexagonBounding::right:       return 0; break;
+    case HexagonBounding::bottomright: return 1*360/6; break;
+    case HexagonBounding::bottomleft:  return 2*360/6; break;
+    case HexagonBounding::left:        return 3*360/6; break;
+    case HexagonBounding::topleft:     return 4*360/6; break;
+    case HexagonBounding::topright:    return 5*360/6; break;
+    default:
+        assert(false, "angleForDirection");
+        return 0; break;
+    }
+}
+
+static HexagonBounding directionForAngle(int angle) {
+    angle = mod_wrap(angle, 360);
+    switch (angle) {
+        case 0:       return HexagonBounding::right; break;
+        case 1*360/6: return HexagonBounding::bottomright; break;
+        case 2*360/6: return HexagonBounding::bottomleft; break;
+        case 3*360/6: return HexagonBounding::left; break;
+        case 4*360/6: return HexagonBounding::topleft; break;
+        case 5*360/6: return HexagonBounding::topright; break;
+    default:
+        assert(false, "directionForAngle(%i)", angle);
+        return HexagonBounding::interior; break;
+    }
+}
+
 void initLEDGraph() {
     hexGrid.init();
     assert(hexGrid.valueCount() == LED_COUNT, "led count issue");
@@ -197,6 +231,36 @@ void initLEDGraph() {
         }
         if (node->named.dr && node->named.dr->isDataNode()) {
             ledgraph.addEdge(Edge(node->data(), node->named.dr->data(), Edge::geometric, 0xD5/*213.333*/));
+        }
+    }
+    
+    // get clockwise/counterclockwise edges by traversing hexgrid starting at px 0 and circling perimeter
+    PixelIndex index = 0;
+    int angle = 0;
+    set<HexGrid<PixelIndex>::HexNode*> found;
+    while (index != kHexaCenterIndex) {
+        auto node = hexGrid.nodes[index];
+        found.insert(node);
+        auto nextNode = node->dstForMotion(directionForAngle(angle));
+        if (nextNode->isDataNode()) {
+            bool alreadyVisited = find(found.begin(), found.end(), nextNode) != found.end();
+            if (!alreadyVisited || angle == 300) {
+                // discovering a new pixel in the ring, or completing a ring
+                PixelIndex nextIndex = nextNode->data();
+                ledgraph.addEdge(Edge(index, nextIndex, Edge::clockwise));
+
+                if (!alreadyVisited) {
+                    // not done with ring
+                    index = nextIndex;
+                }
+            }
+            if (alreadyVisited) {
+                // complete loop, turn
+                angle = (angle+360/6) % 360;
+            }
+        } else {
+            // edge node, turn
+            angle = (angle+360/6) % 360;
         }
     }
 };

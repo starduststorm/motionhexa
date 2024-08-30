@@ -17,8 +17,7 @@ I2S i2s(INPUT);
 #define I2S_LRCLK (BCLK+1)
 #define I2S_DATA 3
 
-#define UNCONNECTED_PIN_1 17
-#define UNCONNECTED_PIN_2 18
+#define UNCONNECTED_PIN_1 27
 
 #include <Arduino.h>
 #include <SPI.h>
@@ -96,6 +95,7 @@ void init_serial() {
     }
     delay(10);
   }
+  delay(10); // Serial needs a bit more time before it'll actually log?
   logf("begin - waited %ims for Serial", millis() - setupStart);
 #elif DEBUG
   delay(2000);
@@ -115,8 +115,11 @@ void serialTimeoutIndicator() {
 
 void setup() {
   init_serial();
+
+  pinMode(UNCONNECTED_PIN_1, INPUT);
+  auto noise = lsb_noise(UNCONNECTED_PIN_1, 8 * sizeof(uint32_t));
   randomSeed(lsb_noise(UNCONNECTED_PIN_1, 8 * sizeof(uint32_t)));
-  random16_add_entropy(lsb_noise(UNCONNECTED_PIN_2, 8 * sizeof(uint16_t)));
+  random16_add_entropy(lsb_noise(UNCONNECTED_PIN_1, 8 * sizeof(uint16_t)));
 
   init_i2c();
   init_i2s();
@@ -126,12 +129,14 @@ void setup() {
   
   FastLED.addLeds<SK9822, LED_SPI0_TX, LED_SPI0_SCK, BGR, DATA_RATE_MHZ(16)>(ctx.leds, LED_COUNT);//.setCorrection(0xFFB0C0);
 
-  // patternManager.setTestPattern<PulseHexa>();
-  
   patternManager.registerPattern<PulseHexa>();
+  patternManager.registerPattern<MotionHexa>();
   patternManager.registerPattern<TriBounce>();
   patternManager.registerPattern<PixelDust>();
-  patternManager.registerPattern<RandomDust>();
+
+  // patternManager.registerPattern<LineSweep>();
+  // patternManager.registerPattern<RandomDust>();
+
   
   IndexedPatternRunner *indexedRunner = patternManager.setupIndexedPattern(1);
   SPSTButton *button = controls.addButton(25);
@@ -141,6 +146,10 @@ void setup() {
   button->onDoublePress([indexedRunner]() {
     indexedRunner->previousPattern();
   });
+
+  // patternManager.setTestPattern<MotionHexa>();
+  // patternManager.setTestPattern<LineSweep>();
+  
   
   initLEDGraph();
   assert(ledgraph.adjList.size() == LED_COUNT, "adjlist size should match LED_COUNT");
@@ -152,6 +161,7 @@ void setup() {
   autoBrightness->maxBrightness = 0x15; // conservative max brightness here because we have no thermistor to prevent thermal damage
 
   setupDoneTime = millis();
+  logf("setup done");
 } 
 
 void startupWelcome() {
@@ -164,7 +174,7 @@ void startupWelcome() {
    DrawModal(120, welcomeDuration, [hue, welcomeDuration, hexaShells](unsigned long elapsed) {
      FastLED.setBrightness(3);
      int s = hexaShells.shells.size() * elapsed / (welcomeDuration/3);
-     ctx.leds.fadeToBlackBy(66 - 44 * min(s,hexaShells.shells.size())/hexaShells.shells.size());
+     ctx.leds.fadeToBlackBy(66 - 44 * min(s, hexaShells.shells.size())/hexaShells.shells.size());
      if (s < hexaShells.shells.size()) {
        for (int px : hexaShells.shells[s]) {
          uint8_t b = 0xFF - 0x66 * s/hexaShells.shells.size();
@@ -187,9 +197,9 @@ void loop() {
     startupWelcome();
     firstLoop = false;
   }
-
+  // TODO: takes roughly 4.5ms to read AGMT. consider offloading to other core?
   MotionManager::manager().loop();
-
+  
   patternManager.loop();
   controls.update();
   autoBrightness->loop();
@@ -197,4 +207,5 @@ void loop() {
   FastLED.show();
   fc.loop();
   fc.clampToFramerate(120);
+  
 }

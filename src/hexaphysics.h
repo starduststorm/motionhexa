@@ -20,46 +20,68 @@ typedef uint16_t PixelIndex;
 
 template<typename T>
 struct vectorT {
-  T x,y;
-  vectorT() : x(0), y(0) {}
-  vectorT(T x, T y) : x(x), y(y) {}
-  int32_t dot(const vectorT<T> &other) {
-    return x*other.x + y*other.y;
+  T x,y,z;
+  vectorT() : x(0), y(0), z(0) {}
+  vectorT(T x, T y) : x(x), y(y), z(0) {}
+  vectorT(T x, T y, T z) : x(x), y(y), z(z) {}
+
+  template<typename T2>
+  vectorT(const vectorT<T2> &other) : x(other.x), y(other.y), z(other.z) {}
+  
+  template<typename T2>
+  int32_t dot(const vectorT<T2> &other) {
+    return x*other.x + y*other.y + z*other.z;
   }
-  virtual const vectorT<T> operator-() {
-    return vectorT<T>(-x, -y);
+  
+  const vectorT<T> operator-() {
+    return vectorT<T>(-x, -y, -z);
   }
-  virtual const vectorT<T> operator+(const vectorT<T> &other) {
-    return vectorT<T>(x+other.x, y+other.y);
+
+  template<typename T2>
+  const vectorT<T> operator+(const vectorT<T2> &other) {
+    return vectorT<T>(x+other.x, y+other.y, z+other.z);
   }
-  virtual const vectorT<T> operator-(const vectorT<T> &other) {
-    return vectorT<T>(x-other.x, y-other.y);
+
+  template<typename T2>
+  const vectorT<T> operator-(const vectorT<T2> &other) {
+    return vectorT<T>(x-other.x, y-other.y, z-other.z);
   }
+
   virtual const vectorT<T> operator*(const T multiplicand) {
-    return vectorT<T>(x*multiplicand, y*multiplicand);
+    return vectorT<T>(x*multiplicand, y*multiplicand, z*multiplicand);
   }
   virtual const vectorT<T> operator/(const T divisor) {
-    return vectorT<T>(x/divisor, y/divisor);
+    return vectorT<T>(x/divisor, y/divisor, z/divisor);
   }
-  virtual vectorT<T> &operator=(const vectorT<T> &other) {
+  template <typename T2>
+  vectorT<T> &operator=(const vectorT<T2> &other) {
     x = other.x;
     y = other.y;
+    z = other.z;
     return *this;
   }
-  virtual vectorT<T> &operator+=(const vectorT<T> &other) {
+  template <typename T2>
+  vectorT<T> &operator+=(const vectorT<T2> &other) {
     x += other.x;
     y += other.y;
+    z += other.z;
     return *this;
   }
-  virtual vectorT<T> &operator-=(const vectorT<T> &other) {
+  vectorT<T> &operator-=(const vectorT<T> &other) {
     x -= other.x;
     y -= other.y;
+    z -= other.z;
     return *this;
   }
+  vectorT<T> operator>>(const unsigned int shift) {
+    return vectorT<T>(x >> shift, y >> shift, z >> shift);
+  }
+  bool operator==(const vectorT<T> & oth) const { return x == oth.x && y == oth.y && z == oth.z; }
   vectorT<T> scale8(uint8_t scaleBy) {
     int16_t sx = scale16by8(abs(x), scaleBy) * (x < 0 ? -1 : 1);
     int16_t sy = scale16by8(abs(y), scaleBy) * (y < 0 ? -1 : 1);
-    return vectorT<T>(sx, sy);
+    int16_t sz = scale16by8(abs(z), scaleBy) * (z < 0 ? -1 : 1);
+    return vectorT<T>(sx, sy, sz);
   }
 };
 
@@ -88,6 +110,7 @@ struct line16 {
   int32_t C() {
     return y1 * (x2 - x1) - (y2 - y1) * x1;
   }
+  bool operator==(const line16 & oth) const { return x1 == oth.x1 && y1 == oth.y1 && x2 == oth.x2 && y2 == oth.y2; }
 };
 struct UMPoint : vector32 {
   // point operating on integral micrometers
@@ -99,6 +122,29 @@ struct UMPoint : vector32 {
     return UMPoint(1000*x, 1000*y);
   }
 };
+
+// enum for the "inner space" hexagonal pixel bounding box. each particle exists in this space and can exit on any side
+enum class HexagonBounding : uint8_t {
+  interior     = 0,
+  right        = 1 << 0, // 1
+  topright     = 1 << 1, // 2
+  topleft      = 1 << 2, // 4
+  left         = 1 << 3, // 8
+  bottomleft   = 1 << 4, // 16
+  bottomright  = 1 << 5, // 32
+};
+inline HexagonBounding operator|(HexagonBounding lhs, HexagonBounding rhs) {
+  using T = std::underlying_type_t <HexagonBounding>;
+  return static_cast<HexagonBounding>(static_cast<T>(lhs) | static_cast<T>(rhs));
+}
+inline HexagonBounding operator&(HexagonBounding lhs, HexagonBounding rhs) {
+  using T = std::underlying_type_t <HexagonBounding>;
+  return static_cast<HexagonBounding>(static_cast<T>(lhs) & static_cast<T>(rhs));
+}
+inline HexagonBounding& operator|=(HexagonBounding &lhs, HexagonBounding rhs) {
+  lhs = lhs | rhs;
+  return lhs;
+}
 
 template<typename T>
 class HexGrid {
@@ -160,6 +206,20 @@ public:
       }
       return n;
     }
+    HexNode *dstForMotion(HexagonBounding bounding) {
+      switch (bounding) {
+        case HexagonBounding::right:       return named.r;
+        case HexagonBounding::topright:    return named.ur;
+        case HexagonBounding::topleft:     return named.ul;
+        case HexagonBounding::left:        return named.l;
+        case HexagonBounding::bottomleft:  return named.dl;
+        case HexagonBounding::bottomright: return named.dr;
+        case HexagonBounding::interior:
+        default:
+          return nullptr;
+      }
+    }
+    bool operator==(const HexNode & oth) const { return _value == oth._value && _edgeLine == oth._edgeLine; }
   };
 private:
   const T meridian;
@@ -167,7 +227,7 @@ private:
   const float spacing;
   
   inline void setPosition(T index, UMPoint pt) {
-    logf("setPosition %i = (%i, %i)", index, pt.x, pt.y);
+    // logf("setPosition %i = (%i, %i)", index, pt.x, pt.y);
     positions[index] = pt;
   }
 
@@ -375,29 +435,6 @@ public:
   }
 };
 
-// enum for the "inner space" hexagonal pixel bounding box. each particle exists in this space and can exit on any side
-enum class HexagonBounding : uint8_t {
-  interior     = 0,
-  right        = 1 << 0, // 1
-  topright     = 1 << 1, // 2
-  topleft      = 1 << 2, // 4
-  left         = 1 << 3, // 8
-  bottomleft   = 1 << 4, // 16
-  bottomright  = 1 << 5, // 32
-};
-inline HexagonBounding operator|(HexagonBounding lhs, HexagonBounding rhs) {
-  using T = std::underlying_type_t <HexagonBounding>;
-  return static_cast<HexagonBounding>(static_cast<T>(lhs) | static_cast<T>(rhs));
-}
-inline HexagonBounding operator&(HexagonBounding lhs, HexagonBounding rhs) {
-  using T = std::underlying_type_t <HexagonBounding>;
-  return static_cast<HexagonBounding>(static_cast<T>(lhs) & static_cast<T>(rhs));
-}
-inline HexagonBounding& operator|=(HexagonBounding &lhs, HexagonBounding rhs) {
-  lhs = lhs | rhs;
-  return lhs;
-}
-
 template<unsigned int SIZE>
 class PixelPhysics {
 public:
@@ -475,17 +512,7 @@ private:
   }
 
   HexGrid<PixelIndex>::HexNode *dstForMotion(const Particle &p, HexagonBounding bounding) {
-    switch (bounding) {
-      case HexagonBounding::right:       return hexGrid[p.index]->named.r;
-      case HexagonBounding::topright:    return hexGrid[p.index]->named.ur;
-      case HexagonBounding::topleft:     return hexGrid[p.index]->named.ul;
-      case HexagonBounding::left:        return hexGrid[p.index]->named.l;
-      case HexagonBounding::bottomleft:  return hexGrid[p.index]->named.dl;
-      case HexagonBounding::bottomright: return hexGrid[p.index]->named.dr;
-      case HexagonBounding::interior:
-      default:
-        return nullptr;
-    }
+    return hexGrid[p.index]->dstForMotion(bounding);
   }
 
   void updateParticleAtBound(int label, Particle &p, HexagonBounding checkBound) {
