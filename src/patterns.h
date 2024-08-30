@@ -408,7 +408,7 @@ public:
       uint8_t shellSize = hexaShells.shells[s].size();
       
       const int16_t bandIndex = gyrAccum.y<<1; // TODO: tune this so it's roughly one half index change every complete flip
-      const int16_t bandRotate = accAccum.z;
+      const int16_t bandRotate = accAccum.y;
       const int16_t bandTwist = accAccum.x;//gyrAccum.z<<1;
       const int16_t bandThing = 0;//accAccum.x;
       const int bandCounts[] = {0, 1, 2, 3, 6, 9}; // i like this somewhat better than arbitrary band counts

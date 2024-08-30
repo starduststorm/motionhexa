@@ -180,7 +180,6 @@ public:
     }
 };
 
-#define LED_COUNT (271)
 Graph ledgraph;
 const uint16_t kHexaCenterIndex = 135;
 const uint8_t kMeridian = 19;
@@ -264,8 +263,6 @@ void initLEDGraph() {
         }
     }
 };
-
-typedef PixelStorage<LED_COUNT> DrawingContext;
 
 void graphTest(DrawingContext &ctx) {
     ctx.leds.fill_solid(CRGB::Black);
