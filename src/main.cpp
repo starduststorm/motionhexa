@@ -44,7 +44,7 @@ I2S i2s(INPUT);
 
 #include "MotionManager.h"
 
-#define WAIT_FOR_SERIAL 1
+#define WAIT_FOR_SERIAL 0
 
 #define PHOTOSENSOR_POWER_PIN 28
 #define PHOTOSENSOR_READ_PIN 29

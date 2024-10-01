@@ -108,6 +108,7 @@ public:
     logf("  ICM20948 init = %i", hasSensor);
     if (hasSensor) {
       if (enableDMP) {
+        // FIXME: ICM_20948_USE_DMP #define and compiler flag do this too?  why does it take multiple seconds?
         initDMP();
       }
       for (unsigned i = 0; i < ActivityTypeCount; ++i) {
@@ -160,6 +161,7 @@ public:
     if (!hasSensor) {
       return;
     }
+
     agmt = icm.getAGMT();
     if (!enableDMP) {
       return;

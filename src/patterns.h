@@ -346,7 +346,7 @@ class PulseHexa : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
   HexaShells hexaShells;
   PulseHexa() {
-    maxColorJump = 7;
+    maxColorJump = 50;
     secondsPerPalette = 15;
   }
 
@@ -377,8 +377,8 @@ class MotionHexa : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
   HexaShells hexaShells;
   MotionHexa() {
-    secondsPerPalette = 5;
-    maxColorJump = 10;
+    secondsPerPalette = 16;
+    maxColorJump = 50;
   }
 
   vector32 gyrAccum32;
@@ -401,7 +401,7 @@ public:
     //         gyrAccum.x, gyrAccum.y, gyrAccum.z,
     //         agmt.acc.axes.x/accScale, agmt.acc.axes.y/accScale, agmt.acc.axes.z/accScale,
     //         accAccum.x, accAccum.y, accAccum.z);
-      
+    
     int index = 0;
     int shellCount = hexaShells.shells.size();
     for (int s = 0 ; s < hexaShells.shells.size(); ++s) {
