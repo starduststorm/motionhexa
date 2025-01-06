@@ -272,11 +272,11 @@ class HashableItem:
   
   def __hash__(self):
     if type(self.item) == pcbnew.PAD:
-      return hash((tuple(self.item.GetPosition()), self.item.GetNetname(), self.item.GetParentFootprint().GetReference(), self.item.GetName()))
+      return hash((tuple(self.item.GetPosition()), self.item.GetNetname(), self.item.GetParentFootprint().GetReference(), self.item.GetName(), int(self.item.this)))
     elif type(self.item) == pcbnew.PCB_TRACK:
-      return hash((tuple(self.item.GetStart()), tuple(self.item.GetEnd()), self.item.GetNetname(), self.item.GetLayerName()))
+      return hash((tuple(self.item.GetStart()), tuple(self.item.GetEnd()), self.item.GetNetname(), self.item.GetLayerName(), int(self.item.this)))
     elif type(self.item) == pcbnew.PCB_VIA:
-      return hash((tuple(self.item.GetPosition()), self.item.GetNetname(), tuple(self.item.GetLayerSet().CuStack())))
+      return hash((tuple(self.item.GetPosition()), self.item.GetNetname(), tuple(self.item.GetLayerSet().CuStack()), int(self.item.this)))
   
   def __eq__(self, other):
     if isinstance(other, HashableItem):
@@ -1103,6 +1103,8 @@ class PCBLayout(object):
     point = self.center+point
     for fp in self.kicadpcb.board.GetFootprints():
       if fp.GetReference() == reference:
+        print("Removing old connected items for", reference)
+        self.kicadpcb.deleteFootprintConnectedItems(fp)
         print("Removing old footprint for", reference)
         self.kicadpcb.board.Delete(fp)
         break
