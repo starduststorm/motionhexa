@@ -9405,16 +9405,8 @@
 		(uuid "189d1bf4-381b-43db-a738-d477f49c49be")
 	)
 	(no_connect
-		(at 318.77 95.25)
-		(uuid "1d1a9eaf-a333-4fdc-9530-a155e009af9c")
-	)
-	(no_connect
 		(at 43.18 48.26)
 		(uuid "2ac4f7db-68ca-46de-932a-cfc14fe860e8")
-	)
-	(no_connect
-		(at 318.77 97.79)
-		(uuid "4627ab03-cc1b-4a94-a220-79568f6a825e")
 	)
 	(no_connect
 		(at 318.77 113.03)
@@ -11022,6 +11014,16 @@
 	)
 	(wire
 		(pts
+			(xy 318.77 97.79) (xy 331.47 97.79)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7a418056-ce07-47e7-abc6-0d51d047df74")
+	)
+	(wire
+		(pts
 			(xy 133.35 177.8) (xy 133.35 180.34)
 		)
 		(stroke
@@ -12089,6 +12091,16 @@
 			(type default)
 		)
 		(uuid "e2fe3645-1cf6-4ab3-94d8-26c1478d3664")
+	)
+	(wire
+		(pts
+			(xy 318.77 95.25) (xy 331.47 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e4565aab-38f0-49fd-9b4b-fd67d0ff3aea")
 	)
 	(wire
 		(pts
@@ -20330,6 +20342,85 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "#PWR03")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x02_Socket")
+		(at 336.55 95.25 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "9429815b-6f11-460b-8c33-ff31ee58f2f1")
+		(property "Reference" "J5"
+			(at 337.2612 95.3078 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "Conn_01x02_Socket"
+			(at 337.2612 97.7321 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Connector_PinSocket_1.27mm:PinSocket_1x02_P1.27mm_Vertical"
+			(at 336.55 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 336.55 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x02, script generated"
+			(at 336.55 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" ""
+			(at 336.55 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "15e2dfb0-278f-4d6b-9129-a38c8f63f98f")
+		)
+		(pin "1"
+			(uuid "7d3c03e2-c6b4-40a9-bf8e-5f569228eba3")
+		)
+		(instances
+			(project ""
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "J5")
 					(unit 1)
 				)
 			)
