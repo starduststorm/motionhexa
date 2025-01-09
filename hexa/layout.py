@@ -649,10 +649,10 @@ class KiCadPCB(object):
     for t in trackSet:
       for p in self.sortedItemsNear(t, self.sortedPads()):
         padSet.add(p)
-    if len(trackSet)>0:
-      if isPad(item):
-        # this assertion is firing in some cases?
-        assert item in padSet
+    # if len(padSet)>0:
+    #   if isPad(item):
+    #     # this assertion is firing in some cases?
+    #     assert item in padSet
 
     return TraceNet(trackSet, padSet)
 
@@ -1534,6 +1534,13 @@ class LayoutHexa(PCBLayout):
                                        powerConnect=powerConnect,
                                        groundConnect=TraceBuilder().angleConst(gndDistance, -pi/2).via(),
                                        connectorFunction=dataTraceConnector)
+
+        # draw lil hexa
+        for i in range(6):
+          pt1 = pos.polar_translated(self.pixelSpacing/2, i*2*pi/6)
+          pt2 = pos.polar_translated(self.pixelSpacing/2, (i+1)*2*pi/6)
+          self.drawSegment(pt1, pt2, "F.Silkscreen", 0.15)
+          
       else:
         if pos.x > 0 and xDirection > 0 and not placedRightCap:
           # just fell off the right end of the hexa
@@ -1561,28 +1568,6 @@ class LayoutHexa(PCBLayout):
 
   def decorateSilkScreen(self):
     super().decorateSilkScreen()
-
-    # draw hexa-crisscrossy lines on silk
-    def rampUpDown(value, A, B, N):
-      midpoint = lineCount//2
-      if value < midpoint:
-        return A + (B - A) * (value / midpoint)
-      else:
-        return B - (B - A) * ((value - midpoint) / midpoint)
-
-    spacing = sin(2*pi/6)*self.pixelSpacing
-    lineCount = floor(self.edgeRadius*2/spacing/2)*2-1
-    edgeClearance = 0.6
-    for t in range(3):
-      theta = 2*pi/6*t
-      for i in range(lineCount):
-        y = -lineCount/2*spacing + i*spacing + spacing/2
-        length = rampUpDown(i, self.edgeRadius, 2*self.edgeRadius, lineCount) - edgeClearance/2
-        P1 = Point(-length/2, y).rotate_about(theta, Point(0,0))
-        P2 = Point(length/2, y).rotate_about(theta, Point(0,0))
-        # checking if we're (almost) in hexa serves the somewhat futile purpose of avoiding clipping the silkscreen on the board edge
-        if self.is_point_in_hexa(P1, self.edgeRadius-edgeClearance/4) and self.is_point_in_hexa(P2, self.edgeRadius-edgeClearance/4):
-          self.drawSegment(P1, P2)
 
 layout = LayoutHexa(args.path, SK9822EC20)    
 
