@@ -12502,7 +12502,7 @@
 		)
 		(uuid "bb141953-ff5f-41f1-af95-50b3999a07a4")
 	)
-	(text "R_ibf = R_iset * I_bat / I_bf\nR_iset = 1.8kΩ\nI_bat = 1A\nI_bf = 80mA\nR_ibf in Ω => 22,500Ω"
+	(text "R_ibf = R_iset * I_bat / I_bf\nR_iset = 1.8kΩ\nI_bat = 1A\nI_bf = 90mA\nR_ibf in Ω => 20000Ω"
 		(exclude_from_sim no)
 		(at 137.16 104.394 0)
 		(effects
@@ -14483,8 +14483,17 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "0402WGF4701TCE"
 			(at 52.07 177.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25900"
+			(at 52.07 177.8 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15229,7 +15238,7 @@
 				)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100nF"
 			(at 176.53 149.86 90)
 			(effects
 				(font
@@ -15587,6 +15596,24 @@
 				(hide yes)
 			)
 		)
+		(property "Designation" "0402WGF2201TCE"
+			(at 86.36 99.06 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25879"
+			(at 86.36 99.06 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "1a75d123-6907-4ca6-9036-010b5b658a44")
 		)
@@ -15917,8 +15944,17 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "0402WGF4701TCE"
 			(at 337.82 82.55 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25900"
+			(at 337.82 82.55 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16606,8 +16642,17 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "0402WGF4701TCE"
 			(at 337.82 80.01 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25900"
+			(at 337.82 80.01 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16647,7 +16692,7 @@
 				)
 			)
 		)
-		(property "Value" "22.5k"
+		(property "Value" "20k"
 			(at 123.825 105.41 90)
 			(effects
 				(font
@@ -16675,6 +16720,24 @@
 		)
 		(property "Description" ""
 			(at 121.92 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "RC0402FR-0720KL"
+			(at 121.92 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C93942"
+			(at 121.92 105.41 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17089,6 +17152,24 @@
 		)
 		(property "Description" ""
 			(at 128.27 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "0402WGF1801TCE"
+			(at 128.27 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25871"
+			(at 128.27 105.41 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17722,7 +17803,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100nF"
 			(at 180.5559 135.9543 0)
 			(effects
 				(font
@@ -18332,6 +18413,24 @@
 			)
 		)
 		(property "Description" ""
+			(at 346.71 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "PTS810SJK250SMTRLFS"
+			(at 346.71 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C221896"
 			(at 346.71 111.76 0)
 			(effects
 				(font
@@ -19254,6 +19353,24 @@
 				(hide yes)
 			)
 		)
+		(property "Designation" "0402WGF330JTCE"
+			(at 231.14 38.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25105"
+			(at 231.14 38.1 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "d372eb11-e7de-498e-955a-27bec985ff12")
 		)
@@ -19988,6 +20105,24 @@
 		)
 		(property "Description" ""
 			(at 80.01 99.06 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "0402WGF2201TCE"
+			(at 80.01 99.06 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25879"
+			(at 80.01 99.06 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21023,8 +21158,17 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "0402WGF3302TCE"
 			(at 52.07 172.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25779"
+			(at 52.07 172.72 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21518,6 +21662,24 @@
 		)
 		(property "Description" ""
 			(at 227.33 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "PTS810SJK250SMTRLFS"
+			(at 227.33 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C221896"
+			(at 227.33 77.47 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23733,7 +23895,7 @@
 		(fields_autoplaced yes)
 		(uuid "dbb06009-a800-4f17-81ea-630bf698ebc7")
 		(property "Reference" "C19"
-			(at 190.5 135.8963 0)
+			(at 190.2841 135.9541 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23741,8 +23903,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100n"
-			(at 190.5 138.4363 0)
+		(property "Value" "100nF"
+			(at 190.2841 138.3784 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24320,8 +24482,17 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "0402WGF200KTCE"
 			(at 72.39 96.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C270630"
+			(at 72.39 96.52 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -25003,7 +25174,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "CC0402KRX7R7BB104"
+			(at 90.17 184.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C60474"
 			(at 90.17 184.15 0)
 			(effects
 				(font
