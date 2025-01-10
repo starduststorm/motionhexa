@@ -6846,7 +6846,7 @@
 		(path "/9429815b-6f11-460b-8c33-ff31ee58f2f1")
 		(sheetname "Root")
 		(sheetfile "hexacontroller.kicad_sch")
-		(attr through_hole exclude_from_bom)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(fp_poly
 			(pts
 				(xy -0.6858 -0.7112) (xy 0.7366 -0.7112) (xy 0.736599 1.9812) (xy -0.6858 1.981201)
@@ -12227,7 +12227,7 @@
 		(sheetname "Root")
 		(sheetfile "hexacontroller.kicad_sch")
 		(zone_connect 2)
-		(attr through_hole exclude_from_bom)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(fp_line
 			(start -1.27 3.175)
 			(end -1.27 -0.635)
@@ -18268,7 +18268,7 @@
 		(path "/61fa2df8-94e0-4ff3-a872-cb385dfd3b01")
 		(sheetname "Root")
 		(sheetfile "hexacontroller.kicad_sch")
-		(attr through_hole exclude_from_bom)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(fp_line
 			(start -39 0)
 			(end -19.5 -33.774989)
