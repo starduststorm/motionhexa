@@ -2805,7 +2805,7 @@
 				)
 			)
 		)
-		(symbol "Device:Q_NMOS_DSG"
+		(symbol "Device:Q_NMOS_GSD"
 			(pin_names
 				(offset 0) hide)
 			(exclude_from_sim no)
@@ -2820,7 +2820,7 @@
 					(justify left)
 				)
 			)
-			(property "Value" "Q_NMOS_DSG"
+			(property "Value" "Q_NMOS_GSD"
 				(at 5.08 -1.27 0)
 				(effects
 					(font
@@ -2847,7 +2847,7 @@
 					(hide yes)
 				)
 			)
-			(property "Description" "N-MOSFET transistor, drain/source/gate"
+			(property "Description" "N-MOSFET transistor, gate/source/drain"
 				(at 0 0 0)
 				(effects
 					(font
@@ -2865,7 +2865,7 @@
 					(hide yes)
 				)
 			)
-			(symbol "Q_NMOS_DSG_0_1"
+			(symbol "Q_NMOS_GSD_0_1"
 				(polyline
 					(pts
 						(xy 0.254 0) (xy -2.54 0)
@@ -3032,11 +3032,11 @@
 					)
 				)
 			)
-			(symbol "Q_NMOS_DSG_1_1"
-				(pin passive line
-					(at 2.54 5.08 270)
+			(symbol "Q_NMOS_GSD_1_1"
+				(pin input line
+					(at -5.08 0 0)
 					(length 2.54)
-					(name "D"
+					(name "G"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3069,10 +3069,10 @@
 						)
 					)
 				)
-				(pin input line
-					(at -5.08 0 0)
+				(pin passive line
+					(at 2.54 5.08 270)
 					(length 2.54)
-					(name "G"
+					(name "D"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -10795,7 +10795,7 @@
 	)
 	(wire
 		(pts
-			(xy 59.69 161.29) (xy 78.74 161.29)
+			(xy 59.69 161.29) (xy 76.2 161.29)
 		)
 		(stroke
 			(width 0)
@@ -10942,16 +10942,6 @@
 			(type default)
 		)
 		(uuid "b1d2eb08-8482-44d2-a59c-a2d3bf44a38d")
-	)
-	(wire
-		(pts
-			(xy 78.74 151.13) (xy 78.74 148.59)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b3323809-a7b8-430d-9546-8581b89f936d")
 	)
 	(wire
 		(pts
@@ -11873,7 +11863,7 @@
 		(uuid "5eb38fff-d695-4039-bba8-15a7ac9ba024")
 	)
 	(label "EN_PIXELS"
-		(at 86.36 156.21 0)
+		(at 81.28 153.67 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -12027,13 +12017,13 @@
 		(uuid "a6eac662-ae17-44ca-9fff-6e63b1e0a08d")
 	)
 	(label "PIXEL_VDD"
-		(at 78.74 148.59 180)
+		(at 86.36 161.29 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right bottom)
+			(justify left bottom)
 		)
 		(uuid "bf9a0050-c350-439d-b27d-ae6a43d99846")
 	)
@@ -14371,94 +14361,6 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "C20")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:Q_NMOS_DSG")
-		(at 81.28 156.21 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "3cf09a57-a22f-4c6a-983d-cfc93f5cbc44")
-		(property "Reference" "Q3"
-			(at 72.6905 156.21 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "SK335N"
-			(at 75.1148 156.21 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
-			(at 76.2 158.75 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 81.28 156.21 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "N-MOSFET transistor, drain/source/gate"
-			(at 81.28 156.21 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "SK335N"
-			(at 81.28 156.21 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C475692"
-			(at 81.28 156.21 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "3"
-			(uuid "7504c8ed-47ca-4cdd-a92b-340e0e82a3a1")
-		)
-		(pin "2"
-			(uuid "15859076-a23a-467b-82fb-bde063ceb58f")
-		)
-		(pin "1"
-			(uuid "9b1c0cff-4dd2-4d27-a8ec-33cee43c4d4b")
-		)
-		(instances
-			(project ""
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "Q3")
 					(unit 1)
 				)
 			)
@@ -21478,6 +21380,95 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "C34")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:Q_NMOS_GSD")
+		(at 81.28 158.75 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "bf695ae2-721f-4ac6-83d0-e0a0cfaace1d")
+		(property "Reference" "Q2"
+			(at 81.28 164.9151 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Q_NMOS_GSD"
+			(at 81.28 167.3394 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 83.82 163.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 81.28 158.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "N-MOSFET transistor, gate/source/drain"
+			(at 81.28 158.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "SK335N"
+			(at 81.28 158.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C475692"
+			(at 81.28 158.75 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "3bc29fbd-a135-4098-8e3f-e1dce95aa3e4")
+		)
+		(pin "1"
+			(uuid "5bc66b34-20c9-41be-b4ad-526335ea82e7")
+		)
+		(pin "3"
+			(uuid "3717b6c8-e49f-4c32-91ef-13c785d66306")
+		)
+		(instances
+			(project ""
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "Q2")
 					(unit 1)
 				)
 			)
