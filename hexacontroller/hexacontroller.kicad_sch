@@ -1858,142 +1858,6 @@
 				)
 			)
 		)
-		(symbol "Device:C"
-			(pin_numbers hide)
-			(pin_names
-				(offset 0.254)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "C"
-				(at 0.635 2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Value" "C"
-				(at 0.635 -2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Footprint" ""
-				(at 0.9652 -3.81 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "~"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Unpolarized capacitor"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "cap capacitor"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "C_*"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "C_0_1"
-				(polyline
-					(pts
-						(xy -2.032 -0.762) (xy 2.032 -0.762)
-					)
-					(stroke
-						(width 0.508)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -2.032 0.762) (xy 2.032 0.762)
-					)
-					(stroke
-						(width 0.508)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "C_1_1"
-				(pin passive line
-					(at 0 3.81 270)
-					(length 2.794)
-					(name "~"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 0 -3.81 90)
-					(length 2.794)
-					(name "~"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
 		(symbol "Device:C_Small"
 			(pin_numbers hide)
 			(pin_names
@@ -8879,7 +8743,7 @@
 		(at 153.67 171.45)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "4950d203-a6b9-4722-b703-d2c89050f41c")
+		(uuid "47bb62e1-c214-4517-9ca1-9de509295653")
 	)
 	(junction
 		(at 128.27 125.73)
@@ -12265,8 +12129,17 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "CL05A105KP5NNNC"
 			(at 285.75 39.37 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14445"
+			(at 285.75 39.37 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12446,7 +12319,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 153.67 179.07 0)
+		(at 153.67 176.53 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -12454,7 +12327,7 @@
 		(dnp no)
 		(uuid "02d2f644-f167-4e57-b19f-9fcd2f317419")
 		(property "Reference" "#PWR047"
-			(at 153.67 185.42 0)
+			(at 153.67 182.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12463,7 +12336,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 153.67 182.88 0)
+			(at 153.67 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12471,7 +12344,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 153.67 179.07 0)
+			(at 153.67 176.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12480,7 +12353,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 153.67 179.07 0)
+			(at 153.67 176.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12489,7 +12362,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 153.67 179.07 0)
+			(at 153.67 176.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17880,8 +17753,17 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "CL05A105KP5NNNC"
 			(at 264.16 39.37 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14445"
+			(at 264.16 39.37 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22092,6 +21974,93 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:C_Small")
+		(at 153.67 173.99 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "cb6ed459-6e79-4748-8ecf-9eea7b6ea662")
+		(property "Reference" "C13"
+			(at 156.21 175.768 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "1uF"
+			(at 150.622 175.768 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
+			(at 153.67 173.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 153.67 173.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 153.67 173.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14445"
+			(at 153.67 173.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A105KP5NNNC"
+			(at 153.67 173.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "1137f32f-8b32-45f1-8ca5-07fd441ea027")
+		)
+		(pin "2"
+			(uuid "4295af90-42a3-46ae-bed8-7379d026d311")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "C13")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 208.28 219.71 0)
 		(unit 1)
@@ -23543,93 +23512,6 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "U7")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C")
-		(at 153.67 175.26 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "f450e67e-a072-429e-84d2-a50c2e19ee79")
-		(property "Reference" "C22"
-			(at 147.066 175.006 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "100nF"
-			(at 145.796 177.546 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 154.6352 179.07 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 153.67 175.26 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 153.67 175.26 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "CC0402KRX7R7BB104"
-			(at 153.67 175.26 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C60474"
-			(at 153.67 175.26 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "824dc494-56de-4834-980f-9aab84921b10")
-		)
-		(pin "2"
-			(uuid "f7a86549-1fd1-4244-9ecc-8cfb5889ba1f")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "C22")
 					(unit 1)
 				)
 			)
