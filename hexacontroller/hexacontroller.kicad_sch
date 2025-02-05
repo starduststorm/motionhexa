@@ -3658,6 +3658,151 @@
 				)
 			)
 		)
+		(symbol "Jumper:Jumper_2_Open"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0) hide)
+			(exclude_from_sim yes)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "JP"
+				(at 0 2.794 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "Jumper_2_Open"
+				(at 0 -2.286 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Jumper, 2-pole, open"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "Jumper SPST"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "Jumper* TestPoint*2Pads* TestPoint*Bridge*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "Jumper_2_Open_0_0"
+				(circle
+					(center -2.032 0)
+					(radius 0.508)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 2.032 0)
+					(radius 0.508)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "Jumper_2_Open_0_1"
+				(arc
+					(start 1.524 1.27)
+					(mid 0 1.778)
+					(end -1.524 1.27)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "Jumper_2_Open_1_1"
+				(pin passive line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 2.54)
+					(name "B"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
 		(symbol "Logic_LevelTranslator:SN74LVC2T45DCUR"
 			(exclude_from_sim no)
 			(in_bom yes)
@@ -10929,16 +11074,6 @@
 	)
 	(wire
 		(pts
-			(xy 215.9 76.2) (xy 215.9 74.93)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "bf65be4c-0d1e-4510-af14-20ccb8f58d06")
-	)
-	(wire
-		(pts
 			(xy 330.2 138.43) (xy 330.2 121.92)
 		)
 		(stroke
@@ -15072,7 +15207,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 215.9 74.93 0)
+		(at 215.9 76.2 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -15080,7 +15215,7 @@
 		(dnp no)
 		(uuid "493a8fc8-2372-44b1-8e0c-4c3a66def058")
 		(property "Reference" "#PWR019"
-			(at 215.9 81.28 0)
+			(at 215.9 82.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15089,7 +15224,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 216.027 79.3242 0)
+			(at 216.027 80.5942 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15097,7 +15232,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 215.9 74.93 0)
+			(at 215.9 76.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15106,7 +15241,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 215.9 74.93 0)
+			(at 215.9 76.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15115,7 +15250,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 215.9 74.93 0)
+			(at 215.9 76.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17015,7 +17150,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "1uF"
 			(at 207.2259 200.7243 0)
 			(effects
 				(font
@@ -17051,7 +17186,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "CC0402KRX7R7BB104"
+		(property "Designation" "CL05A105KP5NNNC"
 			(at 209.55 201.93 0)
 			(effects
 				(font
@@ -17060,7 +17195,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C60474"
+		(property "LCSC" "C14445"
 			(at 209.55 201.93 0)
 			(effects
 				(font
@@ -17606,7 +17741,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "Button_Switch_SMD:SW_Push_1P1T_NO_Vertical_Wuerth_434133025816"
+		(property "Footprint" "hexacontroller:SW-SMD_4P-L6.2-W6.2-P4.00-LS10.0"
 			(at 326.39 95.25 0)
 			(effects
 				(font
@@ -17633,7 +17768,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "PTS810SJK250SMTRLFS"
+		(property "Designation" "KSEK43GLFS"
 			(at 326.39 100.33 0)
 			(effects
 				(font
@@ -17642,7 +17777,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C221896"
+		(property "LCSC" "C221772"
 			(at 326.39 100.33 0)
 			(effects
 				(font
@@ -17845,7 +17980,7 @@
 		(at 111.76 39.37 180)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom no)
+		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid "77a992d4-3830-4e3c-8cd3-7b1c36b89d43")
@@ -20631,94 +20766,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Switch:SW_Push")
-		(at 215.9 71.12 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "aca67798-76bc-4abb-bb6d-b9b5aa6f135b")
-		(property "Reference" "SW2"
-			(at 217.043 70.2853 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Value" "SW_Push"
-			(at 217.043 72.8222 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" "Button_Switch_SMD:SW_Push_1P1T_NO_Vertical_Wuerth_434133025816"
-			(at 210.82 71.12 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 210.82 71.12 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 215.9 71.12 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "PTS810SJK250SMTRLFS"
-			(at 215.9 71.12 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C221896"
-			(at 215.9 71.12 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "a5b1efc9-80ee-428c-9ac8-0216306284a1")
-		)
-		(pin "2"
-			(uuid "a14f34ff-7540-40ee-9dd4-03980ab66ed0")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "SW2")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:D_Schottky")
 		(at 25.4 177.8 180)
 		(unit 1)
@@ -23215,7 +23262,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "0402N120F500CT"
+		(property "Designation" "CC0402FRNPO9BN120"
 			(at 227.33 93.98 0)
 			(effects
 				(font
@@ -23224,7 +23271,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C555399"
+		(property "LCSC" "C326662"
 			(at 227.33 93.98 90)
 			(effects
 				(font
@@ -23455,7 +23502,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "0402N120F500CT"
+		(property "Designation" "CC0402FRNPO9BN120"
 			(at 227.33 104.14 0)
 			(effects
 				(font
@@ -23464,7 +23511,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C555399"
+		(property "LCSC" "C326662"
 			(at 227.33 104.14 90)
 			(effects
 				(font
@@ -23674,6 +23721,85 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "U7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Jumper:Jumper_2_Open")
+		(at 215.9 71.12 90)
+		(unit 1)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "f0baf88b-8c89-4ba9-9dd0-e3b118c66beb")
+		(property "Reference" "JP1"
+			(at 217.043 69.9078 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "Jumper_2_Open"
+			(at 217.043 72.3321 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm"
+			(at 215.9 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 215.9 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Jumper, 2-pole, open"
+			(at 215.9 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" ""
+			(at 215.9 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "2fdb89ae-1e94-4d43-8133-83cfc4d42815")
+		)
+		(pin "1"
+			(uuid "555fe31c-a307-4f0a-b064-ad3b12ce3c73")
+		)
+		(instances
+			(project ""
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "JP1")
 					(unit 1)
 				)
 			)
