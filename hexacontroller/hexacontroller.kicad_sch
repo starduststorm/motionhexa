@@ -8692,6 +8692,12 @@
 		(uuid "23544c3f-35eb-4281-a7e2-2beefbd07577")
 	)
 	(junction
+		(at 336.55 31.75)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "263c56ed-87a4-41e8-84a1-e8928ae14872")
+	)
+	(junction
 		(at 57.15 144.78)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -9062,12 +9068,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "fbf98ee7-8a27-4b24-9094-3c5adf096570")
-	)
-	(junction
-		(at 335.28 31.75)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "ff246236-4414-422f-9233-d6032374cc75")
 	)
 	(junction
 		(at 91.44 125.73)
@@ -11229,7 +11229,7 @@
 	)
 	(wire
 		(pts
-			(xy 326.39 26.67) (xy 335.28 26.67)
+			(xy 326.39 26.67) (xy 336.55 26.67)
 		)
 		(stroke
 			(width 0)
@@ -11279,7 +11279,7 @@
 	)
 	(wire
 		(pts
-			(xy 326.39 31.75) (xy 335.28 31.75)
+			(xy 326.39 31.75) (xy 336.55 31.75)
 		)
 		(stroke
 			(width 0)
@@ -12266,7 +12266,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100nF"
 			(at 308.3941 38.0484 0)
 			(effects
 				(font
@@ -12294,6 +12294,24 @@
 			)
 		)
 		(property "Description" ""
+			(at 306.07 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C60474"
+			(at 306.07 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CC0402KRX7R7BB104"
 			(at 306.07 36.83 0)
 			(effects
 				(font
@@ -15136,7 +15154,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100nF"
 			(at 328.7141 30.4284 0)
 			(effects
 				(font
@@ -15164,6 +15182,24 @@
 			)
 		)
 		(property "Description" ""
+			(at 326.39 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CC0402KRX7R7BB104"
+			(at 326.39 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C60474"
 			(at 326.39 29.21 0)
 			(effects
 				(font
@@ -15530,7 +15566,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100nF"
 			(at 288.0741 30.4284 0)
 			(effects
 				(font
@@ -15566,7 +15602,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "CC0402KRX7R7BB104"
+			(at 285.75 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C60474"
 			(at 285.75 29.21 0)
 			(effects
 				(font
@@ -16203,7 +16248,7 @@
 		(at 116.84 36.83 270)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
@@ -16245,6 +16290,15 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+BATT\""
+			(at 116.84 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" ""
 			(at 116.84 36.83 0)
 			(effects
 				(font
@@ -17791,7 +17845,7 @@
 		(at 111.76 39.37 180)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(uuid "77a992d4-3830-4e3c-8cd3-7b1c36b89d43")
@@ -17892,7 +17946,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100nF"
 			(at 308.3941 30.4284 0)
 			(effects
 				(font
@@ -17920,6 +17974,24 @@
 			)
 		)
 		(property "Description" ""
+			(at 306.07 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CC0402KRX7R7BB104"
+			(at 306.07 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C60474"
 			(at 306.07 29.21 0)
 			(effects
 				(font
@@ -18332,7 +18404,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 335.28 31.75 0)
+		(at 336.55 31.75 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -18341,7 +18413,7 @@
 		(fields_autoplaced yes)
 		(uuid "836d7899-4342-46f9-9401-015e18f65d7a")
 		(property "Reference" "#PWR056"
-			(at 335.28 38.1 0)
+			(at 336.55 38.1 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -18350,7 +18422,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 335.28 35.8831 0)
+			(at 336.55 35.8831 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -18358,7 +18430,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 335.28 31.75 0)
+			(at 336.55 31.75 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -18367,7 +18439,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 335.28 31.75 0)
+			(at 336.55 31.75 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -18376,7 +18448,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 335.28 31.75 0)
+			(at 336.55 31.75 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19695,7 +19767,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100nF"
 			(at 252.5141 30.4284 0)
 			(effects
 				(font
@@ -19723,6 +19795,24 @@
 			)
 		)
 		(property "Description" ""
+			(at 250.19 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CC0402KRX7R7BB104"
+			(at 250.19 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C60474"
 			(at 250.19 29.21 0)
 			(effects
 				(font
@@ -21077,7 +21167,7 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 335.28 29.21 0)
+		(at 336.55 29.21 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -21086,7 +21176,7 @@
 		(fields_autoplaced yes)
 		(uuid "ba7c6cda-bcf9-4f21-9a8a-d33041005a31")
 		(property "Reference" "C12"
-			(at 337.6041 28.0042 0)
+			(at 338.8741 28.0042 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21094,8 +21184,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100n"
-			(at 337.6041 30.4284 0)
+		(property "Value" "100nF"
+			(at 338.8741 30.4284 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21104,7 +21194,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 335.28 29.21 0)
+			(at 336.55 29.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21113,7 +21203,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 335.28 29.21 0)
+			(at 336.55 29.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21122,7 +21212,25 @@
 			)
 		)
 		(property "Description" ""
-			(at 335.28 29.21 0)
+			(at 336.55 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CC0402KRX7R7BB104"
+			(at 336.55 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C60474"
+			(at 336.55 29.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21716,7 +21824,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100nF"
 			(at 298.2341 30.4284 0)
 			(effects
 				(font
@@ -21744,6 +21852,24 @@
 			)
 		)
 		(property "Description" ""
+			(at 295.91 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CC0402KRX7R7BB104"
+			(at 295.91 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C60474"
 			(at 295.91 29.21 0)
 			(effects
 				(font
@@ -22223,7 +22349,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100nF"
 			(at 298.2341 38.0484 0)
 			(effects
 				(font
@@ -22251,6 +22377,24 @@
 			)
 		)
 		(property "Description" ""
+			(at 295.91 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CC0402KRX7R7BB104"
+			(at 295.91 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C60474"
 			(at 295.91 36.83 0)
 			(effects
 				(font
@@ -22950,7 +23094,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100nF"
 			(at 318.5541 30.4284 0)
 			(effects
 				(font
@@ -22978,6 +23122,24 @@
 			)
 		)
 		(property "Description" ""
+			(at 316.23 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CC0402KRX7R7BB104"
+			(at 316.23 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C60474"
 			(at 316.23 29.21 0)
 			(effects
 				(font
@@ -23536,7 +23698,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100nF"
 			(at 262.6741 30.4284 0)
 			(effects
 				(font
@@ -23564,6 +23726,24 @@
 			)
 		)
 		(property "Description" ""
+			(at 260.35 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CC0402KRX7R7BB104"
+			(at 260.35 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C60474"
 			(at 260.35 29.21 0)
 			(effects
 				(font
