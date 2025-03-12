@@ -384,10 +384,6 @@ public:
   vector32 gyrAccum32;
   vector32 accAccum32;
 
-    // x across hexa (negative when button side down)
-    // y vertical on hexa, (negative lipo usb down)
-    // z through hexa, (negative leds up)
-
   void update() {
     const int gyrScale = 2000;
     const int accScale = 2000;
@@ -426,10 +422,15 @@ public:
         uint16_t shellH = 0x200 * s/shellCount * beatsin16(3, 0, 0x200, 0, gyrAccum.y) / 0x200;
         uint16_t evolve = millis()/100;
         CRGB c = this->getMirroredPaletteColor(gyrRotate + radialH + twistFactor + shellH + evolve);
+        
+        // improvement: do this in certain accelerometer conditions
+        // if (si%2) {
+        //   brightness = scale8(brightness, beatsin8(10));
+        // } else {
+        //   brightness = scale8(brightness, beatsin8(10, 0, 0xFF, 0, 0x7F));
+        // }
         c = c.scale8(brightness);
         ctx.leds[hexaShells.shells[s][si]] = c;
-        
-        //++si; // TODO neat effect tho, maybe find a way to toggle this in?
       }
     }
   }
@@ -520,31 +521,8 @@ public:
   }
 
   virtual void update() {
-    auto agmt = MotionManager::manager().agmt;
-    // logf("physics accel = %i, %i, %i", agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
     ctx.leds.fill_solid(CRGB::Black);
-    // ctx.leds.fadeToBlackBy(20);
-    vector16 accel(-agmt.acc.axes.x, agmt.acc.axes.y);
-    // physics.update(accel);
-    auto gyro = MotionManager::manager().agmt.gyr.axes;
-    // logf("gyro = %03i, %03i, %03i", gyro.x, gyro.y, gyro.z);
-    /*
-    vector16 atPoint0 = MotionManager::manager().accelerationAtPixelIndex(0);
-    vector16 atPoint9 = MotionManager::manager().accelerationAtPixelIndex(9);
-    vector16 atPoint126 = MotionManager::manager().accelerationAtPixelIndex(126);
-    vector16 atPoint270 = MotionManager::manager().accelerationAtPixelIndex(270);
-    vector16 atPoint261 = MotionManager::manager().accelerationAtPixelIndex(261);
-    vector16 atPoint144 = MotionManager::manager().accelerationAtPixelIndex(144);
-    logf("gyro.z = %i, Acceleration at 6 points: (%i, %i), (%i, %i), (%i, %i), (%i, %i), (%i, %i), (%i, %i)", 
-                                      gyro.z,
-                                      atPoint0.x, atPoint0.y, 
-                                      atPoint9.x, atPoint9.y, 
-                                      atPoint126.x, atPoint126.y, 
-                                      atPoint270.x, atPoint270.y, 
-                                      atPoint261.x, atPoint261.y, 
-                                      atPoint144.x, atPoint144.y);*/
-    physics.update([accel](PixelIndex index) {
-      // UMPoint pos = hexGrid.position(index);
+    physics.update([](PixelIndex index) {
       return MotionManager::manager().accelerationAtPixelIndex(index);
     });
     int i = 0;
@@ -567,7 +545,7 @@ public:
     BouncyPixels::update();
     int i = 0;
     for (PixelPhysics<LED_COUNT>::Particle *p : physics.particles) {
-      CRGB color = CHSV(i++ * 0xFF/pixelCount, 0xFF, 0xFA);
+      CRGB color = CHSV(i++ * 0xFF/pixelCount, 0xFF, 0xFF);
       ctx.leds[p->index] = color;
     }
   }

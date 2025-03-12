@@ -11,20 +11,49 @@ extern char *__brkval;
 #define SDA 8
 #define SCL 9
 
+#include <Arduino.h>
+#include <SPI.h>
+
 #include <I2S.h>
 I2S i2s(INPUT);
+#if HARDWARE_VERSION > 1
+#define I2S_BCLK 23
+#define I2S_LRCLK (BCLK+1)
+#define I2S_DATA 25
+
+#define UNCONNECTED_PIN_1 17
+
+#define LED_SPI0_TX 19
+#define LED_SPI0_SCK 22
+
+#define PHOTOSENSOR_POWER_PIN 27
+#define PHOTOSENSOR_READ_PIN 28
+
+#define BATTERY_VOLTAGE_PIN 29
+
+#define BUTTON_0 16
+
+#define MOTION_INT_PIN 2
+#define LED_LINE_0_PWR_PIN 3
+
+#else // first hardware rev
+
 #define I2S_BCLK 1
 #define I2S_LRCLK (BCLK+1)
 #define I2S_DATA 3
 
 #define UNCONNECTED_PIN_1 27
 
-#include <Arduino.h>
-#include <SPI.h>
-
 // These SPI pins are swapped from spec - FML but does not prevent FastLED from working
 #define LED_SPI0_SCK 19
 #define LED_SPI0_TX 18
+
+#define PHOTOSENSOR_POWER_PIN 28
+#define PHOTOSENSOR_READ_PIN 29
+
+#define BUTTON_0 25
+#endif
+
 
 #define FASTLED_USE_PROGMEM 1
 #define FASTLED_USE_GLOBAL_BRIGHTNESS 1
@@ -45,9 +74,6 @@ I2S i2s(INPUT);
 #include "MotionManager.h"
 
 #define WAIT_FOR_SERIAL 0
-
-#define PHOTOSENSOR_POWER_PIN 28
-#define PHOTOSENSOR_READ_PIN 29
 
 PhotoSensorBrightness *autoBrightness;
 
@@ -122,13 +148,17 @@ void setup() {
   randomSeed(lsb_noise(UNCONNECTED_PIN_1, 8 * sizeof(uint32_t)));
   random16_add_entropy(lsb_noise(UNCONNECTED_PIN_1, 8 * sizeof(uint16_t)));
 
+#if HARDWARE_VERSION > 1
+  pinMode(LED_LINE_0_PWR_PIN, true);
+#endif
+
   init_i2c();
   init_i2s();
   init_spi();
 
   MotionManager::manager().init();
   
-  FastLED.addLeds<SK9822, LED_SPI0_TX, LED_SPI0_SCK, BGR, DATA_RATE_MHZ(16)>(ctx.leds, LED_COUNT);//.setCorrection(0xFFB0C0);
+  FastLED.addLeds<SK9822HD, LED_SPI0_TX, LED_SPI0_SCK, BGR, DATA_RATE_MHZ(16)>(ctx.leds, LED_COUNT);//.setCorrection(0xFFB0C0);
 
   patternManager.registerPattern<PulseHexa>();
   patternManager.registerPattern<MotionHexa>();
@@ -139,8 +169,8 @@ void setup() {
   // patternManager.registerPattern<RandomDust>();
 
   
-  IndexedPatternRunner *indexedRunner = patternManager.setupIndexedPattern(1);
-  SPSTButton *button = controls.addButton(25);
+  IndexedPatternRunner *indexedRunner = patternManager.setupIndexedRunner(1);
+  SPSTButton *button = controls.addButton(BUTTON_0);
   button->onSinglePress([indexedRunner]() {
     indexedRunner->nextPattern();
   });
@@ -151,15 +181,14 @@ void setup() {
   // patternManager.setTestPattern<MotionHexa>();
   // patternManager.setTestPattern<LineSweep>();
   
-  
   initLEDGraph();
   assert(ledgraph.adjList.size() == LED_COUNT, "adjlist size should match LED_COUNT");
 
   patternManager.setup();
 
   autoBrightness = new PhotoSensorBrightness(PHOTOSENSOR_READ_PIN, PHOTOSENSOR_POWER_PIN);
-  autoBrightness->flipSensor = true;
-  autoBrightness->maxBrightness = 0x15; // conservative max brightness here because we have no thermistor to prevent thermal damage
+  autoBrightness->maxBrightness = 0x09; // needs to be lowish on usb bc v2 lipo charger cuts out at 1A draw
+  autoBrightness->logChanges = true;
 
   setupDoneTime = millis();
   logf("setup done");
@@ -204,9 +233,23 @@ void loop() {
   patternManager.loop();
   controls.update();
   autoBrightness->loop();
+
+
+  static bool pixelsHavePower = false;
+  bool pixelsNeedPower = ctx.leds(0, LED_COUNT-1);
   
-  FastLED.show();
+#if HARDWARE_VERSION > 1  
+  if (pixelsNeedPower != pixelsHavePower) {
+    // logf("turn %s line 0", line0poweron?"on":"off");
+    pixelsHavePower = pixelsNeedPower;
+    gpio_put(LED_LINE_0_PWR_PIN, pixelsNeedPower);
+  }
+#endif
+  if (pixelsNeedPower) {
+    FastLED.show();
+  }
+
   fc.loop();
-  fc.clampToFramerate(120);
+  fc.clampToFramerate(240);
   
 }

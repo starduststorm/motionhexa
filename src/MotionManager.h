@@ -133,11 +133,20 @@ public:
   //   }
   //   return eventMap[type];
   // }
+  
+  // FIXME: this should really be in ledgraph or hexgridd or mapping.h or something
   vector16 accelerationAtPixelIndex(PixelIndex index) {
     // imu_pos = 8.0506, 22.9692 # 108.0506, 77.0308 relative to 100,100 center
-    UMPoint P = UMPoint::fromMM(8.0506, -22.9692); // FIXME: can this be constexpr?
+    
     UMPoint Q = hexGrid.position(index); // in um
+    
+#if HARDWARE_VERSION > 1
+    static const UMPoint P = UMPoint::fromMM(100-83.125922, 100-92.920152);
+    vector32 accel(agmt.acc.axes.y, agmt.acc.axes.x);
+#else
+    static const UMPoint P = UMPoint::fromMM(8.0506, -22.9692);
     vector16 accel(-agmt.acc.axes.x, agmt.acc.axes.y);
+#endif
     // vector16 gyro(agmt.gyr.axes.x, agmt.gyr.axes.y);
     // gyro = gyro / 1000;
     // gyro = gyro.scale8(0x02);
