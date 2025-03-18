@@ -62,14 +62,15 @@ I2S i2s(INPUT);
 #include <functional>
 
 #define DUSTLIB_SHARED_COLORMANAGER true
-#define LED_COUNT (271)
 #include <util.h>
+#include "ledgraph.h"
+
 #include <patterning.h>
 #include <controls.h>
 #include <drawing.h>
 
 #include "patterns.h"
-#include "ledgraph.h"
+
 
 #include "MotionManager.h"
 
