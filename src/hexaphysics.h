@@ -16,6 +16,8 @@ using namespace std;
 #define plogf(format, ...)
 #endif
 
+static const unsigned int kMotionDamper = 3; // dampen motion by right shifting position and velocity updates
+
 typedef uint16_t PixelIndex;
 
 template<typename T>
@@ -73,7 +75,7 @@ struct vectorT {
     z -= other.z;
     return *this;
   }
-  vectorT<T> operator>>(const unsigned int shift) {
+  vectorT<T> operator>>(const unsigned int shift) const {
     return vectorT<T>(x >> shift, y >> shift, z >> shift);
   }
   bool operator==(const vectorT<T> & oth) const { return x == oth.x && y == oth.y && z == oth.z; }
@@ -515,7 +517,7 @@ private:
     return hexGrid[p.index]->dstForMotion(bounding);
   }
 
-  void updateParticleAtBound(int label, Particle &p, HexagonBounding checkBound) {
+  void updateParticleAtBound(int label, Particle &p, unsigned long elapsed, HexagonBounding checkBound) {
     assert(checkBound != HexagonBounding::interior, "updateParticleAtBound should not get interior");
     HexagonBounding particleContainment = innerSpaceHexagonBounding(p.pos);
     if ((particleContainment & checkBound) != HexagonBounding::interior) {
@@ -531,8 +533,8 @@ private:
           // collision
           plogf("  particle %i at pixel %i v=(%i,%i) collision with pixel %i v=(%i,%i)", label, srcPixel, p.velocity.x, p.velocity.y, dstPixel, p2.velocity.x, p2.velocity.y);
           // roll back motion because otherwise p1 may have already skipped past p2
-          p.pos -= p.velocity;
-          p2.pos -= p2.velocity;
+          p.pos -= (p.velocity * elapsed) >> kMotionDamper;
+          p2.pos -= (p2.velocity * elapsed) >> kMotionDamper;
           // convert p1 into p2's coordinate space
           const vector16 pos1 = p.pos - unitMotionAcrossBound(checkBound);
           plogf("  pre-collision points in same coordinate space: p1=(%i, %i), p2=(%i, %i)", pos1.x, pos1.y, p2.pos.x, p2.pos.y);
@@ -557,8 +559,8 @@ private:
             plogf("  post-collision velocities p1=(%i, %i), p2=(%i, %i)", p.velocity.x, p.velocity.y, p2.velocity.x, p2.velocity.y);
             
             // roll forward motion?
-            p.pos += p.velocity;
-            p2.pos += p2.velocity;
+            p.pos += (p.velocity * elapsed) >> kMotionDamper;
+            p2.pos += (p2.velocity * elapsed) >> kMotionDamper;
           }
         } else {
           // move
@@ -569,7 +571,6 @@ private:
           p.pos -= unitMotionAcrossBound(checkBound);
         }
       } else {
-        
         plogf("  Particle %i intersected with wall via checkBound %i", label, checkBound);
         line16 line = dst->edgeLine();
         plogf("    wall line points (%i,%i), (%i,%i)", line.x1, line.y1, line.x2, line.y2);
@@ -676,10 +677,15 @@ public:
     return min((int)0xFF, (int)max((int)-0xFF, (int)(accelScaling * val / 10000)));
   }
 
+  unsigned long lastUpdate = 0;
+
   void update(std::function<vector16(PixelIndex)> accelForIndex) {
     // x across hexa (negative when button side down)
     // y vertical on hexa, (negative lipo usb down)
     // z through hexa, (negative leds up)
+    unsigned long elapsed = (lastUpdate > 0 ? millis() - lastUpdate : 1);
+    lastUpdate = millis();
+
     vector<Particle *> lastParticles = particles;
     for (int p = 0; p < particles.size(); ++p) {
       vector16 accelVector = accelForIndex(particles[p]->index);
@@ -689,20 +695,20 @@ public:
       assert(abs(accelVector.y) <= 0xFF, "accelVector.y == %i", accelVector.y);
 
       // plogf("update motion, consider particle %i", p);
-      particles[p]->velocity += accelVector;
+      particles[p]->velocity += (accelVector * elapsed) >> kMotionDamper;
       particles[p]->velocity.x = constrain(particles[p]->velocity.x, -0xFF, 0xFF);
       particles[p]->velocity.y = constrain(particles[p]->velocity.y, -0xFF, 0xFF);
 
-      particles[p]->pos += particles[p]->velocity;
+      particles[p]->pos += (particles[p]->velocity * elapsed) >> kMotionDamper;
       // plogf("  p%i now has pos (%i, %i), velocity (%i, %i)", p, particles[p]->pos.x, particles[p]->pos.y, particles[p]->velocity.x, particles[p]->velocity.y);
     }
     for (int p = 0; p < particles.size(); ++p) {
-      updateParticleAtBound(p, *particles[p], HexagonBounding::right);
-      updateParticleAtBound(p, *particles[p], HexagonBounding::topright);
-      updateParticleAtBound(p, *particles[p], HexagonBounding::topleft);
-      updateParticleAtBound(p, *particles[p], HexagonBounding::left);
-      updateParticleAtBound(p, *particles[p], HexagonBounding::bottomleft);
-      updateParticleAtBound(p, *particles[p], HexagonBounding::bottomright);
+      updateParticleAtBound(p, *particles[p], elapsed, HexagonBounding::right);
+      updateParticleAtBound(p, *particles[p], elapsed, HexagonBounding::topright);
+      updateParticleAtBound(p, *particles[p], elapsed, HexagonBounding::topleft);
+      updateParticleAtBound(p, *particles[p], elapsed, HexagonBounding::left);
+      updateParticleAtBound(p, *particles[p], elapsed, HexagonBounding::bottomleft);
+      updateParticleAtBound(p, *particles[p], elapsed, HexagonBounding::bottomright);
     }
   }
 

@@ -1,4 +1,5 @@
 #define DEBUG 1
+#define WAIT_FOR_SERIAL 0
 
 // for memory logging
 #ifdef __arm__
@@ -6,6 +7,8 @@ extern "C" char* sbrk(int incr);
 #else
 extern char *__brkval;
 #endif
+
+#include "pico/multicore.h"
 
 #include "Wire.h"
 #define SDA 8
@@ -74,8 +77,6 @@ I2S i2s(INPUT);
 
 #include "MotionManager.h"
 
-#define WAIT_FOR_SERIAL 0
-
 PhotoSensorBrightness *autoBrightness;
 
 DrawingContext ctx;
@@ -141,8 +142,41 @@ void serialTimeoutIndicator() {
   delay(20);
 }
 
+mutex_t agmtLock;
+ICM_20948_AGMT_t _gAGMT;   // locked AGMT read
+bool _gAGMTGetNext = true; // prevent core1 from doing multiple motion reads in a single frame
+
+ICM_20948_AGMT_t getAGMT() {
+  assert(0 == get_core_num(), "getAGMT not on core0");
+  mutex_enter_blocking(&agmtLock);
+  ICM_20948_AGMT_t agmt = _gAGMT;
+  _gAGMTGetNext = true;
+  mutex_exit(&agmtLock);
+  return agmt;
+}
+
+void core1_main() {
+  // Motion data reads take upwards of 4.5ms so we're doing them on core1
+  init_i2c();
+  MotionManager::manager().init();
+  while (1) {
+    while (!_gAGMTGetNext) {
+      delayMicroseconds(100); // FIXME: i would rather do this with multicore fifo but cannot seem to get fifo to work at all
+    }
+    ICM_20948_AGMT_t agmt = MotionManager::manager().loop();
+
+    mutex_enter_blocking(&agmtLock);
+    _gAGMT = agmt;
+    _gAGMTGetNext = false;
+    mutex_exit(&agmtLock);
+  }
+}
+
 void setup() {
   init_serial();
+
+  mutex_init(&agmtLock);
+  multicore_launch_core1(core1_main);
 
   pinMode(UNCONNECTED_PIN_1, INPUT);
   auto noise = lsb_noise(UNCONNECTED_PIN_1, 8 * sizeof(uint32_t));
@@ -153,11 +187,8 @@ void setup() {
   pinMode(LED_LINE_0_PWR_PIN, true);
 #endif
 
-  init_i2c();
   init_i2s();
   init_spi();
-
-  MotionManager::manager().init();
   
   FastLED.addLeds<SK9822HD, LED_SPI0_TX, LED_SPI0_SCK, BGR, DATA_RATE_MHZ(16)>(ctx.leds, LED_COUNT);//.setCorrection(0xFFB0C0);
 
@@ -188,7 +219,7 @@ void setup() {
   patternManager.setup();
 
   autoBrightness = new PhotoSensorBrightness(PHOTOSENSOR_READ_PIN, PHOTOSENSOR_POWER_PIN);
-  autoBrightness->maxBrightness = 0x09; // needs to be lowish on usb bc v2 lipo charger cuts out at 1A draw
+  autoBrightness->maxBrightness = 0x10; // needs to be lowish on usb bc v2 lipo charger cuts out at 1A draw
   autoBrightness->logChanges = true;
 
   setupDoneTime = millis();
@@ -228,8 +259,7 @@ void loop() {
     startupWelcome();
     firstLoop = false;
   }
-  // TODO: takes roughly 4.5ms to read AGMT. consider offloading to other core?
-  MotionManager::manager().loop();
+  MotionManager::agmt = getAGMT();
   
   patternManager.loop();
   controls.update();

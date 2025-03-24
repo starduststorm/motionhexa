@@ -30,6 +30,9 @@ public:
     void operator=(const MotionManager &) = delete;
     static MotionManager &manager();
 
+    // for external access, currently using this from core0 and the rest of the class from core1
+    static ICM_20948_AGMT_t agmt;
+
 private:
   bool hasSensor = false;
   unsigned int retainCount;
@@ -133,47 +136,15 @@ public:
   //   }
   //   return eventMap[type];
   // }
-  
-  // FIXME: this should really be in ledgraph or hexgridd or mapping.h or something
-  vector16 accelerationAtPixelIndex(PixelIndex index) {
-    // imu_pos = 8.0506, 22.9692 # 108.0506, 77.0308 relative to 100,100 center
-    
-    UMPoint Q = hexGrid.position(index); // in um
-    
-#if HARDWARE_VERSION > 1
-    static const UMPoint P = UMPoint::fromMM(100-83.125922, 100-92.920152);
-    vector32 accel(agmt.acc.axes.y, agmt.acc.axes.x);
-#else
-    static const UMPoint P = UMPoint::fromMM(8.0506, -22.9692);
-    vector16 accel(-agmt.acc.axes.x, agmt.acc.axes.y);
-#endif
-    // vector16 gyro(agmt.gyr.axes.x, agmt.gyr.axes.y);
-    // gyro = gyro / 1000;
-    // gyro = gyro.scale8(0x02);
-    // logf("accelerationAtPixelIndex(%03i), Q=(%i,%i), accel=(%i,%i), gryo=(%i, %i)", index, Q.x, Q.y, accel.x, accel.y, gyro.x, gyro.y);
 
-    // FIXME: doesn't work, oversimplified
-
-    UMPoint P2Q = Q - P;
-    if (index == 0 || index == 270) {
-      // logf("index %i P2Q = (%i, %i)", index, P2Q.x, P2Q.y);
-    }
-    auto ω_z = agmt.gyr.axes.z / 15000;
-    auto vec = vector16(accel.x + ω_z*ω_z * P2Q.x, accel.y + ω_z*ω_z * P2Q.y);
-    // logf("  => (%i, %i)", vec.x, vec.y);
-    return vec;
-  }
-
-  ICM_20948_AGMT_t agmt = {0};
-
-  void loop() {
+  ICM_20948_AGMT_t loop() {
     if (!hasSensor) {
-      return;
+      return {0};
     }
 
-    agmt = icm.getAGMT();
+    ICM_20948_AGMT_t agmt = icm.getAGMT();
     if (!enableDMP) {
-      return;
+      return agmt;
     }
 
     icm_20948_DMP_data_t data;
@@ -237,6 +208,7 @@ public:
         // logf("Pitch: %0.3f, roll: %0.3f, yaw: %0.3f", pitch, roll, yaw);
       }
     }
+    return agmt;
   }
 
 private:
@@ -323,6 +295,7 @@ void printScaledAGMT(ICM_20948_I2C *sensor)
 }
 
 MotionManager *MotionManager::_singleton = nullptr;
+ICM_20948_AGMT_t MotionManager::agmt{0};
 MotionManager &MotionManager::manager() {
     if (_singleton==nullptr) {
         _singleton = new MotionManager();

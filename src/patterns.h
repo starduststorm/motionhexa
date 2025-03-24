@@ -87,7 +87,7 @@ public:
   void update() {
     const int gyrScale = 2000;
     const int accScale = 2000;
-    ICM_20948_AGMT_t agmt = MotionManager::manager().agmt;
+    ICM_20948_AGMT_t agmt = MotionManager::agmt;
     gyrAccum32 += vector16(agmt.gyr.axes.x, agmt.gyr.axes.y, agmt.gyr.axes.z);
     accAccum32 += vector16(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
     vector16 gyrAccum = gyrAccum32 / gyrScale;
@@ -223,7 +223,7 @@ public:
   virtual void update() {
     ctx.leds.fill_solid(CRGB::Black);
     physics.update([](PixelIndex index) {
-      return MotionManager::manager().accelerationAtPixelIndex(index);
+      return accelerationAtPixelIndex(index, MotionManager::agmt);
     });
     int i = 0;
     for (PixelPhysics<LED_COUNT>::Particle *p : physics.particles) {
