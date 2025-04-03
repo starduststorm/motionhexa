@@ -11616,9 +11616,9 @@
 		)
 		(uuid "9cf4307e-ec0d-402c-8f2f-c6e8769856e6")
 	)
-	(text "ADC1 should read\n3-3.12V when VDD==5-5.2V (usb)\n2.52V when VDD=4.2V (full)\n1.32V when VDD=3.2V (empty)"
+	(text "ADC3 should read\n2.52V when VDD=4.2V (full)\n1.92V when VDD=3.2V (empty)"
 		(exclude_from_sim no)
-		(at 306.07 157.48 0)
+		(at 262.128 144.272 0)
 		(effects
 			(font
 				(size 1.27 1.27)

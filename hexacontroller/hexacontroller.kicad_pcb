@@ -14474,7 +14474,7 @@
 		)
 		(fp_arc
 			(start 0.3048 -2.0447)
-			(mid 0 -1.739899)
+			(mid 0.000001 -1.739899)
 			(end -0.3048 -2.0447)
 			(stroke
 				(width 0.0254)
@@ -24309,17 +24309,16 @@
 		(layer "Dwgs.User")
 		(uuid "f19038e8-229c-47bb-8851-dc54555b0f9b")
 	)
-	(gr_poly
-		(pts
-			(xy 64.24157 99.014766) (xy 126.241568 99.014772) (xy 126.241574 134.014767) (xy 64.241567 134.01477)
-		)
+	(gr_rect
+		(start 62.2928 100.0506)
+		(end 127.2928 134.0506)
 		(stroke
 			(width 0.15)
 			(type default)
 		)
 		(fill none)
 		(layer "Cmts.User")
-		(uuid "962aa4bb-95b1-40e0-b3cc-6dc93cc90f7d")
+		(uuid "79e024ab-3c50-4cfd-9607-fea414810216")
 	)
 	(gr_text "GND"
 		(at 126.261098 138.388117 90)
@@ -24477,7 +24476,7 @@
 			(justify left bottom)
 		)
 	)
-	(gr_text "LP883562  - 2000mAh	62 x 35 x 8.8mm"
+	(gr_text "LP803465  - 2000mAh	65 x 34 x 8.0mm"
 		(at 77.592802 120.904016 0)
 		(layer "Cmts.User")
 		(uuid "40aa79f2-5dc2-4bfc-a586-ec7cc30d7ae8")
