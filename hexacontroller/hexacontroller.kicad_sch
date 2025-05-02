@@ -16679,7 +16679,7 @@
 	)
 	(symbol
 		(lib_id "Device:LED")
-		(at 91.44 120.65 90)
+		(at 91.44 120.65 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -16687,7 +16687,7 @@
 		(dnp no)
 		(uuid "5a99d254-925e-47b1-b5a7-c26dae1ef7ab")
 		(property "Reference" "D4"
-			(at 93.98 120.65 90)
+			(at 88.9 120.65 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16695,7 +16695,7 @@
 			)
 		)
 		(property "Value" "LED"
-			(at 89.662 118.364 90)
+			(at 93.218 122.936 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -18160,7 +18160,7 @@
 	)
 	(symbol
 		(lib_id "Device:LED")
-		(at 97.79 120.65 90)
+		(at 97.79 120.65 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -18168,7 +18168,7 @@
 		(dnp no)
 		(uuid "7aa97012-c3be-4d34-9642-4b8629121f13")
 		(property "Reference" "D5"
-			(at 100.33 120.65 90)
+			(at 95.25 120.65 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -18176,7 +18176,7 @@
 			)
 		)
 		(property "Value" "LED"
-			(at 96.012 118.364 90)
+			(at 99.568 122.936 90)
 			(effects
 				(font
 					(size 1.27 1.27)
