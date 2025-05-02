@@ -8999,6 +8999,12 @@
 		(uuid "94f4603a-877c-4baa-bd82-3af36b4736b4")
 	)
 	(junction
+		(at 335.28 54.61)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9f1af6e3-d281-471f-82ea-be7e3d1617d4")
+	)
+	(junction
 		(at 54.61 173.99)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -9291,10 +9297,6 @@
 		(uuid "87d07e2c-add2-4f7e-b009-e41c4327ea35")
 	)
 	(no_connect
-		(at 298.45 58.42)
-		(uuid "8b5f6027-45e3-4623-b4e2-85ece4d9302c")
-	)
-	(no_connect
 		(at 160.02 207.01)
 		(uuid "95105a6b-0e67-4f2a-a2e5-c268aef08753")
 	)
@@ -9307,16 +9309,16 @@
 		(uuid "bbe40b3a-55f9-44c8-96c8-d5e18205a910")
 	)
 	(no_connect
+		(at 298.45 63.5)
+		(uuid "bc7c6327-636d-417e-b885-2f2f04917830")
+	)
+	(no_connect
 		(at 54.61 69.85)
 		(uuid "c5686c8e-899e-4a10-a632-e4b2f4f78133")
 	)
 	(no_connect
 		(at 298.45 99.06)
 		(uuid "cd6a0bc3-c65a-4c12-a7a8-28c45f20bc5a")
-	)
-	(no_connect
-		(at 298.45 63.5)
-		(uuid "d34c3c13-af3d-4882-9469-1cc71789bace")
 	)
 	(no_connect
 		(at 54.61 85.09)
@@ -10422,6 +10424,16 @@
 		)
 		(uuid "7888094d-5aff-4234-995b-a356f34df254")
 	)
+	(wire
+		(pts
+			(xy 335.28 54.61) (xy 335.28 53.34)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "78fbbca4-daf9-4179-a14d-fef8f473145a")
+	)
 	(polyline
 		(pts
 			(xy 104.14 115.57) (xy 104.14 118.11)
@@ -10681,6 +10693,16 @@
 			(type default)
 		)
 		(uuid "954c0f9d-84bf-4575-9608-1582e4d70662")
+	)
+	(wire
+		(pts
+			(xy 335.28 54.61) (xy 335.28 55.88)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "957a0a58-905b-4575-b0fe-ee73908a2f12")
 	)
 	(wire
 		(pts
@@ -11124,6 +11146,16 @@
 	)
 	(wire
 		(pts
+			(xy 313.69 54.61) (xy 335.28 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ca090ab3-9158-4802-9c63-02f2815de92a")
+	)
+	(wire
+		(pts
 			(xy 91.44 110.49) (xy 91.44 107.95)
 		)
 		(stroke
@@ -11334,6 +11366,16 @@
 	)
 	(wire
 		(pts
+			(xy 313.69 58.42) (xy 313.69 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ec362a2a-c410-4b87-b426-dc9ef389c43f")
+	)
+	(wire
+		(pts
 			(xy 68.58 71.12) (xy 68.58 73.66)
 		)
 		(stroke
@@ -11512,6 +11554,16 @@
 		)
 		(uuid "fba18974-497a-4e72-a930-545f5eaec3f5")
 	)
+	(wire
+		(pts
+			(xy 298.45 58.42) (xy 313.69 58.42)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fbd8cde7-af5e-4c97-8933-1b04c60d2a6c")
+	)
 	(text "1A charge"
 		(exclude_from_sim no)
 		(at 140.97 111.76 90)
@@ -11603,6 +11655,16 @@
 			(justify right bottom)
 		)
 		(uuid "5fb42382-e1f4-45c1-8519-a943f069d68c")
+	)
+	(text "VBUS Sensor"
+		(exclude_from_sim no)
+		(at 338.836 55.372 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "63f9ac2e-f4b9-41a1-84da-afa6c2f0cd24")
 	)
 	(text "3.3v and 1.8v Regulator"
 		(exclude_from_sim no)
@@ -13225,6 +13287,71 @@
 	)
 	(symbol
 		(lib_id "power:GND")
+		(at 335.28 63.5 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "2629065d-47e7-48f4-935b-37db03bc211b")
+		(property "Reference" "#PWR057"
+			(at 335.28 69.85 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 335.28 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 335.28 63.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 335.28 63.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 335.28 63.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "45e0db0c-b41e-44ba-ac3b-d51ab1ae6a74")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "#PWR057")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
 		(at 149.86 212.09 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -14732,6 +14859,91 @@
 	)
 	(symbol
 		(lib_id "Device:R")
+		(at 335.28 59.69 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "43016c53-e2bd-4c0d-9b05-3970c1c1b2ce")
+		(property "Reference" "R23"
+			(at 332.74 59.69 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "30k"
+			(at 330.835 59.69 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
+			(at 337.058 59.69 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 335.28 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 335.28 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "RC0402FR-0730KL"
+			(at 335.28 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C138008"
+			(at 335.28 59.69 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "d2af0d46-8958-498f-9373-096eee983a59")
+		)
+		(pin "2"
+			(uuid "bfb5d166-fc73-4f4a-9d90-cb81ca1760c7")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "R23")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
 		(at 58.42 44.45 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -14899,6 +15111,91 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "R6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 335.28 49.53 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "45988861-f3c1-466a-b412-a96a3c682092")
+		(property "Reference" "R24"
+			(at 332.74 49.53 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "20k"
+			(at 330.835 49.53 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
+			(at 337.058 49.53 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 335.28 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 335.28 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "RC0402FR-0720KL"
+			(at 335.28 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C93942"
+			(at 335.28 49.53 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "f9da83bf-0dc4-4a8e-bce0-b10e22b97202")
+		)
+		(pin "2"
+			(uuid "1d5e16c9-43b5-46f3-bf78-4eb58506b6d1")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "R24")
 					(unit 1)
 				)
 			)
@@ -16757,6 +17054,72 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "D4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:VBUS")
+		(at 335.28 45.72 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "5b3694a2-2863-4b63-8487-17e9fec0aa69")
+		(property "Reference" "#PWR060"
+			(at 335.28 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "VBUS"
+			(at 335.28 41.5869 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 335.28 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 335.28 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VBUS\""
+			(at 335.28 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "781d29ec-e4a7-41d2-8d43-31021ad8cecd")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "#PWR060")
 					(unit 1)
 				)
 			)
