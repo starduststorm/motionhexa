@@ -8849,6 +8849,12 @@
 		(uuid "2c68b60e-d2b7-4990-9d6d-0cd810fc3eeb")
 	)
 	(junction
+		(at 29.21 132.08)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2cb4f9af-7a24-46fd-b121-671f9b8ba416")
+	)
+	(junction
 		(at 323.85 138.43)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -9233,6 +9239,10 @@
 		(uuid "2ac4f7db-68ca-46de-932a-cfc14fe860e8")
 	)
 	(no_connect
+		(at 298.45 60.96)
+		(uuid "303915a5-7480-4eb1-8479-d857e49dd9df")
+	)
+	(no_connect
 		(at 298.45 101.6)
 		(uuid "46be6993-bb04-467a-8d35-8569ad09800f")
 	)
@@ -9282,7 +9292,7 @@
 	)
 	(no_connect
 		(at 298.45 58.42)
-		(uuid "94839bbc-0850-4ba1-ad41-fa2054b5780c")
+		(uuid "8b5f6027-45e3-4623-b4e2-85ece4d9302c")
 	)
 	(no_connect
 		(at 160.02 207.01)
@@ -9554,7 +9564,7 @@
 	)
 	(wire
 		(pts
-			(xy 29.21 128.27) (xy 29.21 134.62)
+			(xy 29.21 128.27) (xy 29.21 132.08)
 		)
 		(stroke
 			(width 0)
@@ -10011,6 +10021,16 @@
 			(type default)
 		)
 		(uuid "4ed7c9a4-28de-4649-9cad-4ca25a648d21")
+	)
+	(wire
+		(pts
+			(xy 29.21 132.08) (xy 34.29 132.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4f2de8d3-e197-4744-bba4-667e3a9ba974")
 	)
 	(wire
 		(pts
@@ -10571,6 +10591,16 @@
 			(type default)
 		)
 		(uuid "8bf47823-05f0-4123-982c-3ebe13d5c412")
+	)
+	(wire
+		(pts
+			(xy 29.21 132.08) (xy 29.21 134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8e1c3e50-360e-44a7-bc75-974da86acc27")
 	)
 	(wire
 		(pts
@@ -11792,17 +11822,6 @@
 		)
 		(uuid "377e1e15-4834-4a5b-8a29-5c1f6db5c8d3")
 	)
-	(label "1V8_REG_EN"
-		(at 298.45 60.96 0)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "3dfb3318-6d98-423f-8af9-6b0872f32968")
-	)
 	(label "QSPI3"
 		(at 293.37 175.26 0)
 		(fields_autoplaced yes)
@@ -12176,17 +12195,6 @@
 			(justify right bottom)
 		)
 		(uuid "dc959b29-9129-467e-b1b9-12184e5b2f56")
-	)
-	(label "1V8_REG_EN"
-		(at 34.29 132.08 90)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "e6ea94f8-648e-4bbb-98a7-9945111efd59")
 	)
 	(label "SPI0_TX_3V3"
 		(at 173.99 67.31 180)
