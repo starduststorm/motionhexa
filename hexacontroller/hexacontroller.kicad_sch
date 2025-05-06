@@ -9245,10 +9245,6 @@
 		(uuid "2ac4f7db-68ca-46de-932a-cfc14fe860e8")
 	)
 	(no_connect
-		(at 298.45 60.96)
-		(uuid "303915a5-7480-4eb1-8479-d857e49dd9df")
-	)
-	(no_connect
 		(at 298.45 101.6)
 		(uuid "46be6993-bb04-467a-8d35-8569ad09800f")
 	)
@@ -10376,6 +10372,16 @@
 	)
 	(wire
 		(pts
+			(xy 107.95 149.86) (xy 114.3 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "73a3e3bd-ae73-4681-8e22-80a709960bf7")
+	)
+	(wire
+		(pts
 			(xy 128.27 125.73) (xy 128.27 123.19)
 		)
 		(stroke
@@ -10453,6 +10459,16 @@
 			(type default)
 		)
 		(uuid "794f24a7-fa64-4827-83e5-5755851a9284")
+	)
+	(wire
+		(pts
+			(xy 95.25 149.86) (xy 100.33 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7953f8de-3b02-408b-a9fb-21d9c7e8757a")
 	)
 	(wire
 		(pts
@@ -11366,7 +11382,7 @@
 	)
 	(wire
 		(pts
-			(xy 313.69 58.42) (xy 313.69 54.61)
+			(xy 313.69 54.61) (xy 313.69 60.96)
 		)
 		(stroke
 			(width 0)
@@ -11556,7 +11572,7 @@
 	)
 	(wire
 		(pts
-			(xy 298.45 58.42) (xy 313.69 58.42)
+			(xy 298.45 60.96) (xy 313.69 60.96)
 		)
 		(stroke
 			(width 0)
@@ -11633,6 +11649,16 @@
 			)
 		)
 		(uuid "518aaefa-3bf7-4462-bcbf-32fc7ccd86c5")
+	)
+	(text "todo: compare with other parts"
+		(exclude_from_sim no)
+		(at 104.394 156.718 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "51dc3daf-8957-4fff-b73b-50685f94ee44")
 	)
 	(text "V_out = V_ref * (1 + R10/R11)\nwith V_ref = 0.6V (typical)\nso R11 ≈ 7.333 * R10\nand V_out = 4.8V but we'll call it 5V?"
 		(exclude_from_sim no)
@@ -12093,6 +12119,17 @@
 		)
 		(uuid "98388e77-ef41-4605-acc9-032780823034")
 	)
+	(label "PIXEL_VDD"
+		(at 114.3 149.86 90)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "987f14bd-5dbb-426e-9b42-4a43bfdc0055")
+	)
 	(label "QSPI0"
 		(at 238.76 71.12 0)
 		(fields_autoplaced yes)
@@ -12103,6 +12140,17 @@
 			(justify left bottom)
 		)
 		(uuid "9a55696a-f7fc-40a9-8ad7-c6d621e94aa7")
+	)
+	(label "EN_BOOST"
+		(at 298.45 58.42 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "9c0cc50b-0bdc-4f6c-aa18-55f0a9611ea5")
 	)
 	(label "BCLK"
 		(at 298.45 106.68 0)
@@ -12236,7 +12284,7 @@
 		)
 		(uuid "d58057e4-7559-44af-a92a-7376e9b9e479")
 	)
-	(label "EN_PIXELS"
+	(label "EN_BOOST"
 		(at 38.1 193.04 270)
 		(fields_autoplaced yes)
 		(effects
@@ -13061,6 +13109,93 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "#PWR045")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:D_Schottky")
+		(at 104.14 149.86 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "16ab7825-715e-41eb-aca9-fd565795eaed")
+		(property "Reference" "D3"
+			(at 105.41 153.162 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "D_Schottky"
+			(at 109.474 146.558 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "hexacontroller:NSR10F20NXT5G"
+			(at 104.14 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 104.14 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 104.14 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "NSR10F20NXT5G"
+			(at 104.14 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C893809"
+			(at 104.14 149.86 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "218110d8-9744-4af3-933b-8efc07715db6")
+		)
+		(pin "2"
+			(uuid "fbc4f2ea-37dc-48e3-9cce-456c82d920e9")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "D3")
 					(unit 1)
 				)
 			)
@@ -23576,6 +23711,72 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "C10")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:VBUS")
+		(at 95.25 149.86 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "e5f42fcc-e76d-4126-81b2-0290deb24c10")
+		(property "Reference" "#PWR061"
+			(at 95.25 153.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "VBUS"
+			(at 95.25 145.7269 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 95.25 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 95.25 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VBUS\""
+			(at 95.25 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "1adad040-04c5-4b12-9119-edac4f58646a")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "#PWR061")
 					(unit 1)
 				)
 			)
