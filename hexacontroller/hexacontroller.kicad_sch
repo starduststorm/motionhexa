@@ -11356,6 +11356,16 @@
 		)
 		(uuid "408fd203-7e50-4dcf-bc41-75a5800e0e20")
 	)
+	(text "+batt -> mcu -> usb lines -> -batt? \ncheck leakage"
+		(exclude_from_sim no)
+		(at 92.456 54.102 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "4de6345d-3780-440d-b830-6f381d68b0fe")
+	)
 	(text "5v boost"
 		(exclude_from_sim no)
 		(at 43.18 170.18 0)
