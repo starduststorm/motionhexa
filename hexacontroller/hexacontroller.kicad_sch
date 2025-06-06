@@ -11511,6 +11511,17 @@
 		)
 		(uuid "7f31654f-a0ae-48ac-b7ac-da2e556a6289")
 	)
+	(text "TODO: can D1 be removed or replaced with\nan idea diode with less voltage drop?"
+		(exclude_from_sim no)
+		(at 28.956 232.156 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "8479af57-9191-463e-9438-67c7f842b77d")
+	)
 	(text "Hard Switch\n2->1: hexa 'off', mcu can detect switch state\n2->3: hexa 'on', boost circuit powered"
 		(exclude_from_sim no)
 		(at 25.4 194.31 0)
@@ -11531,6 +11542,16 @@
 			)
 		)
 		(uuid "88d26ecf-a4f6-49e5-ae8a-7af50ab5ce20")
+	)
+	(text "TODO: estimate power loss due to boosting +BATT -> +5V -> ldo -> regulated\nrather than running +BATT through a diode to ldo"
+		(exclude_from_sim no)
+		(at 147.066 132.842 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "9a4ac7f8-0b72-447a-97f2-35ddf3ed8f04")
 	)
 	(text "OFF"
 		(exclude_from_sim no)
