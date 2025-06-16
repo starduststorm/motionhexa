@@ -8733,6 +8733,12 @@
 		(uuid "12e3bc52-5a45-4b50-9072-3d363d3c9142")
 	)
 	(junction
+		(at 92.71 157.48)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "13c3be52-2a52-40aa-b3cf-4e1cae8477fa")
+	)
+	(junction
 		(at 195.58 93.98)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -8839,6 +8845,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "4a9abee1-88c7-4c98-8523-e01ddb06ab4d")
+	)
+	(junction
+		(at 85.09 148.59)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4b089197-416a-4a9d-b9bc-5610b19e9b34")
 	)
 	(junction
 		(at 74.93 245.11)
@@ -9075,7 +9087,7 @@
 		(uuid "ce9b278e-c54e-4036-a5db-5fbfdc65c06a")
 	)
 	(junction
-		(at 91.44 137.16)
+		(at 101.6 137.16)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d02a1af8-8bcd-48cd-908a-6a1a9c04a500")
@@ -9366,16 +9378,6 @@
 	)
 	(wire
 		(pts
-			(xy 85.09 157.48) (xy 91.44 157.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0ec1adbd-3437-4f93-be91-922ce6dba34c")
-	)
-	(wire
-		(pts
 			(xy 184.15 99.06) (xy 193.04 99.06)
 		)
 		(stroke
@@ -9416,7 +9418,7 @@
 	)
 	(wire
 		(pts
-			(xy 91.44 138.43) (xy 91.44 137.16)
+			(xy 101.6 138.43) (xy 101.6 137.16)
 		)
 		(stroke
 			(width 0)
@@ -9453,16 +9455,6 @@
 			(type default)
 		)
 		(uuid "1c816229-f3d3-4881-8a5f-3335aa1cbdc8")
-	)
-	(wire
-		(pts
-			(xy 72.39 137.16) (xy 91.44 137.16)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "1d1ff7f7-ad38-4bce-bbad-711e47d85de1")
 	)
 	(wire
 		(pts
@@ -9596,6 +9588,16 @@
 	)
 	(wire
 		(pts
+			(xy 72.39 137.16) (xy 101.6 137.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2b13bde4-c3c2-426e-bd00-995ba65f62e1")
+	)
+	(wire
+		(pts
 			(xy 24.13 123.19) (xy 24.13 125.73)
 		)
 		(stroke
@@ -9613,6 +9615,16 @@
 			(type default)
 		)
 		(uuid "2c02d7dc-ef92-43ff-b78c-cb4b4caac7d0")
+	)
+	(wire
+		(pts
+			(xy 85.09 148.59) (xy 92.71 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2d457458-0e6e-443e-ae90-db9176fcf128")
 	)
 	(wire
 		(pts
@@ -9786,7 +9798,7 @@
 	)
 	(wire
 		(pts
-			(xy 91.44 143.51) (xy 91.44 157.48)
+			(xy 101.6 143.51) (xy 101.6 157.48)
 		)
 		(stroke
 			(width 0)
@@ -10566,7 +10578,7 @@
 	)
 	(wire
 		(pts
-			(xy 91.44 133.35) (xy 91.44 137.16)
+			(xy 101.6 133.35) (xy 101.6 137.16)
 		)
 		(stroke
 			(width 0)
@@ -10906,6 +10918,16 @@
 	)
 	(wire
 		(pts
+			(xy 92.71 153.67) (xy 92.71 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a7153c52-805b-4119-b24a-6c787ec142c0")
+	)
+	(wire
+		(pts
 			(xy 359.41 49.53) (xy 359.41 50.8)
 		)
 		(stroke
@@ -10933,6 +10955,16 @@
 			(type default)
 		)
 		(uuid "a965e3d5-cf9e-4bf5-a84f-89a4a98ca6a7")
+	)
+	(wire
+		(pts
+			(xy 85.09 157.48) (xy 92.71 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a9950b8e-df03-49d0-b310-54ee1d3c993c")
 	)
 	(wire
 		(pts
@@ -11614,6 +11646,16 @@
 		)
 		(uuid "ff81b1a1-96b8-4c99-a36c-20569d2c24e9")
 	)
+	(wire
+		(pts
+			(xy 92.71 157.48) (xy 101.6 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ffb3badb-e010-4363-95a0-5d7267e6a8e1")
+	)
 	(text "1A charge"
 		(exclude_from_sim no)
 		(at 86.36 143.51 90)
@@ -11814,7 +11856,7 @@
 	)
 	(text "R_ibf = R_iset * I_bat / I_bf\nR_iset = 1.8kΩ\nI_bat = 1A\nI_bf = 90mA\nR_ibf in Ω => 20000Ω"
 		(exclude_from_sim no)
-		(at 93.98 149.86 0)
+		(at 104.14 149.86 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -13015,6 +13057,84 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "#PWR045")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 92.71 151.13 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "0e2c0ee9-1439-4218-88af-64fa5fa9d0ef")
+		(property "Reference" "C32"
+			(at 90.17 152.908 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10n"
+			(at 95.504 152.908 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
+			(at 92.71 151.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 92.71 151.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 92.71 151.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" ""
+			(at 92.71 151.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "4026193b-13f1-45b8-bb02-3592c79fd1bf")
+		)
+		(pin "1"
+			(uuid "793f7303-d3ec-4b93-a34a-31169501d169")
+		)
+		(instances
+			(project ""
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "C32")
 					(unit 1)
 				)
 			)
@@ -19014,7 +19134,7 @@
 	)
 	(symbol
 		(lib_id "power:+BATT")
-		(at 91.44 133.35 0)
+		(at 101.6 133.35 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -19022,7 +19142,7 @@
 		(dnp no)
 		(uuid "7ddca997-4e5f-46ba-b4c1-1bbdda9721a3")
 		(property "Reference" "#PWR063"
-			(at 91.44 137.16 0)
+			(at 101.6 137.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19031,7 +19151,7 @@
 			)
 		)
 		(property "Value" "+BATT"
-			(at 90.678 129.54 0)
+			(at 100.838 129.54 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19039,7 +19159,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 91.44 133.35 0)
+			(at 101.6 133.35 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19048,7 +19168,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 91.44 133.35 0)
+			(at 101.6 133.35 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19057,7 +19177,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+BATT\""
-			(at 91.44 133.35 0)
+			(at 101.6 133.35 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23371,7 +23491,7 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 91.44 140.97 0)
+		(at 101.6 140.97 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -23379,7 +23499,7 @@
 		(dnp no)
 		(uuid "dccffb12-7ad7-4640-beb5-405ac8491621")
 		(property "Reference" "C30"
-			(at 95.25 142.748 90)
+			(at 105.41 142.748 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23388,7 +23508,7 @@
 			)
 		)
 		(property "Value" "10uF"
-			(at 97.79 143.002 90)
+			(at 107.95 143.002 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23397,7 +23517,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
-			(at 91.44 140.97 0)
+			(at 101.6 140.97 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23406,7 +23526,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 91.44 140.97 0)
+			(at 101.6 140.97 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23415,7 +23535,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 91.44 140.97 0)
+			(at 101.6 140.97 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23424,7 +23544,7 @@
 			)
 		)
 		(property "Designation" "0603X106K100"
-			(at 91.44 140.97 0)
+			(at 101.6 140.97 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23433,7 +23553,7 @@
 			)
 		)
 		(property "LCSC" "C90806"
-			(at 91.44 140.97 0)
+			(at 101.6 140.97 0)
 			(effects
 				(font
 					(size 1.27 1.27)
