@@ -9492,7 +9492,7 @@
 		(uuid "2ac4f7db-68ca-46de-932a-cfc14fe860e8")
 	)
 	(no_connect
-		(at 261.62 101.6)
+		(at 261.62 124.46)
 		(uuid "46be6993-bb04-467a-8d35-8569ad09800f")
 	)
 	(no_connect
@@ -9540,7 +9540,7 @@
 		(uuid "95105a6b-0e67-4f2a-a2e5-c268aef08753")
 	)
 	(no_connect
-		(at 261.62 91.44)
+		(at 261.62 101.6)
 		(uuid "b9e0cc85-aa64-40dd-946e-e575191ff1ed")
 	)
 	(no_connect
@@ -12506,7 +12506,7 @@
 		(uuid "3fff90df-adde-4175-ad82-140a7313b3fb")
 	)
 	(label "BUTTON_0"
-		(at 261.62 88.9 0)
+		(at 261.62 91.44 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -12550,7 +12550,7 @@
 		(uuid "5464fc0a-ed27-4cf1-8c9f-276083ccd3db")
 	)
 	(label "CHRG"
-		(at 261.62 124.46 0)
+		(at 261.62 88.9 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
