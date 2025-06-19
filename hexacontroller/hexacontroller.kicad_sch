@@ -9452,10 +9452,10 @@
 		(uuid "ef2ca632-3d06-4318-a084-0e2c7455e6dd")
 	)
 	(junction
-		(at 63.5 223.52)
+		(at 60.96 223.52)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "f0c57577-53a4-40d1-9688-9874398c81b9")
+		(uuid "f227238a-a742-4631-b57c-267496293a87")
 	)
 	(junction
 		(at 78.74 162.56)
@@ -9971,16 +9971,6 @@
 	)
 	(wire
 		(pts
-			(xy 55.88 205.74) (xy 58.42 205.74)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2ef2ec9c-1688-42fa-83ea-e9c9534fcb09")
-	)
-	(wire
-		(pts
 			(xy 246.38 39.37) (xy 246.38 40.64)
 		)
 		(stroke
@@ -10401,26 +10391,6 @@
 	)
 	(wire
 		(pts
-			(xy 63.5 223.52) (xy 74.93 223.52)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4b58d030-a4c5-44a9-b2bc-bbb51a3a241d")
-	)
-	(wire
-		(pts
-			(xy 55.88 203.2) (xy 55.88 205.74)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4c5b0913-f6f1-4015-96c6-16fbf3163f1c")
-	)
-	(wire
-		(pts
 			(xy 325.12 60.96) (xy 325.12 62.23)
 		)
 		(stroke
@@ -10571,7 +10541,7 @@
 	)
 	(wire
 		(pts
-			(xy 74.93 245.11) (xy 63.5 245.11)
+			(xy 74.93 245.11) (xy 60.96 245.11)
 		)
 		(stroke
 			(width 0)
@@ -10951,6 +10921,16 @@
 	)
 	(wire
 		(pts
+			(xy 60.96 223.52) (xy 74.93 223.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7ce8a3ef-854b-41c6-85e6-322584d97cd5")
+	)
+	(wire
+		(pts
 			(xy 180.34 172.72) (xy 180.34 175.26)
 		)
 		(stroke
@@ -10968,16 +10948,6 @@
 			(type default)
 		)
 		(uuid "7e64f278-108b-4075-b227-f8d1863a3ecc")
-	)
-	(wire
-		(pts
-			(xy 63.5 213.36) (xy 63.5 223.52)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "802f69c6-0f2b-4d73-9801-c7e59641118d")
 	)
 	(wire
 		(pts
@@ -11401,7 +11371,7 @@
 	)
 	(wire
 		(pts
-			(xy 68.58 205.74) (xy 73.66 205.74)
+			(xy 68.58 214.63) (xy 68.58 219.71)
 		)
 		(stroke
 			(width 0)
@@ -11741,7 +11711,7 @@
 	)
 	(wire
 		(pts
-			(xy 54.61 223.52) (xy 63.5 223.52)
+			(xy 54.61 223.52) (xy 60.96 223.52)
 		)
 		(stroke
 			(width 0)
@@ -12021,7 +11991,7 @@
 	)
 	(wire
 		(pts
-			(xy 63.5 245.11) (xy 63.5 229.87)
+			(xy 60.96 245.11) (xy 60.96 229.87)
 		)
 		(stroke
 			(width 0)
@@ -12071,6 +12041,16 @@
 	)
 	(wire
 		(pts
+			(xy 60.96 209.55) (xy 60.96 223.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f81a1cad-5e53-43d5-9a82-f4bc9787f582")
+	)
+	(wire
+		(pts
 			(xy 367.03 48.26) (xy 370.84 48.26)
 		)
 		(stroke
@@ -12091,7 +12071,7 @@
 	)
 	(wire
 		(pts
-			(xy 63.5 224.79) (xy 63.5 223.52)
+			(xy 60.96 224.79) (xy 60.96 223.52)
 		)
 		(stroke
 			(width 0)
@@ -12847,7 +12827,7 @@
 		(uuid "b029df98-7436-4f6b-8bf6-174a6e40fdf1")
 	)
 	(label "PWR_SWITCH"
-		(at 73.66 205.74 90)
+		(at 68.58 219.71 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -13945,7 +13925,7 @@
 	)
 	(symbol
 		(lib_id "Device:R_Small")
-		(at 63.5 227.33 180)
+		(at 60.96 227.33 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -13953,7 +13933,7 @@
 		(dnp no)
 		(uuid "19b4e1a4-2b45-4720-ac3a-072576110abf")
 		(property "Reference" "R1"
-			(at 61.214 227.33 90)
+			(at 58.674 227.33 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13961,7 +13941,7 @@
 			)
 		)
 		(property "Value" "20k"
-			(at 65.405 227.33 90)
+			(at 62.865 227.33 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13969,7 +13949,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 63.5 227.33 0)
+			(at 60.96 227.33 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13978,7 +13958,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 63.5 227.33 0)
+			(at 60.96 227.33 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13987,7 +13967,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 63.5 227.33 0)
+			(at 60.96 227.33 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13996,7 +13976,7 @@
 			)
 		)
 		(property "Designation" "RC0402FR-0720KL"
-			(at 63.5 227.33 0)
+			(at 60.96 227.33 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14005,7 +13985,7 @@
 			)
 		)
 		(property "LCSC" "C93942"
-			(at 63.5 227.33 90)
+			(at 60.96 227.33 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19997,7 +19977,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 55.88 203.2 0)
+		(at 68.58 204.47 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -20005,7 +19985,7 @@
 		(dnp no)
 		(uuid "7e1d0b4e-5817-4d3a-93fb-04c848326ddb")
 		(property "Reference" "#PWR059"
-			(at 55.88 207.01 0)
+			(at 68.58 208.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20014,7 +19994,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 55.118 198.882 0)
+			(at 67.818 200.152 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20022,7 +20002,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 55.88 203.2 0)
+			(at 68.58 204.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20031,7 +20011,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 55.88 203.2 0)
+			(at 68.58 204.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20040,7 +20020,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 55.88 203.2 0)
+			(at 68.58 204.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20368,7 +20348,7 @@
 	)
 	(symbol
 		(lib_id "Device:Q_PMOS_GDS")
-		(at 63.5 208.28 90)
+		(at 66.04 209.55 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -20377,7 +20357,7 @@
 		(fields_autoplaced yes)
 		(uuid "851f02e1-945e-4ccb-bf85-601cee60c6a2")
 		(property "Reference" "Q1"
-			(at 63.5 199.6905 90)
+			(at 74.6295 209.55 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20385,7 +20365,7 @@
 			)
 		)
 		(property "Value" "Q_PMOS_GDS"
-			(at 63.5 202.1148 90)
+			(at 72.2052 209.55 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20393,7 +20373,7 @@
 			)
 		)
 		(property "Footprint" "Package_DFN_QFN:Diodes_DFN1006-3"
-			(at 60.96 203.2 0)
+			(at 71.12 207.01 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20402,7 +20382,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 63.5 208.28 0)
+			(at 66.04 209.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20411,7 +20391,7 @@
 			)
 		)
 		(property "Description" "P-MOSFET transistor, gate/drain/source"
-			(at 63.5 208.28 0)
+			(at 66.04 209.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20420,7 +20400,7 @@
 			)
 		)
 		(property "Designation" "DMP21D0UFB4-7B"
-			(at 63.5 208.28 0)
+			(at 66.04 209.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20429,7 +20409,7 @@
 			)
 		)
 		(property "LCSC" "C155329"
-			(at 63.5 208.28 90)
+			(at 66.04 209.55 90)
 			(effects
 				(font
 					(size 1.27 1.27)
