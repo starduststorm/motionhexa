@@ -2651,7 +2651,7 @@
 				)
 			)
 		)
-		(symbol "Device:Q_PMOS_GDS"
+		(symbol "Device:Q_PMOS_GSD"
 			(pin_names
 				(offset 0) hide)
 			(exclude_from_sim no)
@@ -2666,7 +2666,7 @@
 					(justify left)
 				)
 			)
-			(property "Value" "Q_PMOS_GDS"
+			(property "Value" "Q_PMOS_GSD"
 				(at 5.08 -1.27 0)
 				(effects
 					(font
@@ -2693,7 +2693,7 @@
 					(hide yes)
 				)
 			)
-			(property "Description" "P-MOSFET transistor, gate/drain/source"
+			(property "Description" "P-MOSFET transistor, gate/source/drain"
 				(at 0 0 0)
 				(effects
 					(font
@@ -2711,7 +2711,7 @@
 					(hide yes)
 				)
 			)
-			(symbol "Q_PMOS_GDS_0_1"
+			(symbol "Q_PMOS_GSD_0_1"
 				(polyline
 					(pts
 						(xy 0.254 0) (xy -2.54 0)
@@ -2878,7 +2878,7 @@
 					)
 				)
 			)
-			(symbol "Q_PMOS_GDS_1_1"
+			(symbol "Q_PMOS_GSD_1_1"
 				(pin input line
 					(at -5.08 0 0)
 					(length 2.54)
@@ -2898,9 +2898,9 @@
 					)
 				)
 				(pin passive line
-					(at 2.54 5.08 270)
+					(at 2.54 -5.08 90)
 					(length 2.54)
-					(name "D"
+					(name "S"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2916,9 +2916,9 @@
 					)
 				)
 				(pin passive line
-					(at 2.54 -5.08 90)
+					(at 2.54 5.08 270)
 					(length 2.54)
-					(name "S"
+					(name "D"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -11371,7 +11371,7 @@
 	)
 	(wire
 		(pts
-			(xy 68.58 214.63) (xy 68.58 219.71)
+			(xy 68.58 210.82) (xy 68.58 215.9)
 		)
 		(stroke
 			(width 0)
@@ -12041,7 +12041,7 @@
 	)
 	(wire
 		(pts
-			(xy 60.96 209.55) (xy 60.96 223.52)
+			(xy 60.96 205.74) (xy 60.96 223.52)
 		)
 		(stroke
 			(width 0)
@@ -12827,7 +12827,7 @@
 		(uuid "b029df98-7436-4f6b-8bf6-174a6e40fdf1")
 	)
 	(label "PWR_SWITCH"
-		(at 68.58 219.71 0)
+		(at 68.58 215.9 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -19977,7 +19977,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 68.58 204.47 0)
+		(at 68.58 200.66 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -19985,7 +19985,7 @@
 		(dnp no)
 		(uuid "7e1d0b4e-5817-4d3a-93fb-04c848326ddb")
 		(property "Reference" "#PWR059"
-			(at 68.58 208.28 0)
+			(at 68.58 204.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19994,7 +19994,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 67.818 200.152 0)
+			(at 67.818 196.342 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20002,7 +20002,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 68.58 204.47 0)
+			(at 68.58 200.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20011,7 +20011,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 68.58 204.47 0)
+			(at 68.58 200.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20020,7 +20020,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 68.58 204.47 0)
+			(at 68.58 200.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20347,33 +20347,34 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:Q_PMOS_GDS")
-		(at 66.04 209.55 0)
+		(lib_id "Device:Q_PMOS_GSD")
+		(at 66.04 205.74 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "851f02e1-945e-4ccb-bf85-601cee60c6a2")
 		(property "Reference" "Q1"
-			(at 74.6295 209.55 90)
+			(at 71.247 206.9522 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Value" "Q_PMOS_GDS"
-			(at 72.2052 209.55 90)
+			(at 71.247 204.5279 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" "Package_DFN_QFN:Diodes_DFN1006-3"
-			(at 71.12 207.01 0)
+			(at 71.12 203.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20382,7 +20383,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 66.04 209.55 0)
+			(at 66.04 205.74 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20390,8 +20391,8 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "P-MOSFET transistor, gate/drain/source"
-			(at 66.04 209.55 0)
+		(property "Description" "P-MOSFET transistor, gate/source/drain"
+			(at 66.04 205.74 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20400,7 +20401,7 @@
 			)
 		)
 		(property "Designation" "DMP21D0UFB4-7B"
-			(at 66.04 209.55 0)
+			(at 66.04 205.74 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20409,7 +20410,7 @@
 			)
 		)
 		(property "LCSC" "C155329"
-			(at 66.04 209.55 90)
+			(at 66.04 205.74 90)
 			(effects
 				(font
 					(size 1.27 1.27)
