@@ -17184,7 +17184,7 @@
 				)
 			)
 		)
-		(property "Value" "TPS22913CYZVR-TP"
+		(property "Value" "TPS22913CYZVR"
 			(at -0.2 -3.8 -45)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -17208,7 +17208,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/tps22913.pdf?ts=1749836978047"
+		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/tps22913.pdf"
 			(at 0 0 135)
 			(layer "F.Fab")
 			(hide yes)
@@ -17232,7 +17232,7 @@
 				)
 			)
 		)
-		(property "Designation" "TPS22913CYZVR-TP"
+		(property "Designation" "TPS22913CYZVR"
 			(at 0 0 -45)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -17245,7 +17245,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C42449037"
+		(property "LCSC" "C353028"
 			(at 0 0 -45)
 			(unlocked yes)
 			(layer "F.Fab")

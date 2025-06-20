@@ -15075,7 +15075,7 @@
 				)
 			)
 		)
-		(property "Value" "TPS22913CYZVR-TP"
+		(property "Value" "TPS22913CYZVR"
 			(at 336.804 119.888 0)
 			(effects
 				(font
@@ -15093,7 +15093,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/tps22913.pdf?ts=1749836978047"
+		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/tps22913.pdf"
 			(at 337.82 127 0)
 			(effects
 				(font
@@ -15112,7 +15112,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "TPS22913CYZVR-TP"
+		(property "Designation" "TPS22913CYZVR"
 			(at 337.82 127 0)
 			(effects
 				(font
@@ -15121,7 +15121,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C42449037"
+		(property "LCSC" "C353028"
 			(at 337.82 127 0)
 			(effects
 				(font
