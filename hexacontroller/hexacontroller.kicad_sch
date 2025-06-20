@@ -17479,6 +17479,15 @@
 				(hide yes)
 			)
 		)
+		(property "LCSC" "C2040"
+			(at 236.22 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "110a9d60-3abe-401d-b5b4-75dbe1ccc493")
 		)
