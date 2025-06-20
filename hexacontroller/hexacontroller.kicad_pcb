@@ -6568,7 +6568,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF"
+		(property "Value" "2.2uF"
 			(at 0 1.16 90)
 			(layer "F.Fab")
 			(uuid "16cd4361-5ad9-4b42-a295-11d9005f20c2")
@@ -6605,7 +6605,7 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Unpolarized capacitor, small symbol"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -6618,7 +6618,7 @@
 				)
 			)
 		)
-		(property "Designation" "CL05A105KP5NNNC"
+		(property "Designation" "CC0402KRX5R6BB225"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -6631,12 +6631,12 @@
 				)
 			)
 		)
-		(property "LCSC" "C14445"
+		(property "LCSC" "C326606"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "31b2c879-f35c-435a-8534-427396f209b3")
+			(uuid "0e8c8436-a1dd-4e0e-9c47-81e9490e75be")
 			(effects
 				(font
 					(size 1 1)
@@ -6645,7 +6645,7 @@
 			)
 		)
 		(property ki_fp_filters "C_*")
-		(path "/cc501686-1045-4eb1-92be-6f6c20a2a47c")
+		(path "/42d7636b-fb52-43dd-9aa7-1e08391d3c9a")
 		(sheetname "Root")
 		(sheetfile "hexacontroller.kicad_sch")
 		(attr smd)
@@ -16295,12 +16295,25 @@
 				)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "CC0402KRX5R6BB225"
 			(at 0 0 30)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "bbeeadde-ec4e-45b5-b49a-293aa5768051")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "LCSC" "C326606"
+			(at 0 0 30)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "9ca1f6e8-abfb-4067-9751-924a3dc6e41b")
 			(effects
 				(font
 					(size 1 1)
@@ -19799,7 +19812,7 @@
 		(path "/61fa2df8-94e0-4ff3-a872-cb385dfd3b01")
 		(sheetname "Root")
 		(sheetfile "hexacontroller.kicad_sch")
-		(attr through_hole)
+		(attr through_hole exclude_from_bom)
 		(fp_line
 			(start -39 0)
 			(end -19.5 -33.774989)

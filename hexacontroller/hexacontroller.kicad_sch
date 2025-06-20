@@ -9308,6 +9308,12 @@
 		(uuid "8c975675-3418-4522-a6e5-93524a58925d")
 	)
 	(junction
+		(at 317.5 124.46)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "8cd3bd03-cd38-4079-8596-9fe0d8d0c539")
+	)
+	(junction
 		(at 129.54 119.38)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -9456,12 +9462,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "c8ad9c5e-d93b-4035-8e25-b142574fb299")
-	)
-	(junction
-		(at 317.5 124.46)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c8f19593-72b8-4bff-99b5-d05de8617bd8")
 	)
 	(junction
 		(at 74.93 223.52)
@@ -15969,6 +15969,93 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:C_Small")
+		(at 317.5 127 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "42d7636b-fb52-43dd-9aa7-1e08391d3c9a")
+		(property "Reference" "C22"
+			(at 314.706 128.778 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "2.2uF"
+			(at 320.802 130.556 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
+			(at 317.5 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 317.5 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 317.5 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CC0402KRX5R6BB225"
+			(at 317.5 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C326606"
+			(at 317.5 127 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "160269b5-7277-4516-b818-c25fdbf752c4")
+		)
+		(pin "2"
+			(uuid "0d1ef026-06ec-4e9c-b98e-7767ff6fe55a")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "C22")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:R")
 		(at 58.42 44.45 90)
 		(unit 1)
@@ -17134,8 +17221,17 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "CC0402KRX5R6BB225"
 			(at 138.43 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C326606"
+			(at 138.43 71.12 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -18529,7 +18625,7 @@
 		(at 386.08 127 0)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
@@ -24346,93 +24442,6 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "#PWR037")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C_Small")
-		(at 317.5 127 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "cc501686-1045-4eb1-92be-6f6c20a2a47c")
-		(property "Reference" "C22"
-			(at 314.325 128.905 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "1uF"
-			(at 320.802 128.778 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 317.5 127 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 317.5 127 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 317.5 127 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "CL05A105KP5NNNC"
-			(at 317.5 127 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C14445"
-			(at 317.5 127 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "73745613-abc0-454c-9bf8-a8c509021803")
-		)
-		(pin "2"
-			(uuid "63220683-cb96-48ea-9c14-f0000e6c33a4")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "C22")
 					(unit 1)
 				)
 			)
