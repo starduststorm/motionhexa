@@ -9167,7 +9167,7 @@
 		(at 281.94 60.96)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "42f210f2-f5bc-4815-bf20-e937ebb22b30")
+		(uuid "43e6c329-2d0f-4d9a-b46a-ffbd0f6bbd0d")
 	)
 	(junction
 		(at 375.92 48.26)
@@ -10623,13 +10623,23 @@
 	)
 	(wire
 		(pts
-			(xy 261.62 121.92) (xy 267.97 121.92)
+			(xy 261.62 121.92) (xy 265.43 121.92)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "5a558e00-c3ff-4d13-a660-45fa3054024e")
+	)
+	(wire
+		(pts
+			(xy 281.94 59.69) (xy 281.94 60.96)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5b91344e-bbac-408e-92bc-cadd9179b3d3")
 	)
 	(wire
 		(pts
@@ -11153,6 +11163,16 @@
 	)
 	(wire
 		(pts
+			(xy 247.65 39.37) (xy 246.38 39.37)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8c28b96e-ab39-4279-a57a-15503369628b")
+	)
+	(wire
+		(pts
 			(xy 129.54 114.3) (xy 129.54 116.84)
 		)
 		(stroke
@@ -11239,7 +11259,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "957a0a58-905b-4575-b0fe-ee73908a2f12")
+		(uuid "95842d37-b3d4-437b-875e-79c12f02619b")
 	)
 	(wire
 		(pts
@@ -11323,7 +11343,7 @@
 	)
 	(wire
 		(pts
-			(xy 254 39.37) (xy 251.46 39.37)
+			(xy 254 39.37) (xy 252.73 39.37)
 		)
 		(stroke
 			(width 0)
@@ -12303,16 +12323,6 @@
 		)
 		(uuid "5fb42382-e1f4-45c1-8519-a943f069d68c")
 	)
-	(text "VBUS Sensor"
-		(exclude_from_sim no)
-		(at 285.75 62.23 90)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "63f9ac2e-f4b9-41a1-84da-afa6c2f0cd24")
-	)
 	(text "3.3v and 1.8v Regulator"
 		(exclude_from_sim no)
 		(at 127 99.06 0)
@@ -12420,6 +12430,16 @@
 			(justify left)
 		)
 		(uuid "e38c2026-eb55-4d67-bb3f-bec584cadca8")
+	)
+	(text "VBUS Sensor"
+		(exclude_from_sim no)
+		(at 285.75 62.23 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "f35afe11-1f2c-4c4f-b5b1-dd1118026394")
 	)
 	(label "QSPI2"
 		(at 180.34 170.18 180)
@@ -13149,7 +13169,7 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 248.92 39.37 90)
+		(at 250.19 39.37 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -13157,7 +13177,7 @@
 		(dnp no)
 		(uuid "00a27625-978f-49d4-a356-4656f001f212")
 		(property "Reference" "C5"
-			(at 250.19 36.195 90)
+			(at 251.46 36.195 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13166,7 +13186,7 @@
 			)
 		)
 		(property "Value" "1uF"
-			(at 250.698 42.164 90)
+			(at 251.968 42.164 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13175,7 +13195,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 248.92 39.37 0)
+			(at 250.19 39.37 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13184,7 +13204,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 248.92 39.37 0)
+			(at 250.19 39.37 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13193,7 +13213,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 248.92 39.37 0)
+			(at 250.19 39.37 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13202,7 +13222,7 @@
 			)
 		)
 		(property "Designation" "CL05A105KP5NNNC"
-			(at 248.92 39.37 0)
+			(at 250.19 39.37 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13211,7 +13231,7 @@
 			)
 		)
 		(property "LCSC" "C14445"
-			(at 248.92 39.37 90)
+			(at 250.19 39.37 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14332,71 +14352,6 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "#PWR024")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 281.94 69.85 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "2629065d-47e7-48f4-935b-37db03bc211b")
-		(property "Reference" "#PWR057"
-			(at 281.94 76.2 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 281.94 73.66 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 281.94 69.85 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 281.94 69.85 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 281.94 69.85 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "45e0db0c-b41e-44ba-ac3b-d51ab1ae6a74")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "#PWR057")
 					(unit 1)
 				)
 			)
@@ -18340,72 +18295,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:VBUS")
-		(at 281.94 53.34 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "5b3694a2-2863-4b63-8487-17e9fec0aa69")
-		(property "Reference" "#PWR060"
-			(at 281.94 57.15 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "VBUS"
-			(at 281.94 49.2069 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 281.94 53.34 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 281.94 53.34 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"VBUS\""
-			(at 281.94 53.34 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "781d29ec-e4a7-41d2-8d43-31021ad8cecd")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "#PWR060")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:R")
 		(at 196.85 66.04 270)
 		(unit 1)
@@ -19258,6 +19147,158 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "SW1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 281.94 64.77 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "705f9207-345a-41aa-996b-472804f57a0d")
+		(property "Reference" "R23"
+			(at 279.908 66.548 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "33k"
+			(at 284.226 66.294 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
+			(at 281.94 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 281.94 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 281.94 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "0402WGF3302TCE"
+			(at 281.94 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25779"
+			(at 281.94 64.77 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "ef884fda-ca17-401e-bf88-12dde9935e8f")
+		)
+		(pin "2"
+			(uuid "566b827f-2559-4b84-94cf-959d1a9a7415")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "R23")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 281.94 67.31 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "7245e23b-2f33-43cf-aad1-22662eb15b1c")
+		(property "Reference" "#PWR060"
+			(at 281.94 73.66 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 281.94 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 281.94 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 281.94 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 281.94 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a9eff12e-3649-40ee-a98f-2251255930e0")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "#PWR060")
 					(unit 1)
 				)
 			)
@@ -21156,6 +21197,72 @@
 		)
 	)
 	(symbol
+		(lib_id "power:VBUS")
+		(at 281.94 54.61 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "9136537d-f60c-48f7-8712-6e1eded1cdb0")
+		(property "Reference" "#PWR057"
+			(at 281.94 58.42 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "VBUS"
+			(at 281.94 50.4769 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 281.94 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 281.94 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VBUS\""
+			(at 281.94 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "eeb20fe1-e217-4be7-b1e3-5043f6dde833")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "#PWR057")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:+3V3")
 		(at 229.87 166.37 0)
 		(unit 1)
@@ -22543,7 +22650,7 @@
 	)
 	(symbol
 		(lib_id "Connector:TestPoint")
-		(at 267.97 121.92 180)
+		(at 265.43 121.92 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
@@ -22552,7 +22659,7 @@
 		(fields_autoplaced yes)
 		(uuid "a7cdae47-3914-40c7-950c-4f41261c90e5")
 		(property "Reference" "TP1"
-			(at 269.367 124.0098 0)
+			(at 266.827 124.0098 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22561,7 +22668,7 @@
 			)
 		)
 		(property "Value" "TestPoint"
-			(at 269.367 126.4341 0)
+			(at 266.827 126.4341 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22570,7 +22677,7 @@
 			)
 		)
 		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
-			(at 262.89 121.92 0)
+			(at 260.35 121.92 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22579,7 +22686,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 262.89 121.92 0)
+			(at 260.35 121.92 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22588,7 +22695,7 @@
 			)
 		)
 		(property "Description" "test point"
-			(at 267.97 121.92 0)
+			(at 265.43 121.92 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22597,7 +22704,7 @@
 			)
 		)
 		(property "Designation" ""
-			(at 267.97 121.92 0)
+			(at 265.43 121.92 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24043,91 +24150,6 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "C6")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 281.94 66.04 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "c5c1fd98-c0c5-42d3-9817-57f5fe59cbe8")
-		(property "Reference" "R23"
-			(at 279.4 66.04 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "100k"
-			(at 277.495 66.04 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 283.718 66.04 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 281.94 66.04 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 281.94 66.04 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "RC0402FR-07100KL"
-			(at 281.94 66.04 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C60491"
-			(at 281.94 66.04 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "06c9789b-5c74-4298-9548-3a7c408ccbb9")
-		)
-		(pin "2"
-			(uuid "8a619b01-642d-422d-8405-f120c69eb367")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "R23")
 					(unit 1)
 				)
 			)
@@ -25619,6 +25641,91 @@
 	)
 	(symbol
 		(lib_id "Device:R_Small")
+		(at 281.94 57.15 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "e9d276ca-6373-4c38-8702-516cc697d191")
+		(property "Reference" "R22"
+			(at 279.654 57.15 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "20k"
+			(at 283.845 57.15 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
+			(at 281.94 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 281.94 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 281.94 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "RC0402FR-0720KL"
+			(at 281.94 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C93942"
+			(at 281.94 57.15 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "0272265f-16b0-41ca-a41c-dfddc2710196")
+		)
+		(pin "2"
+			(uuid "21661a4c-24b4-4bcd-9cd7-d6d7eb483ea9")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "R22")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
 		(at 24.13 142.24 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -26145,91 +26252,6 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "#PWR039")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 281.94 57.15 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "f1d5f7ef-70a5-403e-847f-e98df4379aec")
-		(property "Reference" "R24"
-			(at 279.4 57.15 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "62k"
-			(at 277.495 57.15 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 283.718 57.15 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 281.94 57.15 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 281.94 57.15 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "RC0402FR-0762KL"
-			(at 281.94 57.15 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C137950"
-			(at 281.94 57.15 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "45c74dd0-ca79-497b-98a1-65952cfb5692")
-		)
-		(pin "2"
-			(uuid "f89afddb-ecd3-458f-83d1-f46d3d5dae45")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "R24")
 					(unit 1)
 				)
 			)
