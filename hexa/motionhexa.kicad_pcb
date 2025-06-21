@@ -114210,30 +114210,6 @@
 			(justify left bottom mirror)
 		)
 	)
-	(gr_text "x"
-		(at 139.2682 102.9462 300)
-		(layer "F.SilkS")
-		(uuid "8c82adba-4f99-4bd4-acc1-24d1e57482a7")
-		(effects
-			(font
-				(size 0.8 0.8)
-				(thickness 0.12)
-			)
-			(justify left bottom)
-		)
-	)
-	(gr_text "x"
-		(at 139.2682 103.1748 300)
-		(layer "F.SilkS")
-		(uuid "c6273c24-cd3a-4909-8a3f-107d8924370d")
-		(effects
-			(font
-				(size 0.8 0.8)
-				(thickness 0.12)
-			)
-			(justify left bottom)
-		)
-	)
 	(segment
 		(start 105.301992 102.829491)
 		(end 104.948438 102.475937)
