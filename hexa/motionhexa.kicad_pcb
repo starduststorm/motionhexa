@@ -96229,7 +96229,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.everlighteurope.com/custom/files/datasheets/DLS-0000039.pdf"
 			(at 0 0 -45)
 			(unlocked yes)
 			(layer "F.Fab")
