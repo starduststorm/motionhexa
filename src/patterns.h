@@ -73,6 +73,7 @@ public:
   Hexa zooms in and out with motion along z axis?
   in any case add parameters and link them to motion
 */
+// FIXME: this has a continuity issue where the animation jumps across some probably modulus overflow OH or in the accAccum??
 class MotionHexa : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
   HexaShells hexaShells;
@@ -112,6 +113,17 @@ public:
       int withinBand = (uint16_t)(bandIndex+INT16_MAX-(1<<11)) % (1<<12);
       uint8_t bandFadeIn = 0xFF - cos8(0xFF*withinBand / (1<<12));
       
+      // fade in at start
+      const long fadeinDuration = 1000;
+      // uint8_t shellBrightness = runTime() < fadeinDuration ? max(0, min(0xFF, 0xFF * (runTime() - fadeinDuration/hexaShells.shells.size()*s)/fadeinDuration * (hexaShells.shells.size() - s) / hexaShells.shells.size())) : 0xFF;
+
+      uint8_t shellBrightness = 0xFF;
+      if (runTime() < fadeinDuration) {
+        long fadeOverlap = hexaShells.shells.size()/2;
+        long shellFadeTime = fadeinDuration/(hexaShells.shells.size() + fadeOverlap);
+        shellBrightness = (runTime() > s * shellFadeTime ? min(0xFF, 0xFF * (runTime() - s*shellFadeTime) / (fadeOverlap * shellFadeTime)) : 0);
+      }
+
       for (int si = 0; si < hexaShells.shells[s].size(); ++si) {
         uint8_t brightness = lerp8by8(sin8(-bandRotate/4 + bands*(0xFF*si - bandTwist) / shellSize - 0xFF * (s-bandThing)/shellCount), 0xFF, bandFadeIn);
 
@@ -129,7 +141,8 @@ public:
         // } else {
         //   brightness = scale8(brightness, beatsin8(10, 0, 0xFF, 0, 0x7F));
         // }
-        c = c.scale8(brightness);
+        c.nscale8(brightness);
+        c.nscale8(shellBrightness);
         ctx.leds[hexaShells.shells[s][si]] = c;
       }
     }

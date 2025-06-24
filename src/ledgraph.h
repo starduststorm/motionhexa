@@ -88,7 +88,8 @@ vector16 accelerationAtPixelIndex(PixelIndex index, ICM_20948_AGMT_t &agmt) {
     if (index == 0 || index == 270) {
         // logf("index %i P2Q = (%i, %i)", index, P2Q.x, P2Q.y);
     }
-    auto ω_z = agmt.gyr.axes.z / 15000;
+    // FIXME: this never worked right
+    auto ω_z = 0;//agmt.gyr.axes.z / 15000;
     auto vec = vector16(accel.x + ω_z*ω_z * P2Q.x, accel.y + ω_z*ω_z * P2Q.y);
     // logf("  => (%i, %i)", vec.x, vec.y);
     return vec;

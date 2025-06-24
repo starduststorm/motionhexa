@@ -1,4 +1,4 @@
-#define DEBUG 1
+#define DEBUG 0
 #define WAIT_FOR_SERIAL 0
 
 // for memory logging
@@ -24,7 +24,7 @@ I2S i2s(INPUT);
 #define I2S_LRCLK (BCLK+1)
 #define I2S_DATA 25
 
-#define UNCONNECTED_PIN_1 17
+#define UNCONNECTED_PIN_1 26
 
 #define LED_SPI0_TX 19
 #define LED_SPI0_SCK 22
@@ -195,6 +195,7 @@ void setup() {
   patternManager.registerPattern<PulseHexa>();
   patternManager.registerPattern<MotionHexa>();
   patternManager.registerPattern<TriBounce>();
+  
   patternManager.registerPattern<PixelDust>();
 
   // patternManager.registerPattern<LineSweep>();
@@ -227,22 +228,22 @@ void setup() {
 } 
 
 void startupWelcome() {
-  int welcomeDuration = 666;
+  int welcomeDuration = 333;
 
   ctx.leds.fill_solid(CRGB::Black);
 
   HexaShells hexaShells;
-   uint8_t hue = random8();
-   DrawModal(120, welcomeDuration, [hue, welcomeDuration, hexaShells](unsigned long elapsed) {
-     FastLED.setBrightness(3);
-     int s = hexaShells.shells.size() * elapsed / (welcomeDuration/3);
-     ctx.leds.fadeToBlackBy(66 - 44 * min(s, hexaShells.shells.size())/hexaShells.shells.size());
-     if (s < hexaShells.shells.size()) {
-       for (int px : hexaShells.shells[s]) {
-         uint8_t b = 0xFF - 0x66 * s/hexaShells.shells.size();
-         ctx.leds[px] = CHSV(hue, b, b);
-       }
-     }
+  uint8_t hue = random8();
+  DrawModal(120, welcomeDuration, [hue, welcomeDuration, hexaShells](unsigned long elapsed) {
+    const int fadeRings = 6;
+    FastLED.setBrightness(3);
+      int maxShell = (hexaShells.shells.size() + fadeRings/2) * elapsed / welcomeDuration;
+      for (int s = 0; s < min(maxShell, hexaShells.shells.size()); ++s) {
+        for (int px : hexaShells.shells[s]) {
+          uint8_t b = (s <= maxShell && s > maxShell - fadeRings) ? triwave8(0xFF * (maxShell - s+1) / fadeRings) : 0;
+          ctx.leds[px] = CHSV(hue, b, b);
+        }
+      }
    });
   ctx.leds.fill_solid(CRGB::Black);
   FastLED.show();
@@ -264,7 +265,15 @@ void loop() {
   patternManager.loop();
   controls.update();
   autoBrightness->loop();
-
+ 
+  // EVERY_N_MILLIS(1000) {
+  //   int avg = 0;
+  //   for (int i = 0 ; i < 100; ++i) {
+  //     int batteryRead = analogRead(BATTERY_VOLTAGE_PIN);
+  //     avg = (i * avg + batteryRead) / (i + 1);
+  //   }
+  //   logf("batteryRead = %i", avg);
+  // }
 
   static bool pixelsHavePower = false;
   bool pixelsNeedPower = ctx.leds(0, LED_COUNT-1);
