@@ -216,15 +216,6 @@
 		(uuid "def9a1b7-6930-424f-bd98-c271d5301743")
 	)
 	(pad "1" thru_hole oval
-		(at 17.400148 32.672949 300)
-		(size 1.7 1.7)
-		(drill 1)
-		(property pad_prop_castellated)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
-		(uuid "ddcfdfd8-c024-4be2-a48f-9efa4d538b8c")
-	)
-	(pad "1" thru_hole oval
 		(at 19.599852 31.402949 300)
 		(size 1.7 1.7)
 		(drill 1)
@@ -286,6 +277,15 @@
 		(layers "*.Cu" "*.Mask")
 		(remove_unused_layers no)
 		(uuid "c624aa3e-067b-4d35-860e-1f80e75da55f")
+	)
+	(pad "5" thru_hole oval
+		(at 17.400148 32.672949 300)
+		(size 1.7 1.7)
+		(drill 1)
+		(property pad_prop_castellated)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "ddcfdfd8-c024-4be2-a48f-9efa4d538b8c")
 	)
 	(group ""
 		(uuid "e40c8c83-31b0-4859-bfe7-af6b7962cc45")
