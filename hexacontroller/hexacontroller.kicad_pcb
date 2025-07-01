@@ -9247,7 +9247,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.diodes.com/assets/Datasheets/DMP21D0UFB4.pdf"
 			(at 0 0 60)
 			(unlocked yes)
 			(layer "F.Fab")

@@ -20640,7 +20640,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.diodes.com/assets/Datasheets/DMP21D0UFB4.pdf"
 			(at 66.04 205.74 0)
 			(effects
 				(font
