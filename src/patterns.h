@@ -286,4 +286,48 @@ public:
   }
 };
 
+class ChargingPattern : public Pattern {
+  int lastDisplayValue = 0;
+  int animateFromValue = 0;
+  unsigned long lastValueChange = 0;
+
+  void update() {
+    ctx.leds.fill_solid(CRGB::Black);
+    const int ringAnimateTime = 1000;
+
+    const int minHue = 0;
+    const int maxHue = 0x66;
+    const PixelIndex firstIdx = 14; // start near usb port
+
+    // animate any jumps in reported battery value
+    if (batteryData.stateOfCharge != lastDisplayValue) {
+      lastValueChange = millis();
+      animateFromValue = lastDisplayValue;
+      lastDisplayValue = batteryData.stateOfCharge;
+    }
+
+    HexaShells shells;
+    auto outerShell = shells.shells.back();
+    int maxLength = batteryData.stateOfCharge * outerShell.size() / 100;
+    int length = maxLength;
+    CRGB color = CHSV(maxHue * maxLength / outerShell.size() - minHue, 0xFF, 0xAF);
+
+    long animationMillis = millis() - lastValueChange;
+    if (animationMillis < ringAnimateTime) {
+      length = maxLength * ease8InOutQuad(0xFF*animationMillis/ringAnimateTime) / 0xFF - animateFromValue*outerShell.size() / 100;
+    }
+    for (int i = 0; i < length; ++i) {
+      ctx.leds[outerShell[(i + firstIdx) % outerShell.size()]] = color;
+    }
+    if (animationMillis > 1000) {
+      if (length < outerShell.size()) {
+        ctx.leds[outerShell[(length + firstIdx) % outerShell.size()]] = color.scale8(beatsin8(30));
+      }
+    }
+  }
+  const char *description() {
+    return "ChargingPattern";
+  }
+};
+
 #endif

@@ -25,7 +25,7 @@ typedef enum : uint8_t {
     geometric         = 1 << 2,
     inbound           = 1 << 3,
     outbound          = 1 << 4,
-all               = 0xFF,
+    all               = 0xFF,
 } EdgeType;
 
 Graph ledgraph;
