@@ -113,13 +113,17 @@ struct BatteryData {
   uint16_t fullCapacity;    // mAh
   int16_t powerDraw;        // mW
   uint16_t temperature;     // K
+  uint16_t flags;
   void print() {
-    logdf("soc: %u%%, soh: %u%%, voltage: %umV, capacity: %umAh / %umAh, power: %imW, temp: %uK", 
-        stateOfCharge, stateOfHealth, voltage, currentCapacity, fullCapacity, powerDraw, temperature);
+    logdf("soc: %u%%, soh: %u%%, voltage: %umV, capacity: %umAh / %umAh, power: %imW, temp: %uK, flags: %X", 
+        stateOfCharge, stateOfHealth, voltage, currentCapacity, fullCapacity, powerDraw, temperature, flags);
+  }
+  bool batteryDetected() {
+    return flags & 1<<3;
   }
 };
 const unsigned int BATTERY_CAPACITY = 2000;
-BatteryData batteryData;
+BatteryData batteryData = {0};
 
 const int kFullCharge = 98; // %
 bool isCharging;
@@ -226,25 +230,26 @@ BatteryData getBatteryData()
   data.fullCapacity = lipo.capacity(FULL);
   data.powerDraw = lipo.power();
   data.temperature = lipo.temperature(INTERNAL_TEMP)/10.;
+  data.flags = lipo.flags();
 #endif
   return data;
 }
 
 mutex_t core1DataLock;
 ICM_20948_AGMT_t _gAGMT;   // locked AGMT read
-BatteryData _gBatteryData; // locked BatteryData read
+BatteryData _gBatteryData = {0}; // locked BatteryData read
 bool _gCore1DataGetNext = true; // prevent core1 from doing multiple motion reads in a single frame
 
 void getAsyncData(ICM_20948_AGMT_t *agmtRef, BatteryData *batteryDataRef) {
   assert(0 == get_core_num(), "getAGMT not on core0");
   mutex_enter_blocking(&core1DataLock);
   ICM_20948_AGMT_t agmt = _gAGMT;
-  BatteryData batteryData = _gBatteryData;
+  BatteryData bd = _gBatteryData;
   _gCore1DataGetNext = true;
   mutex_exit(&core1DataLock);
 
   if (agmtRef) *agmtRef = agmt;
-  if (batteryDataRef) *batteryDataRef = batteryData;
+  if (batteryDataRef) *batteryDataRef = bd;
 }
 
 void core1_main() {
@@ -282,9 +287,11 @@ void core1_main() {
     ICM_20948_AGMT_t agmt = MotionManager::manager().loop();
     
     BatteryData batteryData;
-    if (millis() - lastBatteryPoll > 3000) {
+    if (lastBatteryPoll == 0 || millis() - lastBatteryPoll > 3000) {
       batteryData = getBatteryData();
       batteryData.print();
+      // FIXME: almost always returning 1, presumably mistaking the lipo charger, powering the load, as a battery
+      logf("battery detected? %i", batteryData.batteryDetected());
       lastBatteryPoll = millis();
     }
 
@@ -355,7 +362,7 @@ void setup() {
         } else if (lastReachedFullCharge && millis() - lastReachedFullCharge > kSitTimeAtFullCharge && runTime > kChargePatternOverlayDuration) {
           // fade down charging ui when fully charged
           // logf("fade down fully charged");
-          chargeAlpha = max(0L, 0xFF - 0xFF * (long)(millis() - lastReachedFullCharge + kSitTimeAtFullCharge) / kFadeTime);
+          chargeAlpha = max(0L, 0xFF - 0xFF * (long)(millis() - lastReachedFullCharge - kSitTimeAtFullCharge) / kFadeTime);
         } else if (runTime < kFadeTime) {
           // fade up overlay
           // logf("fade up overlay");
@@ -397,7 +404,7 @@ void setup() {
   button->onDoublePress([]() {
     indexedRunner->previousPattern();
   });
-  button->onLongPress([]() {
+  button->onVeryLongPress([]() {
     // hard reset
     logf("hard reset!");
     Serial.flush();
@@ -458,15 +465,28 @@ void loop() {
   if (isLipoCharging) {
     lastLipoChargeIndicator = millis();
   }
-  bool isChargingRead = isVBUSPowered && (millis() - lastLipoChargeIndicator < 10000);
+  bool isChargingRead = isVBUSPowered && (millis() - lastLipoChargeIndicator < 20000);
+
+  // FIXME: isLipoCharging might flip back and forth on a longer timer when near full charge. maybe if SOC is above e.g. 95% then we stop tracking that.
+  // OR: maybe don't re-show the charging UI unless VBUS flips from off back to on, even if charging state switches
   
   if (isCharging != isChargingRead) {
-    logdf("Charging State Change %i -> %i", isCharging, isChargingRead);
+    logdf("Charging State Change %i -> %i, millis since last lipo change = %i", isCharging, isChargingRead, millis() - lastLipoChargeIndicator);
     isCharging = isChargingRead;
     lastChargingStateChange = millis();
   }
   
-  bool powerSwitchOnRead = !digitalRead(PWR_SWITCH_PIN);
+  // WORKAROUND: when there is no battery attached, power switch on => line 0 panel on => 200uF inrush to panel
+  // => BATSYS line (via lipo charger) voltage drop (measured ~1.8V over ~2.5ms), which drops p-channel gate voltage enough that
+  // PWR_SWITCH_PIN reads are again reading that the power switch is off.
+  // I've attempted to add an RC into this circuit to bridge the voltage drop, but this results in more complex behavior with the lipo charger pulsing.
+  // I'll debounce in software but the larger issue requires hardware changes to prevent the lipo charger from affecting the power switch reads.
+  static DebounceDigital debouncer;
+  bool powerSwitchOnRead = !debounceDigitalRead(PWR_SWITCH_PIN, debouncer);
+  // int powerSwitchOnReadAnalog = analogRead(PWR_SWITCH_PIN);
+  // bool powerSwitchOnRead = powerSwitchOnReadAnalog < 700;
+  // logf("powerSwitchOnReadAnalog = %i", powerSwitchOnReadAnalog);
+
   if (powerSwitchOn != powerSwitchOnRead) {
     logdf("PowerSwitch State Change %i -> %i", powerSwitchOn, powerSwitchOnRead);
     powerSwitchOn = powerSwitchOnRead;
@@ -482,7 +502,7 @@ void loop() {
 #endif
 
   static bool firstLoop = true;
-  if (firstLoop) {
+  if (firstLoop && powerSwitchOn) {
     startupWelcome();
     firstLoop = false;
   }

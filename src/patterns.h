@@ -287,10 +287,12 @@ public:
 };
 
 class ChargingPattern : public Pattern {
+public:
   int lastDisplayValue = 0;
   int animateFromValue = 0;
-  unsigned long lastValueChange = 0;
+  unsigned long lastValueChange;
 
+  ChargingPattern() : lastValueChange(millis()) {}
   void update() {
     ctx.leds.fill_solid(CRGB::Black);
     const int ringAnimateTime = 1000;
@@ -310,7 +312,9 @@ class ChargingPattern : public Pattern {
     auto outerShell = shells.shells.back();
     int maxLength = batteryData.stateOfCharge * outerShell.size() / 100;
     int length = maxLength;
-    CRGB color = CHSV(maxHue * maxLength / outerShell.size() - minHue, 0xFF, 0xAF);
+    uint8_t hue = maxHue * maxLength / outerShell.size() - minHue;
+    // logf("batteryData.stateOfCharge = %i, maxLength = %i, hue = %i", batteryData.stateOfCharge, maxLength, hue);
+    CRGB color = CHSV(hue, 0xFF, 0xAF);
 
     long animationMillis = millis() - lastValueChange;
     if (animationMillis < ringAnimateTime) {
