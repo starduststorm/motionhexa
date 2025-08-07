@@ -29,8 +29,8 @@ typedef enum : uint8_t {
 } EdgeType;
 
 Graph ledgraph;
-const uint16_t kHexaCenterIndex = 135;
-const uint8_t kMeridian = 19;
+constexpr uint16_t kHexaCenterIndex = LED_COUNT/2;
+constexpr uint8_t kMeridian = (3 + sqrt(12*LED_COUNT-3))/6 * 2 - 1;
 const float pixelSpacing = 3.9;
 
 HexGrid<PixelIndex> hexGrid(kMeridian, pixelSpacing);
@@ -95,6 +95,58 @@ vector16 accelerationAtPixelIndex(PixelIndex index, ICM_20948_AGMT_t &agmt) {
   return vec;
 }
 
+template<int SIZE>
+class AxialAccess {
+  int meridian;
+  PixelIndex *map;
+  CRGBArray<SIZE>& leds;
+  unsigned int index(int q, int r) {
+    return (q+meridian/2) + meridian*(r+meridian/2);
+  }
+public:
+  AxialAccess(CRGBArray<SIZE>& leds) : leds(leds) {
+    meridian = (3 + sqrt(12*SIZE-3))/6 * 2 - 1;
+    map = (PixelIndex*)malloc(meridian * meridian * sizeof(PixelIndex)); // rectangular storage
+    memset(map, 0xFF, meridian*meridian*sizeof(PixelIndex));
+
+    HexGrid<PixelIndex>::HexNode *leftNode = hexGrid.nodes[0]; // starts at top-left node
+    int q = 0, r = -meridian/2;
+    int rowStartQ = q;
+    for (int row = 0; row < meridian; ++row) {
+      auto rowNode = leftNode;
+      while (!rowNode->isEdgeNode()) {
+        map[index(q,r)] = rowNode->data();
+        q++;
+        rowNode = rowNode->named.r;
+      }
+      if (leftNode->named.dl->isDataNode()) { // top half of hexa
+        leftNode = leftNode->named.dl;
+        rowStartQ--;
+      } else { // bottom half
+        leftNode = leftNode->named.dr;
+      }
+      r++;
+      q = rowStartQ;
+    }
+  }
+  ~AxialAccess() {
+    free(map);
+  }
+
+  CRGB* at(int q, int r) {
+    int idx = index(q,r);
+    if (idx >= 0 && idx < SIZE) {
+      return &leds[map[idx]];
+    }
+    return nullptr;
+  }
+  CRGB& operator()(int q, int r) {
+    int idx = index(q,r);
+    assert(idx >= 0 && idx < SIZE, "axial access (%i, %i) out of range 0 <= idx %i < SIZE %i", q, r, idx, SIZE);
+    return leds[map[idx]];
+  }
+};
+
 void initLEDGraph() {
   hexGrid.init();
   assert(hexGrid.valueCount() == LED_COUNT, "led count issue");
@@ -140,7 +192,6 @@ void initLEDGraph() {
       angle = (angle+360/6) % 360;
     }
   }
-
 };
 
 #endif
