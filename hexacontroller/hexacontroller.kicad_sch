@@ -9293,6 +9293,12 @@
 		(uuid "486fa583-10f9-4643-9137-aeb5bd053e1e")
 	)
 	(junction
+		(at 314.96 124.46)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "49aa3bb1-1665-4661-a418-7d3180390b98")
+	)
+	(junction
 		(at 73.66 162.56)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -9417,12 +9423,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "8c975675-3418-4522-a6e5-93524a58925d")
-	)
-	(junction
-		(at 314.96 124.46)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "8cd3bd03-cd38-4079-8596-9fe0d8d0c539")
 	)
 	(junction
 		(at 378.46 210.82)
@@ -16938,6 +16938,93 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
+		(at 314.96 127 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "3c050129-d3cc-41ea-9369-720260668d81")
+		(property "Reference" "C39"
+			(at 312.166 128.524 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10uF"
+			(at 318.008 129.794 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
+			(at 314.96 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 314.96 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 314.96 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "0603X106K100"
+			(at 314.96 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C90806"
+			(at 314.96 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "41e738ef-e4cf-4ff9-bf0f-6b85217473b9")
+		)
+		(pin "2"
+			(uuid "646e2253-b0a7-4aea-925b-4b6d76be10f2")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "C39")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
 		(at 281.94 217.17 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -17506,93 +17593,6 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "SW3")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C_Small")
-		(at 314.96 127 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "42d7636b-fb52-43dd-9aa7-1e08391d3c9a")
-		(property "Reference" "C22"
-			(at 312.166 128.778 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "2.2uF"
-			(at 318.262 130.556 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 314.96 127 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 314.96 127 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Unpolarized capacitor, small symbol"
-			(at 314.96 127 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "CC0402KRX5R6BB225"
-			(at 314.96 127 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C326606"
-			(at 314.96 127 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "160269b5-7277-4516-b818-c25fdbf752c4")
-		)
-		(pin "2"
-			(uuid "0d1ef026-06ec-4e9c-b98e-7767ff6fe55a")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "C22")
 					(unit 1)
 				)
 			)
