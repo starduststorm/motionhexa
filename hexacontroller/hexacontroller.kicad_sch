@@ -9083,7 +9083,7 @@
 		(uuid "046b4a98-7532-42d5-b667-b1d57b78de43")
 	)
 	(junction
-		(at 59.69 219.71)
+		(at 55.88 201.93)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "046c71a1-6900-4fd6-bfba-e8464a16ebe3")
@@ -9751,7 +9751,7 @@
 		(uuid "95105a6b-0e67-4f2a-a2e5-c268aef08753")
 	)
 	(no_connect
-		(at 52.07 214.63)
+		(at 48.26 196.85)
 		(uuid "b85a41e2-7426-43bc-a1e6-ddc594da500a")
 	)
 	(no_connect
@@ -10514,7 +10514,7 @@
 	)
 	(wire
 		(pts
-			(xy 52.07 219.71) (xy 59.69 219.71)
+			(xy 48.26 201.93) (xy 55.88 201.93)
 		)
 		(stroke
 			(width 0)
@@ -10544,7 +10544,7 @@
 	)
 	(wire
 		(pts
-			(xy 39.37 217.17) (xy 41.91 217.17)
+			(xy 35.56 199.39) (xy 38.1 199.39)
 		)
 		(stroke
 			(width 0)
@@ -11944,7 +11944,7 @@
 	)
 	(wire
 		(pts
-			(xy 59.69 219.71) (xy 66.04 219.71)
+			(xy 55.88 201.93) (xy 62.23 201.93)
 		)
 		(stroke
 			(width 0)
@@ -12154,7 +12154,7 @@
 	)
 	(wire
 		(pts
-			(xy 73.66 219.71) (xy 80.01 219.71)
+			(xy 69.85 201.93) (xy 76.2 201.93)
 		)
 		(stroke
 			(width 0)
@@ -12693,17 +12693,6 @@
 		)
 		(uuid "0aa89674-d130-405e-9f9a-d67b1304496f")
 	)
-	(text "Button plan using merged input voltage with dedicated ldo:\n\nGood:\n* more power-on choices made in software\n* get rid of shitty switch, more elegant for case design\n* lipo charger can be safely turned off without affecting button read\n* button read or switch read are both regulated and hopefully no headaches\n* ability to draw power-down animation\n* switch still in place if i want it, and can be removed at low risk\n\nbad:\n* big change last minute\n"
-		(exclude_from_sim no)
-		(at 24.384 191.008 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "10ee56f6-5e8e-4284-95a0-b68bab568c14")
-	)
 	(text "1A charge"
 		(exclude_from_sim no)
 		(at 87.63 148.59 90)
@@ -12849,17 +12838,6 @@
 		)
 		(uuid "88d26ecf-a4f6-49e5-ae8a-7af50ab5ce20")
 	)
-	(text "scenarios:\n1. battery only\n* EN_LDO pulled LOW\n* U12 & SYS always powered (BATSYS)\n* button push => SYS 3.3v drives EN_LDO HIGH thru schottky (near 3.3V since V_f very low at ~0.15mA current) for software button, otherwise pulled LOW\n* EN_LDO driven HIGH, mcu powers up. on powerup, mcu notices no VBUS power => mcu also drives EN_LDO HIGH. ignores first button-up.\n* button push => SYS 3.3v drives BUTTON_0 HIGH for software button, otherwise pulled LOW\n* long button push, mcu stops \"running\" state, stops powering EN_LDO. on button-up, EN_LDO pulled LOW and mcu powered down\n\n2. usb only\n* VBUS >| R -> EN_LDO, always HIGH\n* on VBUS attach, mcu powers up, notices VBUS has power, does not drive EN_LDO\n* U12 & SYS always powered (VBUS)\n* button push => SYS 3.3v drives BUTTON_0 HIGH for software button, otherwise pulled LOW (isolated from always-VBUS-powered lines)\n* long button push:\n** if running: mcu stops \"running\" state but aware VBUS is connected, draws charging ui if applicable, stops powering EN_LDO. on button-up, EN_LDO still HIGH. \n** if not running: mcu powers LDO, switches to running draw state\n\n3. both\n* VBUS >| R -> EN_LDO, always HIGH\n* on VBUS attach, mcu powers up, notices VBUS has power, does not drive EN_LDO\n* U12 & SYS always powered (BATSYS & VBUS)\n* long button push:\n** if running: mcu stops \"running\" state but aware VBUS and battery are connected, draws charging ui if appolicable, stops powering EN_LDO. on button-up, EN_LDO still HIGH. \n** if not running: mcu powers LDO, switches to running draw state"
-		(exclude_from_sim no)
-		(at 11.684 325.374 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "8972ae94-5b5f-428a-9ece-0114309cecc3")
-	)
 	(text "optional in case\npanel power voltage drop\nimpacts LDO"
 		(exclude_from_sim no)
 		(at 120.65 247.904 0)
@@ -12873,7 +12851,7 @@
 	)
 	(text "power switch"
 		(exclude_from_sim no)
-		(at 65.532 209.804 0)
+		(at 61.722 192.024 0)
 		(effects
 			(font
 				(size 2.5 2.5)
@@ -12936,16 +12914,15 @@
 		)
 		(uuid "e38c2026-eb55-4d67-bb3f-bec584cadca8")
 	)
-	(text "boot up:\ncheck vbus power\ndisable charging - check for battery presence - if battery re eneable charging\n\n\nperiodically:\nif battery attached - enable charging\nif battery detached - how would i know? have to periodocally disable charging and poll\n\n"
+	(text "TLVxxyyD series has\n150kΩ pulldown at\nboth EN pins"
 		(exclude_from_sim no)
-		(at 225.552 317.754 0)
+		(at 128.27 132.08 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
 		)
-		(uuid "ebd63f39-02e8-4ee1-b07c-d926b6952100")
+		(uuid "fad96d3c-29ed-47de-af87-ee25eb55dd99")
 	)
 	(label "QSPI2"
 		(at 233.68 165.1 180)
@@ -13509,7 +13486,7 @@
 		(uuid "9d878282-a66b-4248-90b7-cb235bc399e1")
 	)
 	(label "PWR_SWITCH"
-		(at 53.34 219.71 0)
+		(at 49.53 201.93 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -13762,7 +13739,7 @@
 		(uuid "e1ee9a4c-5894-43c0-b357-479de7229545")
 	)
 	(label "SYS"
-		(at 39.37 217.17 180)
+		(at 35.56 199.39 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -13806,7 +13783,7 @@
 		(uuid "f1e51f2c-9d9f-4342-81a4-1e0a7bb3c81a")
 	)
 	(label "EN_LDO"
-		(at 80.01 219.71 0)
+		(at 76.2 201.93 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -15151,7 +15128,7 @@
 	)
 	(symbol
 		(lib_id "Device:D_Schottky")
-		(at 69.85 219.71 180)
+		(at 66.04 201.93 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -15160,7 +15137,7 @@
 		(fields_autoplaced yes)
 		(uuid "1d2edfa5-c2e9-417f-bf1c-a0f45f4faf2c")
 		(property "Reference" "D9"
-			(at 70.1675 214.2955 0)
+			(at 66.3575 196.5155 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15168,7 +15145,7 @@
 			)
 		)
 		(property "Value" "D_Schottky"
-			(at 70.1675 216.7198 0)
+			(at 66.3575 198.9398 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15176,7 +15153,7 @@
 			)
 		)
 		(property "Footprint" "Diode_SMD:D_SOD-882D"
-			(at 69.85 219.71 0)
+			(at 66.04 201.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15185,7 +15162,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 69.85 219.71 0)
+			(at 66.04 201.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15194,7 +15171,7 @@
 			)
 		)
 		(property "Description" "Schottky diode"
-			(at 69.85 219.71 0)
+			(at 66.04 201.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15203,7 +15180,7 @@
 			)
 		)
 		(property "Designation" "PMEG4002EL,315"
-			(at 69.85 219.71 0)
+			(at 66.04 201.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15212,7 +15189,7 @@
 			)
 		)
 		(property "LCSC" "C426866"
-			(at 69.85 219.71 0)
+			(at 66.04 201.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17511,7 +17488,7 @@
 	)
 	(symbol
 		(lib_id "Switch:SW_SPDT")
-		(at 46.99 217.17 0)
+		(at 43.18 199.39 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -17520,7 +17497,7 @@
 		(fields_autoplaced yes)
 		(uuid "41f9b374-5470-449e-a50e-e8affa236e10")
 		(property "Reference" "SW3"
-			(at 46.99 209.3425 0)
+			(at 43.18 191.5625 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17528,7 +17505,7 @@
 			)
 		)
 		(property "Value" "SW_SPDT"
-			(at 46.99 211.7668 0)
+			(at 43.18 193.9868 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17536,7 +17513,7 @@
 			)
 		)
 		(property "Footprint" "hexacontroller:SW-SMD_MK-12C02-G025"
-			(at 46.99 217.17 0)
+			(at 43.18 199.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17545,7 +17522,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 46.99 224.79 0)
+			(at 43.18 207.01 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17554,7 +17531,7 @@
 			)
 		)
 		(property "Description" "Switch, single pole double throw"
-			(at 46.99 217.17 0)
+			(at 43.18 199.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17563,7 +17540,7 @@
 			)
 		)
 		(property "Designation" "MK-12C02-G025"
-			(at 46.99 217.17 0)
+			(at 43.18 199.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17572,7 +17549,7 @@
 			)
 		)
 		(property "LCSC" "C778186"
-			(at 46.99 217.17 0)
+			(at 43.18 199.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19126,7 +19103,7 @@
 	)
 	(symbol
 		(lib_id "Connector:TestPoint")
-		(at 59.69 219.71 180)
+		(at 55.88 201.93 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
@@ -19134,7 +19111,7 @@
 		(dnp no)
 		(uuid "50ebff33-285d-494c-9061-41a14c7eb323")
 		(property "Reference" "TP2"
-			(at 57.404 223.266 0)
+			(at 53.594 205.486 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19143,7 +19120,7 @@
 			)
 		)
 		(property "Value" "TestPoint"
-			(at 63.754 225.298 0)
+			(at 59.944 207.518 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19152,7 +19129,7 @@
 			)
 		)
 		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
-			(at 54.61 219.71 0)
+			(at 50.8 201.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19161,7 +19138,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 54.61 219.71 0)
+			(at 50.8 201.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19170,7 +19147,7 @@
 			)
 		)
 		(property "Description" "test point"
-			(at 59.69 219.71 0)
+			(at 55.88 201.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19179,7 +19156,7 @@
 			)
 		)
 		(property "Designation" ""
-			(at 59.69 219.71 0)
+			(at 55.88 201.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
