@@ -334,4 +334,36 @@ public:
   }
 };
 
+class PowerOffAnimation : public Pattern {
+public:
+  void update() {
+    // FIXME: animation is basic - improve
+    const int collapseTime = 600;
+    const int dotTime = 600;
+    ctx.leds.fill_solid(CRGB::Black);
+    if (runTime() < collapseTime) {
+      auto centerNode = hexGrid.nodes[LED_COUNT/2];
+      
+      float brightspot = kMeridian/2 - kMeridian/2 * runTime() / (float)collapseTime;
+      for (int i = 0; i < 6; ++i) {
+        int distance = 1;
+        HexGrid<PixelIndex>::HexNode *node = centerNode->neighbors[i];
+        do {
+          ctx.leds[node->data()] = CHSV(0, 0xFF, 0xFF - 0xFF * abs(distance-brightspot)/5);
+          node = node->neighbors[i];
+          distance++;
+        } while (node->isDataNode());
+      }
+    } else if (runTime() < collapseTime + dotTime) {
+      ctx.leds[LED_COUNT/2] = CHSV(0, 0xFF, 0xFF - 0xFF*(runTime()-collapseTime)/dotTime);
+    } else {
+      stop();
+    }
+  }
+  const char *description() {
+    return "PowerOff";
+  }
+
+};
+
 #endif

@@ -8,78 +8,13 @@ extern "C" char* sbrk(int incr);
 extern char *__brkval;
 #endif
 
+#include <Arduino.h>
+#include <SPI.h>
 #include "pico/multicore.h"
 
 #include "Wire.h"
-#define SDA 8
-#define SCL 9
 
-#include <Arduino.h>
-#include <SPI.h>
-
-#if HARDWARE_VERSION == 3
-
-#define PDM_BCLK 23
-#define PDM_LRCLK (BCLK+1)
-#define PDM_DATA 25
-
-#define UNCONNECTED_PIN_1 29
-
-#define LED_SPI0_TX 19
-#define LED_SPI0_SCK 22
-
-#define PHOTOSENSOR_POWER_PIN 26
-#define PHOTOSENSOR_READ_PIN 27
-
-#define BUTTON_0 17
-
-#define MOTION_INT_PIN 2
-#define LED_LINE_0_PWR_PIN 3
-
-#define PWR_SWITCH_PIN 28
-#define VBUS_SENSOR_PIN 5
-
-#define CHRG_PIN 16
-#define GPOUT_PIN 0
-
-#elif HARDWARE_VERSION == 2
-
-#define I2S_BCLK 23
-#define I2S_LRCLK (BCLK+1)
-#define I2S_DATA 25
-
-#define UNCONNECTED_PIN_1 26
-
-#define LED_SPI0_TX 19
-#define LED_SPI0_SCK 22
-
-#define PHOTOSENSOR_POWER_PIN 27
-#define PHOTOSENSOR_READ_PIN 28
-
-#define BATTERY_VOLTAGE_PIN 29
-
-#define BUTTON_0 16
-
-#define MOTION_INT_PIN 2
-#define LED_LINE_0_PWR_PIN 3
-
-#else // first hardware rev
-
-#define I2S_BCLK 1
-#define I2S_LRCLK (BCLK+1)
-#define I2S_DATA 3
-
-#define UNCONNECTED_PIN_1 27
-
-// These SPI pins are swapped from spec - FML but does not prevent FastLED from working
-#define LED_SPI0_SCK 19
-#define LED_SPI0_TX 18
-
-#define PHOTOSENSOR_POWER_PIN 28
-#define PHOTOSENSOR_READ_PIN 29
-
-#define BUTTON_0 25
-#endif
+#include "pinout.h"
 
 #if defined(I2S_BCLK)
 #include <I2S.h>
@@ -119,21 +54,37 @@ struct BatteryData {
         stateOfCharge, stateOfHealth, voltage, currentCapacity, fullCapacity, powerDraw, temperature, flags);
   }
   bool batteryDetected() {
-    return flags & 1<<3;
+    return stateOfCharge < 100 && flags & 1<<3;
   }
 };
 const unsigned int BATTERY_CAPACITY = 2000;
 BatteryData batteryData = {0};
 
+class RunState {
+  bool running;
+  unsigned long lastChange;
+public:
+  bool isRunning() {
+    return running;
+  }
+  void setRunning(bool isRunning) {
+    running = isRunning;
+    lastChange = millis();
+  }
+  unsigned long lastRunStateChange() {
+    return lastChange;
+  }
+};
+
+RunState runState;
+
 const int kFullCharge = 98; // %
 bool isCharging;
 unsigned long lastChargingStateChange; // ms
-bool powerSwitchOn;
+bool powerSwitchOn = true;
 unsigned long lastPowerSwitchChange;   // ms
 int knownChargePercent;                // 0 - 100%
 unsigned long lastReachedFullCharge;   // ms
-
-#include "patterns.h"
 
 #include "MotionManager.h"
 
@@ -144,6 +95,9 @@ HardwareControls controls;
 
 FrameCounter fc;
 PatternManager patternManager(ctx);
+AxialAccess<LED_COUNT> axial(ctx.leds, hexGrid);
+
+#include "patterns.h"
 
 IndexedPatternRunner *indexedRunner; // main pattern runner
 
@@ -176,17 +130,6 @@ void init_i2s() {
 }
 #endif
 
-void init_spi() {
-    gpio_set_function(PIN_SPI0_MOSI, GPIO_FUNC_NULL);
-    gpio_set_function(PIN_SPI0_SCK, GPIO_FUNC_NULL);
-
-    spi_inst_t *spi = spi0;
-    spi_init(spi, 8 * 1000000); // 16 MHz
-
-    gpio_set_function(LED_SPI0_SCK, GPIO_FUNC_SPI);
-    gpio_set_function(LED_SPI0_TX, GPIO_FUNC_SPI);
-}
-
 void init_serial() {
   Serial.begin(57600);
 #if WAIT_FOR_SERIAL
@@ -201,8 +144,8 @@ void init_serial() {
   delay(10); // Serial needs a bit more time before it'll actually log?
   logf("begin - waited %ims for Serial", millis() - setupStart);
 #elif DEBUG
-  delay(2000);
-  Serial.println("Done waiting at boot.");
+  // delay(2000); // FIXME: put back debug delay?
+  // Serial.println("Done waiting at boot.");
 #endif
 }
 
@@ -235,6 +178,24 @@ BatteryData getBatteryData()
   return data;
 }
 
+// bool checkBatteryPresence() {
+  
+  
+//   // it takes some 600ms for BATSYS to fall LOWish. so this check needs to be async
+
+
+
+//   bool hasBattery = true;
+// #if HARDWARE_VERSION >= 4
+//   digitalWrite(DISABLE_CHARGE_PIN, true);
+//   FastLED.delay(2); // FIXME:
+//   int batteryVoltage = analogRead(BATTERY_VOLTAGE_PIN);
+//   digitalWrite(DISABLE_CHARGE_PIN, false);
+//   logf("read batteryVoltage = %i", batteryVoltage);
+// #endif
+//   return hasBattery;
+// }
+
 mutex_t core1DataLock;
 ICM_20948_AGMT_t _gAGMT;   // locked AGMT read
 BatteryData _gBatteryData = {0}; // locked BatteryData read
@@ -250,6 +211,27 @@ void getAsyncData(ICM_20948_AGMT_t *agmtRef, BatteryData *batteryDataRef) {
 
   if (agmtRef) *agmtRef = agmt;
   if (batteryDataRef) *batteryDataRef = bd;
+}
+
+void hard_reset_check_core1() {
+    // hard reset
+  static unsigned long lastButtonReleased = 0 ;
+  static unsigned long lastMillis = 0;
+  unsigned long curMillis = millis();
+  if (curMillis < lastMillis) {
+    // handle millis overflow
+    lastButtonReleased = curMillis;
+  }
+  if (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE) {
+    if (millis() - lastButtonReleased > 10000) {
+        logf("hard reset!");
+        Serial.flush();
+        watchdog_reboot(0,0,0);
+    }
+  } else {
+    lastButtonReleased = curMillis;
+  }
+  lastMillis = curMillis;
 }
 
 void core1_main() {
@@ -282,10 +264,13 @@ void core1_main() {
   static unsigned long lastBatteryPoll = 0;
   while (1) {
     while (!_gCore1DataGetNext) {
+      hard_reset_check_core1();
       delayMicroseconds(100); // FIXME: i would rather do this with multicore fifo but cannot seem to get fifo to work at all
     }
+    hard_reset_check_core1();
     ICM_20948_AGMT_t agmt = MotionManager::manager().loop();
     
+#if HARDWARE_VERSION > 2
     BatteryData batteryData;
     if (lastBatteryPoll == 0 || millis() - lastBatteryPoll > 3000) {
       batteryData = getBatteryData();
@@ -294,6 +279,7 @@ void core1_main() {
       logf("battery detected? %i", batteryData.batteryDetected());
       lastBatteryPoll = millis();
     }
+#endif
 
     mutex_enter_blocking(&core1DataLock);
     _gAGMT = agmt;
@@ -302,6 +288,17 @@ void core1_main() {
     mutex_exit(&core1DataLock);
   }
 }
+
+#if HARDWARE_VERSION >= 4
+void powerOff() {
+  // gpio_set_pulls(EN_LDO_PIN, false, false); // stop pulling up // FIXME: needed?
+  // FIXME: there seems to be behavior difference between gpio_put here and digitalWrite?
+  gpio_put(EN_LDO_PIN, false);
+  // digitalWrite(EN_LDO_PIN, false);
+  // should power off here, but delay a little since sometimes we bounce back on
+  delay(500);
+}
+#endif
 
 void setup() {
   init_serial();
@@ -317,6 +314,35 @@ void setup() {
 #if HARDWARE_VERSION > 1
   pinMode(LED_LINE_0_PWR_PIN, true);
 #endif
+#if HARDWARE_VERSION > 2
+  pinMode(PWR_SWITCH_PIN, INPUT_PULLDOWN);
+  pinMode(CHRG_PIN, INPUT);
+  pinMode(VBUS_SENSOR_PIN, INPUT_PULLDOWN);
+  pinMode(GPOUT_PIN, INPUT_PULLUP);
+#endif
+#if HARDWARE_VERSION >= 4
+  pinMode(DISABLE_CHARGE_PIN, OUTPUT);
+  pinMode(EN_BOOST_PIN, OUTPUT);
+  
+  // if we booted this far, maintain our own power.
+  gpio_set_function(EN_LDO_PIN, GPIO_FUNC_SIO);
+  gpio_set_pulls(EN_LDO_PIN, true, false); // pull up
+  gpio_set_drive_strength(EN_LDO_PIN, GPIO_DRIVE_STRENGTH_4MA);
+  gpio_set_dir(EN_LDO_PIN, true);
+  gpio_put(EN_LDO_PIN, true);
+
+  int batteryVoltageRead = analogRead(BATTERY_VOLTAGE_PIN);
+#endif
+
+  FastLED.addLeds<SK9822HD, LED_SPI0_TX, LED_SPI0_SCK, BGR, DATA_RATE_MHZ(16)>(ctx.leds, LED_COUNT);//.setCorrection(0xFFB0C0);
+
+#if DEBUG
+  digitalWrite(LED_LINE_0_PWR_PIN, true);
+  ctx.leds.fill_solid(CRGB::Red);
+  FastLED.setBrightness(1);
+  FastLED.show();
+  FastLED.delay(10);
+#endif
 
 #if defined(I2S_BCLK)
   init_i2s();
@@ -324,23 +350,13 @@ void setup() {
 #if defined(PDM_BCLK)
   init_pdm();
 #endif
-  init_spi();
-
-#if HARDWARE_VERSION > 2
-  pinMode(PWR_SWITCH_PIN, INPUT_PULLDOWN);
-  pinMode(CHRG_PIN, INPUT);
-  pinMode(VBUS_SENSOR_PIN, INPUT_PULLDOWN);
-  pinMode(GPOUT_PIN, INPUT_PULLUP);
-#endif
-  
-  FastLED.addLeds<SK9822HD, LED_SPI0_TX, LED_SPI0_SCK, BGR, DATA_RATE_MHZ(16)>(ctx.leds, LED_COUNT);//.setCorrection(0xFFB0C0);
 
   patternManager.registerPattern<MotionHexa>();
   patternManager.registerPattern<TriBounce>();
   patternManager.registerPattern<PixelDust>();
   patternManager.registerPattern<PulseHexa>();
 
-#if HARDWARE_VERSION > 2
+#if HARDWARE_VERSION >= 3
   patternManager.registerPattern<ChargingPattern>(1);
   patternManager.setupConditionalRunner<ChargingPattern>([](PatternRunner &runner) -> uint8_t {
     const int kChargePatternOverlayDuration = 1500; // how long to show charge pattern while pwrSwitchOn
@@ -348,40 +364,42 @@ void setup() {
     const int kSitTimeAtFullCharge = 5000;
     const int kRecentStateChangeDelay = 200;
     
-    // logf("isCharging=%i, powerSwitchOn=%i, hasPattern = %i", isCharging, powerSwitchOn, (bool)(runner.pattern));
+    EVERY_N_MILLIS(1000) {
+      logf("isCharging=%i, isHexaRunning=%i, hasPattern = %i, lastReachedFullCharge= %i, lastChargingStateChange= %i, millis=%i", isCharging, runState.isRunning(), (bool)(runner.pattern), lastReachedFullCharge, lastChargingStateChange, millis());
+    }
 
     uint8_t chargeAlpha = 0;
 
     if (isCharging) {
       if (runner.pattern) {
         int runTime = runner.pattern->runTime();
-        if (powerSwitchOn && runTime > kChargePatternOverlayDuration) {
+        if (runState.isRunning() && runTime > kChargePatternOverlayDuration) {
           // fade down overlay while device on
-          // logf("fade down overlay device on");
-          chargeAlpha = max(0L, 0xFF - 0xFF * (long)(millis() - max(lastPowerSwitchChange, lastChargingStateChange)) / kFadeTime);
+          logf("fade down overlay device on");
+          chargeAlpha = max(0L, 0xFF - 0xFF * (long)(millis() - max(runState.lastRunStateChange(), lastChargingStateChange)) / kFadeTime);
         } else if (lastReachedFullCharge && millis() - lastReachedFullCharge > kSitTimeAtFullCharge && runTime > kChargePatternOverlayDuration) {
           // fade down charging ui when fully charged
-          // logf("fade down fully charged");
+          logf("fade down fully charged");
           chargeAlpha = max(0L, 0xFF - 0xFF * (long)(millis() - lastReachedFullCharge - kSitTimeAtFullCharge) / kFadeTime);
         } else if (runTime < kFadeTime) {
           // fade up overlay
-          // logf("fade up overlay");
+          logf("fade up overlay");
           chargeAlpha = min(0xFFL, (long)0xFF * runTime / kFadeTime);
         } else {
           // run overlay
           chargeAlpha = 0xFF;
         }
-      } else if ((!powerSwitchOn && lastReachedFullCharge == 0) 
+      } else if ((!runState.isRunning() && lastReachedFullCharge == 0) 
               || millis() - lastChargingStateChange < kRecentStateChangeDelay 
-              || (millis() - lastPowerSwitchChange < kRecentStateChangeDelay && lastReachedFullCharge == 0)) {
+              || (millis() - runState.lastRunStateChange() < kRecentStateChangeDelay && lastReachedFullCharge == 0)) {
         // start overlay
-        // logf("start overlay");
+        logf("start overlay");
         chargeAlpha = 0x1;
       }
     } else {
       if (runner.pattern) {
         // fadedown overlay due to not charging
-        // logf("fade down overlay not charging");
+        logf("fade down overlay not charging");
         chargeAlpha = max(0L, 0xFF - 0xFF * (long)(millis() - lastChargingStateChange) / kFadeTime);
       }
     }
@@ -392,28 +410,52 @@ void setup() {
   }, 0xFF, 0xFF);
 #endif
   
-  // patternManager.registerPattern<LineSweep>();
-  // patternManager.registerPattern<RandomDust>();
-  
   indexedRunner = patternManager.setupIndexedRunner(0);
   
-  SPSTButton *button = controls.addButton(BUTTON_0);
+  SPSTButton *button = controls.addButton(BUTTON_0, BUTTON_PRESSED_STATE);
+  button->ignoreEventsUntilFirstButtonUp = true;
   button->onSinglePress([]() {
-    indexedRunner->nextPattern();
+    if (runState.isRunning()) {
+      indexedRunner->nextPattern();
+    }
   });
   button->onDoublePress([]() {
-    indexedRunner->previousPattern();
+    if (runState.isRunning()) {
+      indexedRunner->previousPattern();
+    }
   });
-  button->onVeryLongPress([]() {
-    // hard reset
-    logf("hard reset!");
-    Serial.flush();
-    watchdog_reboot(0,0,100);
+#if HARDWARE_VERSION >= 4
+  button->longPressInterval = 1000;
+  button->onLongPress([]() {
+    logf("Long press! isHexaRunning = %i", runState.isRunning());
+    if (runState.isRunning()) {
+      bool usbPower = digitalRead(VBUS_SENSOR_PIN);
+      if (!usbPower) {
+        // power down
+        patternManager.runOneShotPattern<PowerOffAnimation>(0xFF, 0xFF, [](PatternRunner&) {
+          indexedRunner->stop();
+          bool usbPower = digitalRead(VBUS_SENSOR_PIN);
+          if (usbPower) {
+            runState.setRunning(false);
+          } else {
+            powerOff();
+            while (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE) {
+              // handle the button being left pressed after power off
+              delay(50);
+            }
+          }
+        });
+      } else {
+        runState.setRunning(false);
+        indexedRunner->stop();
+      }
+    } else { // turn on
+      runState.setRunning(true);
+      indexedRunner->runPatternAtIndex(0);
+    }
   });
+#endif
 
-  // patternManager.setTestPattern<MotionHexa>();
-  // patternManager.setTestPattern<LineSweep>();
-  
   initLEDGraph();
   assert(ledgraph.adjList.size() == LED_COUNT, "adjlist size should match LED_COUNT");
 
@@ -427,45 +469,50 @@ void setup() {
   logf("setup done");
 } 
 
-void startupWelcome() {
-  int welcomeDuration = 333;
-
-  ctx.leds.fill_solid(CRGB::Black);
-  gpio_put(LED_LINE_0_PWR_PIN, true);
-
-  HexaShells hexaShells;
-  uint8_t hue = random8();
-  DrawModal(120, welcomeDuration, [hue, welcomeDuration, hexaShells](unsigned long elapsed) {
-    const int fadeRings = 6;
-    FastLED.setBrightness(3);
-      int maxShell = (hexaShells.shells.size() + fadeRings/2) * elapsed / welcomeDuration;
-      for (int s = 0; s < min(maxShell, hexaShells.shells.size()); ++s) {
-        for (int px : hexaShells.shells[s]) {
-          uint8_t b = (s <= maxShell && s > maxShell - fadeRings) ? triwave8(0xFF * (maxShell - s+1) / fadeRings) : 0;
-          ctx.leds[px] = CHSV(hue, b, b);
-        }
-      }
-   });
-  ctx.leds.fill_solid(CRGB::Black);
-  FastLED.show();
-}
-
 void loop() {
+  static bool pixelsHavePower = false;
+
   if (serialTimeout && millis() - setupDoneTime < 1000) {
     serialTimeoutIndicator();
     return;
   }
 
 #if HARDWARE_VERSION > 2
+  bool isButtonPressed = (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE);
+  bool isVBUSPowered = digitalRead(VBUS_SENSOR_PIN);
+#endif
+
+#if HARDWARE_VERSION >= 4
+  static bool didButtonBoot = false;
+  if (!didButtonBoot && millis() > 500) {
+    didButtonBoot = true;
+    runState.setRunning(isButtonPressed && !isVBUSPowered); // draw patterns if we weren't powered up by usb
+    if (!isButtonPressed && !isVBUSPowered) {
+      // powered on via button, released prior to threshold
+      logf("Startup interrupted. Powering off...");
+      powerOff();
+      return;
+    }
+  }
+#endif
+
+#if HARDWARE_VERSION >= 3
   static unsigned long lastLipoChargeIndicator = 0;
   // The charge indicator read from the lipo charger is too noisy/bouncy to use for charging UI. 
   // Instead we'll check if VBUS is powered and that the lipo charger has indicated it's charging anytime within the last 10 seconds.
-  bool isVBUSPowered = digitalRead(VBUS_SENSOR_PIN);
+#if HARDWARE_VERSION >= 4
+  if (!isButtonPressed && !isVBUSPowered && !runState.isRunning()) {
+    // likely unplugged USB while hexa not running
+    logf("No USB, no button, and no intent to run. Powering off...");
+    powerOff();
+    return;
+  }
+#endif
   bool isLipoCharging = !digitalRead(CHRG_PIN);
   if (isLipoCharging) {
     lastLipoChargeIndicator = millis();
   }
-  bool isChargingRead = isVBUSPowered && (millis() - lastLipoChargeIndicator < 20000);
+  bool isChargingRead = isVBUSPowered;// && (millis() - lastLipoChargeIndicator < 20000);
 
   // FIXME: isLipoCharging might flip back and forth on a longer timer when near full charge. maybe if SOC is above e.g. 95% then we stop tracking that.
   // OR: maybe don't re-show the charging UI unless VBUS flips from off back to on, even if charging state switches
@@ -475,37 +522,7 @@ void loop() {
     isCharging = isChargingRead;
     lastChargingStateChange = millis();
   }
-  
-  // WORKAROUND: when there is no battery attached, power switch on => line 0 panel on => 200uF inrush to panel
-  // => BATSYS line (via lipo charger) voltage drop (measured ~1.8V over ~2.5ms), which drops p-channel gate voltage enough that
-  // PWR_SWITCH_PIN reads are again reading that the power switch is off.
-  // I've attempted to add an RC into this circuit to bridge the voltage drop, but this results in more complex behavior with the lipo charger pulsing.
-  // I'll debounce in software but the larger issue requires hardware changes to prevent the lipo charger from affecting the power switch reads.
-  static DebounceDigital debouncer;
-  bool powerSwitchOnRead = !debounceDigitalRead(PWR_SWITCH_PIN, debouncer);
-  // int powerSwitchOnReadAnalog = analogRead(PWR_SWITCH_PIN);
-  // bool powerSwitchOnRead = powerSwitchOnReadAnalog < 700;
-  // logf("powerSwitchOnReadAnalog = %i", powerSwitchOnReadAnalog);
-
-  if (powerSwitchOn != powerSwitchOnRead) {
-    logdf("PowerSwitch State Change %i -> %i", powerSwitchOn, powerSwitchOnRead);
-    powerSwitchOn = powerSwitchOnRead;
-    lastPowerSwitchChange = millis();
-    if (powerSwitchOn) {
-      indexedRunner->runPatternAtIndex(0);
-      if (indexedRunner->pattern) indexedRunner->pattern->setAlpha(0, false);
-    } else {
-      // FIXME: fadedown
-      indexedRunner->stop();
-    }
-  }
 #endif
-
-  static bool firstLoop = true;
-  if (firstLoop && powerSwitchOn) {
-    startupWelcome();
-    firstLoop = false;
-  }
 
   getAsyncData(&MotionManager::agmt, &batteryData);
   if (batteryData.stateOfCharge >= kFullCharge && knownChargePercent < kFullCharge) {
@@ -516,23 +533,35 @@ void loop() {
   }
   knownChargePercent = batteryData.stateOfCharge;
 
-  indexedRunner->paused = !powerSwitchOn;
-  patternManager.loop();
+  indexedRunner->paused = !runState.isRunning();
   controls.update();
+  patternManager.loop();
 
   // FIXME: we might need to opportunistically grab photo reads when nearby pixels are off, otherwise they are too bright
   FastLED.setBrightness(15);
   // autoBrightness->loop();
  
-  bool pixelsNeedPower = ctx.leds(0, LED_COUNT-1);
 #if HARDWARE_VERSION > 1
-  static bool pixelsHavePower = false;
-  if (pixelsNeedPower != pixelsHavePower) {
-    logdf("Turn %s line 0", pixelsNeedPower?"on":"off");
+  static unsigned long lastPixelsNeedPower = 0;
+  bool pixelsNeedPower = ctx.leds(0, LED_COUNT-1);
+  if (pixelsNeedPower) {
+    lastPixelsNeedPower = millis();
+  }
+  if (pixelsNeedPower != pixelsHavePower 
+    && (pixelsNeedPower || millis() - lastPixelsNeedPower > 300)) { // don't turn off panel for very brief periods
+    logdf("Turn %s pixels", pixelsNeedPower?"on":"off");
     pixelsHavePower = pixelsNeedPower;
-    gpio_put(LED_LINE_0_PWR_PIN, pixelsNeedPower);
+    digitalWrite(LED_LINE_0_PWR_PIN, pixelsNeedPower); // FIXME: debounce this for quick pattern transitions. no need to turn off panel for just a few frames
   }
 #endif
+  
+#if DEBUG
+  ctx.leds[0] = isVBUSPowered ? CRGB::Red : CRGB::Black;
+  ctx.leds[1] = runState.isRunning() ? CRGB::Green : CRGB::Black;
+  ctx.leds[2] = isCharging ? CRGB::Blue : CRGB::Black;
+  digitalWrite(LED_LINE_0_PWR_PIN, true);
+#endif
+
   if (pixelsNeedPower) {
     FastLED.show();
   }
@@ -540,8 +569,8 @@ void loop() {
   fc.loop();
   fc.clampToFramerate(240);
 
-  if (!isCharging && !powerSwitchOn && !pixelsNeedPower) {
+  if (!pixelsNeedPower) {
     // FIXME: proper sleep
-    FastLED.delay(200);
+    FastLED.delay(100);
   }
 }
