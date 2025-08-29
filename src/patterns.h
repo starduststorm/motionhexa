@@ -15,9 +15,45 @@
 #include "MotionManager.h"
 #include "hexaphysics.h"
 
-
 struct HexaShells {
-  vector<vector<int> > shells = vector<vector<int> >();
+  vector<vector<std::optional<PixelIndex> > > shells;
+
+  HexaShells(PixelIndex center) {
+    // generate a series of hexashells centered around the given pixel
+    Axial ax = axial.axialFromPixelIndex(center);
+    int centerQ = ax.q();
+    int centerR = ax.r();
+
+    int shellCount = (kMeridian+1) / 2 + abs(centerQ) + abs(centerR);
+
+    shells.emplace_back();
+    shells.back().push_back(axial.indexAtAxial(centerQ, centerR)); // center px
+
+    for (int s = 1; s < shellCount; ++s) {
+      shells.emplace_back();
+      int q = centerQ + s; // start each shell at q+shellnum to the right
+      int r = centerR;
+      // go counterclockwise around the shell
+      for (int si = 0; si < s; ++si) {
+        shells.back().push_back(axial.indexAtAxial(q, --r)); 
+      }
+      for (int si = 0; si < s; ++si) {
+        shells.back().push_back(axial.indexAtAxial(--q, r)); 
+      }
+      for (int si = 0; si < s; ++si) {
+        shells.back().push_back(axial.indexAtAxial(--q, ++r)); 
+      }
+      for (int si = 0; si < s; ++si) {
+        shells.back().push_back(axial.indexAtAxial(q, ++r)); 
+      }
+      for (int si = 0; si < s; ++si) {
+        shells.back().push_back(axial.indexAtAxial(++q, r)); 
+      }
+      for (int si = 0; si < s; ++si) {
+        shells.back().push_back(axial.indexAtAxial(++q, --r)); 
+      }
+    }
+  }
   HexaShells() {
     vector<PixelIndex> shellStarts = {0};
     // get a diagonal line from edge to center
@@ -41,18 +77,19 @@ struct HexaShells {
   }
 };
 
-// FIXME: pull out PaletteRotation in favor of sharedColorManager?
 class PulseHexa : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
   HexaShells hexaShells;
   PulseHexa() {
-    maxColorJump = 50;
+    maxColorJump = 30;
     secondsPerPalette = 15;
   }
 
   void update() {
     for (int s = 0 ; s < hexaShells.shells.size(); ++s) {
-      for (int px : hexaShells.shells[s]) {
+      for (std::optional<PixelIndex> pxOpt : hexaShells.shells[s]) {
+        if (!pxOpt.has_value()) continue;
+        PixelIndex px = pxOpt.value();
         uint8_t brightness = beatsin8(60, 0, 255, 0, -beatsin16(2, 250, 350)*s/hexaShells.shells.size());
         brightness = scale8(brightness, brightness);
         // ctx.leds[px] = CHSV(millis()/20+s*10, 0xFF, brightness);
@@ -68,6 +105,46 @@ public:
   }
 };
 
+class PulseHexaSmooth : public Pattern, PaletteRotation<CRGBPalette256> {
+public:
+  Axial center;
+  PulseHexaSmooth() {
+    maxColorJump = 30;
+    secondsPerPalette = 15;
+  }
+
+  vector32 smoothAcc;
+
+  void update() {
+    int mult = 1000; // smooth everything with integer math
+    vector32 acc = vector32(MotionManager::agmt.acc.axes.x, MotionManager::agmt.acc.axes.y, MotionManager::agmt.acc.axes.z);
+    smoothAcc = (9 * smoothAcc + acc) / 10;
+
+    constexpr int kInverseRootThree = 1000*1/sqrt(3); // FIXME: save as integer?
+    Axial offcenter = center;
+    int q = offcenter.q() + smoothAcc.y + kInverseRootThree * smoothAcc.x / 1000;
+    int r = offcenter.r() - smoothAcc.x;
+    offcenter.setQR(q,r);
+
+    for (PixelIndex px = 0; px < LED_COUNT; ++px) {
+      Axial ax = axial.axialFromPixelIndex(px);
+      ax *= mult;
+      
+      int distance = max(max(abs(offcenter.q() - ax.q()), abs(offcenter.r() - ax.r())), abs(offcenter.s() - ax.s()));
+      
+      uint8_t brightness = beatsin8(60, 0, 255, 0, -beatsin16(2, 250, 350)*distance/(kMeridian/2)/mult);
+      CRGB c = this->getMirroredPaletteColor(millis()/100 + distance*15/mult);
+      c = c.scale8(brightness);
+      ctx.leds[px] = c;
+    }
+  }
+
+  const char *description() {
+    return "PulseHexaSmooth";
+  }
+};
+
+
 /* Concept
   PulseHexa except each shell is a looped palette which rotates as you rotate the hexagon.
   Hexa zooms in and out with motion along z axis?
@@ -79,7 +156,7 @@ public:
   HexaShells hexaShells;
   MotionHexa() {
     secondsPerPalette = 16;
-    maxColorJump = 50;
+    maxColorJump = 30;
   }
 
   vector32 gyrAccum32;
@@ -125,10 +202,14 @@ public:
       }
 
       for (int si = 0; si < hexaShells.shells[s].size(); ++si) {
+        auto pxOpt = hexaShells.shells[s][si];
+        if (!pxOpt.has_value()) continue;
+        PixelIndex px = pxOpt.value();
+
         uint8_t brightness = lerp8by8(sin8(-bandRotate/4 + bands*(0xFF*si - bandTwist) / shellSize - 0xFF * (s-bandThing)/shellCount), 0xFF, bandFadeIn);
 
         brightness = scale8(brightness, brightness);
-        uint16_t gyrRotate = gyrAccum.z % 0x200;
+        uint16_t gyrRotate = gyrAccum.z>>1 % 0x200;
         uint16_t radialH =  0x200 * si / shellSize;
         uint16_t twistFactor = s * gyrAccum.x/6 % 0x200 + s*millis()/500;
         uint16_t shellH = 0x200 * s/shellCount * beatsin16(3, 0, 0x200, 0, gyrAccum.y) / 0x200;
@@ -143,7 +224,7 @@ public:
         // }
         c.nscale8(brightness);
         c.nscale8(shellBrightness);
-        ctx.leds[hexaShells.shells[s][si]] = c;
+        ctx.leds[px] = c;
       }
     }
   }
@@ -180,7 +261,7 @@ public:
         unsigned long index = millis()/30;
         int si = ((shellSize * (index + l)) / maxShellSize)%shellSize;
         CRGB c = getMirroredPaletteColor(millis()/20, (l == 0 ? 0xFF : 0x7F));
-        ctx.leds[hexaShells.shells[s][si]] = c;
+        ctx.leds[hexaShells.shells[s][si].value()] = c;
       }
     }
   }
@@ -214,7 +295,7 @@ public:
           logf("si = %i", si);
         }
         CRGB c = CRGB::Red;
-        ctx.leds[hexaShells.shells[s][si]] = c;
+        ctx.leds[hexaShells.shells[s][si].value()] = c;
       }
     }
   }
@@ -229,12 +310,13 @@ class BouncyPixels : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
   const PixelIndex pixelCount;
   PixelPhysics<LED_COUNT> physics;
+  int fadeDown = 0xFF;
   BouncyPixels(PixelIndex pixelCount, uint8_t accelScaling, uint8_t elasticity, uint8_t elasticityMultiplier=1) : physics(hexGrid, pixelCount, accelScaling, elasticity, elasticityMultiplier), pixelCount(pixelCount) {
     minBrightness = 15;
   }
 
   virtual void update() {
-    ctx.leds.fill_solid(CRGB::Black);
+    ctx.leds.fadeToBlackBy(fadeDown);
     physics.update([](PixelIndex index) {
       return accelerationAtPixelIndex(index, MotionManager::agmt);
     });
@@ -321,13 +403,14 @@ public:
       length = maxLength * ease8InOutQuad(0xFF*animationMillis/ringAnimateTime) / 0xFF - animateFromValue*outerShell.size() / 100;
     }
     for (int i = 0; i < length; ++i) {
-      ctx.leds[outerShell[(i + firstIdx) % outerShell.size()]] = color;
+      ctx.leds[outerShell[(i + firstIdx) % outerShell.size()].value()] = color.scale8(0x50 + 0x9F*i / maxLength);
     }
     if (animationMillis > 1000) {
       if (length < outerShell.size()) {
-        ctx.leds[outerShell[(length + firstIdx) % outerShell.size()]] = color.scale8(beatsin8(30));
+        ctx.leds[outerShell[(length + firstIdx) % outerShell.size()].value()] = color.scale8(beatsin8(30));
       }
     }
+    // logdf("  charging pattern drew onto leds for soc=%i, ctx.leds bool = %i, alpha=%i, maxAlpha=%i", batteryData.stateOfCharge, (bool)ctx.leds, alpha, maxAlpha);
   }
   const char *description() {
     return "ChargingPattern";

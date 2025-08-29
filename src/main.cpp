@@ -354,6 +354,7 @@ void setup() {
   patternManager.registerPattern<MotionHexa>();
   patternManager.registerPattern<TriBounce>();
   patternManager.registerPattern<PixelDust>();
+  patternManager.registerPattern<PulseHexaSmooth>();
   patternManager.registerPattern<PulseHexa>();
 
 #if HARDWARE_VERSION >= 3

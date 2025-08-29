@@ -95,19 +95,36 @@ vector16 accelerationAtPixelIndex(PixelIndex index, ICM_20948_AGMT_t &agmt) {
   return vec;
 }
 
+struct Axial : vector16 {
+  Axial() : vector16(0,0,0) {}
+  Axial(int16_t q, int16_t r) : vector16(q,r,-q-r) {}
+  int16_t q() { return x; };
+  int16_t r() { return y; };
+  int16_t s() { return z; };
+  void setQR(int16_t q, int16_t r) {
+    x = q;
+    y = r;
+    z = -q - r;
+  }
+};
+
 template<int SIZE>
 class AxialAccess {
   int meridian;
-  PixelIndex *map;
+  std::optional<PixelIndex> *rectToPixelMap; // rect index -> pixel index
+  int16_t *pixelToRectMap; // pixel index -> rect index
   CRGBArray<SIZE>& leds;
-  unsigned int index(int q, int r) {
+  unsigned int index(int q, int r) { // q,r -> rect index
     return (q+meridian/2) + meridian*(r+meridian/2);
   }
 public:
-  AxialAccess(CRGBArray<SIZE>& leds) : leds(leds) {
+  AxialAccess(CRGBArray<SIZE>& leds, HexGrid<PixelIndex> &hexGrid) : leds(leds) {
+    assert(hexGrid.nodes.size() > 0, "hexGrid uninitialized");
     meridian = (3 + sqrt(12*SIZE-3))/6 * 2 - 1;
-    map = (PixelIndex*)malloc(meridian * meridian * sizeof(PixelIndex)); // rectangular storage
-    memset(map, 0xFF, meridian*meridian*sizeof(PixelIndex));
+    rectToPixelMap = (std::optional<PixelIndex> *)malloc(meridian * meridian * sizeof(std::optional<PixelIndex>)); // rectangular storage
+    memset(rectToPixelMap, 0, meridian*meridian*sizeof(std::optional<PixelIndex>));
+    pixelToRectMap = (int16_t*)malloc(SIZE * sizeof(int16_t)); // mapping from pixel index back to Axial
+    memset(pixelToRectMap, 0xFF, SIZE*sizeof(int16_t));
 
     HexGrid<PixelIndex>::HexNode *leftNode = hexGrid.nodes[0]; // starts at top-left node
     int q = 0, r = -meridian/2;
@@ -115,7 +132,9 @@ public:
     for (int row = 0; row < meridian; ++row) {
       auto rowNode = leftNode;
       while (!rowNode->isEdgeNode()) {
-        map[index(q,r)] = rowNode->data();
+        int idx = index(q,r);
+        rectToPixelMap[idx] = rowNode->data();
+        pixelToRectMap[rowNode->data()] = idx;
         q++;
         rowNode = rowNode->named.r;
       }
@@ -130,38 +149,42 @@ public:
     }
   }
   ~AxialAccess() {
-    free(map);
+    free(rectToPixelMap);
+    free(pixelToRectMap);
+  }
+
+  Axial axialFromPixelIndex(PixelIndex pxIndex) {
+    int rectIndex = pixelToRectMap[pxIndex];
+    int q = rectIndex % meridian - meridian/2;
+    int r = rectIndex / meridian - meridian/2;
+    return Axial(q,r);
+  }
+  
+  std::optional<PixelIndex> indexAtAxial(int q, int r) {
+    if (abs(r) > meridian/2 || abs(q) > meridian/2) {
+      return nullopt;
+    }
+    int rectIndex = index(q,r);
+    return rectToPixelMap[rectIndex];
   }
 
   CRGB* at(int q, int r) {
     int idx = index(q,r);
     if (idx >= 0 && idx < SIZE) {
-      return &leds[map[idx]];
+      return &leds[rectToPixelMap[idx]];
     }
     return nullptr;
   }
   CRGB& operator()(int q, int r) {
     int idx = index(q,r);
     assert(idx >= 0 && idx < SIZE, "axial access (%i, %i) out of range 0 <= idx %i < SIZE %i", q, r, idx, SIZE);
-    return leds[map[idx]];
+    return leds[rectToPixelMap[idx]];
   }
 };
 
 void initLEDGraph() {
-  hexGrid.init();
   assert(hexGrid.valueCount() == LED_COUNT, "led count issue");
   ledgraph = Graph({}, LED_COUNT);
-  for (HexGrid<PixelIndex>::HexNode *node : hexGrid.valueNodes()) {
-    if (node->named.r && node->named.r->isDataNode()) {
-      ledgraph.addEdge(Edge(node->data(), node->named.r->data(), EdgeType::geometric, 0));
-    }
-    if (node->named.dl && node->named.dl->isDataNode()) {
-      ledgraph.addEdge(Edge(node->data(), node->named.dl->data(), EdgeType::geometric, 0xAB/*170.667*/));
-    }
-    if (node->named.dr && node->named.dr->isDataNode()) {
-      ledgraph.addEdge(Edge(node->data(), node->named.dr->data(), EdgeType::geometric, 0xD5/*213.333*/));
-    }
-  }
   
   // get clockwise/counterclockwise edges by traversing hexgrid starting at px 0 and circling perimeter
   PixelIndex index = 0;

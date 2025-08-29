@@ -48,11 +48,10 @@ struct vectorT {
   const vectorT<T> operator-(const vectorT<T2> &other) {
     return vectorT<T>(x-other.x, y-other.y, z-other.z);
   }
-
-  virtual const vectorT<T> operator*(const T multiplicand) {
-    return vectorT<T>(x*multiplicand, y*multiplicand, z*multiplicand);
+  virtual const vectorT<T> operator*(const T multiplier) const {
+    return vectorT<T>(x*multiplier, y*multiplier, z*multiplier);
   }
-  virtual const vectorT<T> operator/(const T divisor) {
+  virtual const vectorT<T> operator/(const T divisor) const {
     return vectorT<T>(x/divisor, y/divisor, z/divisor);
   }
   template <typename T2>
@@ -75,6 +74,12 @@ struct vectorT {
     z -= other.z;
     return *this;
   }
+  vectorT<T> &operator*=(const T multiplier) {
+    x *= multiplier;
+    y *= multiplier;
+    z *= multiplier;
+    return *this;
+  }
   vectorT<T> operator>>(const unsigned int shift) const {
     return vectorT<T>(x >> shift, y >> shift, z >> shift);
   }
@@ -86,6 +91,12 @@ struct vectorT {
     return vectorT<T>(sx, sy, sz);
   }
 };
+
+// lhs multiplication
+template<typename T>
+vectorT<T> operator*(int multiplier, const vectorT<T>& vec) {
+    return vec * (T)multiplier;
+}
 
 typedef vectorT<int8_t> vector8;
 typedef vectorT<int16_t> vector16;
@@ -420,12 +431,9 @@ public:
   T edgeCount() {
     return _totalCount-_valueCount;
   }
-  void init() {
-    // FIXME: do in constructor once it's stable
-    initConnections(meridian);
-  }
   HexGrid(T meridian, float spacing=0) : meridian(meridian), spacing(spacing) {
     // spacing == 0 means disable geometry features
+    initConnections(meridian);
   }
   ~HexGrid() {
     for (int i = nodes.size()-1; i >=0; --i) {
