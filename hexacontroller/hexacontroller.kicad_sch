@@ -5255,179 +5255,6 @@
 				)
 			)
 		)
-		(symbol "Switch:SW_SPDT"
-			(pin_names
-				(offset 0) hide)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "SW"
-				(at 0 5.08 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "SW_SPDT"
-				(at 0 -5.08 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "~"
-				(at 0 -7.62 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Switch, single pole double throw"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "switch single-pole double-throw spdt ON-ON"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "SW_SPDT_0_1"
-				(circle
-					(center -2.032 0)
-					(radius 0.4572)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -1.651 0.254) (xy 1.651 2.286)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center 2.032 -2.54)
-					(radius 0.4572)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center 2.032 2.54)
-					(radius 0.4572)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "SW_SPDT_1_1"
-				(rectangle
-					(start -3.175 3.81)
-					(end 3.175 -3.81)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-				(pin passive line
-					(at 5.08 2.54 180)
-					(length 2.54)
-					(name "A"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 0 0)
-					(length 2.54)
-					(name "B"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 5.08 -2.54 180)
-					(length 2.54)
-					(name "C"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
 		(symbol "hexa:BQ27427YZFR"
 			(exclude_from_sim no)
 			(in_bom yes)
@@ -9358,10 +9185,6 @@
 		(uuid "95105a6b-0e67-4f2a-a2e5-c268aef08753")
 	)
 	(no_connect
-		(at 48.26 196.85)
-		(uuid "b85a41e2-7426-43bc-a1e6-ddc594da500a")
-	)
-	(no_connect
 		(at 261.62 63.5)
 		(uuid "bc7c6327-636d-417e-b885-2f2f04917830")
 	)
@@ -9376,6 +9199,10 @@
 	(no_connect
 		(at 54.61 95.25)
 		(uuid "ded55523-b4f2-4ffe-a40b-063e4f444c60")
+	)
+	(no_connect
+		(at 261.62 121.92)
+		(uuid "df3f2d43-e840-4d77-bed7-a20895ddb01a")
 	)
 	(no_connect
 		(at 54.61 87.63)
@@ -10131,16 +9958,6 @@
 	)
 	(wire
 		(pts
-			(xy 48.26 201.93) (xy 62.23 201.93)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3bfaee23-402a-48aa-a350-7155f999e2aa")
-	)
-	(wire
-		(pts
 			(xy 285.75 125.73) (xy 285.75 127)
 		)
 		(stroke
@@ -10158,16 +9975,6 @@
 			(type default)
 		)
 		(uuid "3dba31a0-0611-4a8d-b835-81f7d482c877")
-	)
-	(wire
-		(pts
-			(xy 35.56 199.39) (xy 38.1 199.39)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3dd5163e-e476-4edc-a7ce-743b646b97a5")
 	)
 	(wire
 		(pts
@@ -11751,16 +11558,6 @@
 	)
 	(wire
 		(pts
-			(xy 69.85 201.93) (xy 76.2 201.93)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "cba2ad22-16c7-414a-85cf-28ee1ef23a8b")
-	)
-	(wire
-		(pts
 			(xy 135.89 186.69) (xy 147.32 186.69)
 		)
 		(stroke
@@ -12457,16 +12254,6 @@
 		)
 		(uuid "94aeb69d-2bfb-4cd5-9734-1d245e449c81")
 	)
-	(text "power switch"
-		(exclude_from_sim no)
-		(at 61.722 192.024 0)
-		(effects
-			(font
-				(size 2.5 2.5)
-			)
-		)
-		(uuid "9696b431-9e33-46ae-ab57-81cb1c462700")
-	)
 	(text "battery gauge"
 		(exclude_from_sim no)
 		(at 97.79 47.752 0)
@@ -12873,17 +12660,6 @@
 		)
 		(uuid "62fae33b-b150-4720-833d-0d215cf22968")
 	)
-	(label "PWR_SWITCH"
-		(at 261.62 121.92 0)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "65dad932-0deb-43de-869e-2c1da1ac92c1")
-	)
 	(label "GPIO14"
 		(at 261.62 83.82 0)
 		(fields_autoplaced yes)
@@ -13092,17 +12868,6 @@
 			(justify right bottom)
 		)
 		(uuid "9d878282-a66b-4248-90b7-cb235bc399e1")
-	)
-	(label "PWR_SWITCH"
-		(at 49.53 201.93 0)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "a0101ce3-0c11-4211-ac8a-c1ba601938b0")
 	)
 	(label "BATGAUGE_VDD"
 		(at 92.71 52.07 0)
@@ -13346,17 +13111,6 @@
 		)
 		(uuid "e1ee9a4c-5894-43c0-b357-479de7229545")
 	)
-	(label "SYS"
-		(at 35.56 199.39 180)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "e24f8a74-225e-429f-90c5-7dedacd8df64")
-	)
 	(label "SPI0_TX_3V3"
 		(at 363.22 64.77 180)
 		(fields_autoplaced yes)
@@ -13389,17 +13143,6 @@
 			(justify right bottom)
 		)
 		(uuid "f1e51f2c-9d9f-4342-81a4-1e0a7bb3c81a")
-	)
-	(label "EN_LDO"
-		(at 76.2 201.93 0)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "f30bfde1-0d42-4a75-a830-a019a52f02e1")
 	)
 	(label "~{EN_CHARGE}"
 		(at 49.53 151.13 180)
@@ -14729,92 +14472,6 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "C27")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:D_Schottky")
-		(at 66.04 201.93 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "1d2edfa5-c2e9-417f-bf1c-a0f45f4faf2c")
-		(property "Reference" "D9"
-			(at 66.3575 196.5155 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "D_Schottky"
-			(at 66.3575 198.9398 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Diode_SMD:D_SOD-882D"
-			(at 66.04 201.93 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 66.04 201.93 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Schottky diode"
-			(at 66.04 201.93 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "PMEG4002EL,315"
-			(at 66.04 201.93 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C426866"
-			(at 66.04 201.93 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "62ceea00-75a2-492f-b8c2-de1ec50f3784")
-		)
-		(pin "2"
-			(uuid "2a290552-d0ab-4514-9135-7ca04a2d7e6e")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "D9")
 					(unit 1)
 				)
 			)
@@ -17091,95 +16748,6 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "R19")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Switch:SW_SPDT")
-		(at 43.18 199.39 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp yes)
-		(fields_autoplaced yes)
-		(uuid "41f9b374-5470-449e-a50e-e8affa236e10")
-		(property "Reference" "SW3"
-			(at 43.18 191.5625 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "SW_SPDT"
-			(at 43.18 193.9868 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "hexacontroller:SW-SMD_MK-12C02-G025"
-			(at 43.18 199.39 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 43.18 207.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Switch, single pole double throw"
-			(at 43.18 199.39 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "MK-12C02-G025"
-			(at 43.18 199.39 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C778186"
-			(at 43.18 199.39 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "c2559ef4-781a-4812-aa52-12d98ca6918b")
-		)
-		(pin "3"
-			(uuid "7c12607d-00e4-44aa-b8a9-4e7693929653")
-		)
-		(pin "2"
-			(uuid "0cd211e6-148f-4792-abf0-34dec1081c83")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "SW3")
 					(unit 1)
 				)
 			)
