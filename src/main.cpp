@@ -332,6 +332,8 @@ void setup() {
   gpio_put(EN_LDO_PIN, true);
 
   int batteryVoltageRead = analogRead(BATTERY_VOLTAGE_PIN);
+#else // HARDWARE_VERSION < 4
+  runState.setRunning(true);
 #endif
 
   FastLED.addLeds<SK9822HD, LED_SPI0_TX, LED_SPI0_SCK, BGR, DATA_RATE_MHZ(16)>(ctx.leds, LED_COUNT);//.setCorrection(0xFFB0C0);
@@ -557,9 +559,12 @@ void loop() {
 #endif
   
 #if DEBUG
+#if HARDWARE_VERSION > 2
   ctx.leds[0] = isVBUSPowered ? CRGB::Red : CRGB::Black;
+#endif
   ctx.leds[1] = runState.isRunning() ? CRGB::Green : CRGB::Black;
   ctx.leds[2] = isCharging ? CRGB::Blue : CRGB::Black;
+  
   digitalWrite(LED_LINE_0_PWR_PIN, true);
 #endif
 
