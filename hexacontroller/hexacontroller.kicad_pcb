@@ -3912,7 +3912,7 @@
 		(descr "SMD pad as test Point, diameter 1.0mm")
 		(tags "test point SMD pad")
 		(property "Reference" "TP3"
-			(at 0 -1.448 360)
+			(at 0 -1.448 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(uuid "1caaee65-d4f9-49f6-805e-8693d887d765")
@@ -3924,7 +3924,7 @@
 			)
 		)
 		(property "Value" "TestPoint"
-			(at 0 1.55 360)
+			(at 0 1.55 0)
 			(layer "F.Fab")
 			(uuid "83ebbb16-6cca-462e-960d-22130d8c22a1")
 			(effects
@@ -4014,7 +4014,7 @@
 			(uuid "96d62d65-6cb3-449d-807d-fbad8eea8cf8")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 -1.45 360)
+			(at 0 -1.45 0)
 			(layer "F.Fab")
 			(uuid "d1f66b09-ce98-431c-b157-759424d800d5")
 			(effects
@@ -9269,7 +9269,7 @@
 		(descr "SMD pad as test Point, diameter 1.0mm")
 		(tags "test point SMD pad")
 		(property "Reference" "TP1"
-			(at 0 -1.448 360)
+			(at 0 -1.448 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(uuid "3e812394-f084-4246-909d-e3a8d26c048d")
@@ -9281,7 +9281,7 @@
 			)
 		)
 		(property "Value" "TestPoint"
-			(at 0 1.55 360)
+			(at 0 1.55 0)
 			(layer "F.Fab")
 			(uuid "8321923c-c5dd-4578-9bb1-0bf29fc65c73")
 			(effects
@@ -9371,7 +9371,7 @@
 			(uuid "ab01ce86-da8d-49e1-8e8f-f4de34b1ce32")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 -1.45 360)
+			(at 0 -1.45 0)
 			(layer "F.Fab")
 			(uuid "d4ae06e7-6e15-41ee-b7b9-84cecaf056e6")
 			(effects
@@ -9743,7 +9743,7 @@
 			(uuid "e3f73104-f2a3-40f7-8683-25b34e1e6df1")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0.635 360)
+			(at 0 0.635 0)
 			(layer "F.Fab")
 			(uuid "2c189673-975b-415d-a9f8-ce4ac20ea38b")
 			(effects
@@ -12527,7 +12527,7 @@
 		(descr "Capacitor SMD 0402 (1005 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
 		(tags "capacitor")
 		(property "Reference" "C15"
-			(at 0 -1.16 360)
+			(at 0 -1.16 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(uuid "afecaa67-492f-4764-b73d-576375151d51")
@@ -12539,7 +12539,7 @@
 			)
 		)
 		(property "Value" "1uF"
-			(at 0 1.16 360)
+			(at 0 1.16 0)
 			(layer "F.Fab")
 			(uuid "61e0d28c-cff9-483b-91dd-a53e31ea9d8e")
 			(effects
@@ -12720,7 +12720,7 @@
 			(uuid "a6147c9c-de61-440e-86dc-6ea973ea96cb")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "F.Fab")
 			(uuid "908d6bdd-e8d4-45c0-9845-2c53e7d071b5")
 			(effects
@@ -15134,7 +15134,7 @@
 		(uuid "820f3894-0afd-4c8a-ba97-b9f1680d9413")
 		(at 75.871147 119.637096)
 		(property "Reference" "G***"
-			(at -0.0508 -3.3528 360)
+			(at -0.0508 -3.3528 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(uuid "12942325-a636-4b53-9a05-fb108b6607a1")
@@ -15146,7 +15146,7 @@
 			)
 		)
 		(property "Value" "LOGO"
-			(at 0 3.8608 360)
+			(at 0 3.8608 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(uuid "5534c1bf-5432-4dc8-b70e-8def80aa8876")
@@ -15158,7 +15158,7 @@
 			)
 		)
 		(property "Footprint" "hexacontroller:sds5050"
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "9b013cc8-4e1d-416a-8129-55d7262ff26e")
@@ -15170,7 +15170,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "d0b5de0e-4484-4543-b6ac-eef276fc2b7b")
@@ -15182,7 +15182,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "e5decd7a-4c4c-4598-92bc-d0391a310b03")
@@ -23280,7 +23280,7 @@
 			(uuid "c96294c8-5507-451d-a5b7-990f00ce9b30")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 2.766568 11.338264 360)
+			(at 2.766568 11.338264 0)
 			(layer "F.Fab")
 			(uuid "132cc4fd-fe6c-44ed-a623-d67cc904fa8d")
 			(effects
@@ -28112,7 +28112,7 @@
 		(uuid "45ba97f0-70d3-4008-b354-19b418d6f508")
 		(at 69.568942 109.628237 180)
 		(property "Reference" "G***"
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "B.SilkS")
 			(hide yes)
 			(uuid "c594edb7-a3ce-42fc-9ccb-1e6cf6993bad")
@@ -28125,7 +28125,7 @@
 			)
 		)
 		(property "Value" "LOGO"
-			(at 0.75 0 360)
+			(at 0.75 0 0)
 			(layer "B.SilkS")
 			(hide yes)
 			(uuid "724768e6-ff4b-4b16-830b-2094f1dff38a")
@@ -28138,7 +28138,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
 			(uuid "06ee1131-ea2f-4fab-85e8-100b3c8ccc16")
@@ -28151,7 +28151,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
 			(uuid "868c588e-1b4b-4dcd-bb10-6858ed0e528f")
@@ -28164,7 +28164,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
 			(uuid "8ce6525a-e605-4a3a-97d4-6cc6c47a7e85")
@@ -30493,7 +30493,7 @@
 		(uuid "ef254cd2-a2b4-42df-9155-b7a8c5368300")
 		(at 69.619422 119.755157 180)
 		(property "Reference" "G***"
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "B.SilkS")
 			(hide yes)
 			(uuid "7d9177d4-6855-4e22-a5d1-b9669fd07c0a")
@@ -30506,7 +30506,7 @@
 			)
 		)
 		(property "Value" "LOGO"
-			(at 0.75 0 360)
+			(at 0.75 0 0)
 			(layer "B.SilkS")
 			(hide yes)
 			(uuid "7107b857-3db5-4875-a6d8-bfdd3c88797f")
@@ -30519,7 +30519,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
 			(uuid "f857d0c9-d8e3-49e4-9b41-c49f0beda3e7")
@@ -30532,7 +30532,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
 			(uuid "5f301530-c425-478b-b6e8-798eda856c59")
@@ -30545,7 +30545,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
 			(uuid "70e8e825-bbb5-494e-a8be-db0b0cbd5740")
