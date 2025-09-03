@@ -13965,8 +13965,17 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "CC0402KRX7R7BB103"
 			(at 93.98 156.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C327009"
+			(at 93.98 156.21 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13984,6 +13993,93 @@
 			(project ""
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "C32")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 39.37 142.24 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "115c3b95-b4eb-4df1-8701-7d312ae5b0c8")
+		(property "Reference" "R18"
+			(at 37.338 144.526 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "4.7k"
+			(at 41.656 144.526 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
+			(at 39.37 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 39.37 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 39.37 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "0402WGF4701TCE"
+			(at 39.37 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25900"
+			(at 39.37 142.24 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "d17a1a14-a56e-4f21-96b4-c0e2ba6ba932")
+		)
+		(pin "2"
+			(uuid "218dd2ef-be90-40a8-8335-765fb312df8b")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "R18")
 					(unit 1)
 				)
 			)
@@ -16697,91 +16793,6 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "R7")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R_Small")
-		(at 31.75 142.24 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "412c8b32-87ee-4e10-a49e-ffa4e8c164a1")
-		(property "Reference" "R19"
-			(at 33.655 142.24 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "4.7k"
-			(at 29.845 142.24 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 31.75 142.24 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 31.75 142.24 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 31.75 142.24 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "0402WGF2201TCE"
-			(at 31.75 142.24 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C25879"
-			(at 31.75 142.24 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "1a75d123-6907-4ca6-9036-010b5b658a44")
-		)
-		(pin "2"
-			(uuid "09ae95f3-6e06-486f-832d-2dabc8e85726")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "R19")
 					(unit 1)
 				)
 			)
@@ -21969,91 +21980,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:R_Small")
-		(at 39.37 142.24 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "8bf23b16-669d-4fdb-b79a-1891cad8a0bf")
-		(property "Reference" "R18"
-			(at 41.275 142.24 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "4.7k"
-			(at 37.465 142.24 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 39.37 142.24 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 39.37 142.24 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 39.37 142.24 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "0402WGF2201TCE"
-			(at 39.37 142.24 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C25879"
-			(at 39.37 142.24 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "3c6d10f2-bc45-4a2c-8f66-6aa9e9e53fe5")
-		)
-		(pin "2"
-			(uuid "f31f1636-c01f-4d92-8f48-dd649bb1ac63")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "R18")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:+3V3")
 		(at 163.83 110.49 0)
 		(unit 1)
@@ -25100,6 +25026,93 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:R_Small")
+		(at 31.75 142.24 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "bfa1397a-547f-45d1-b07f-34d9338cd2a2")
+		(property "Reference" "R19"
+			(at 29.718 144.526 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "4.7k"
+			(at 34.036 144.526 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
+			(at 31.75 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 31.75 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 31.75 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "0402WGF4701TCE"
+			(at 31.75 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25900"
+			(at 31.75 142.24 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e936e8aa-6dd6-4d8f-b730-15f1dd4f198e")
+		)
+		(pin "2"
+			(uuid "f39020fa-0e30-4b95-b9b2-47ed20dd12b2")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "R19")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 236.22 132.08 0)
 		(unit 1)
@@ -27370,8 +27383,17 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "FRC0402F1804TS"
 			(at 129.54 68.58 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C2933079"
+			(at 129.54 68.58 90)
 			(effects
 				(font
 					(size 1.27 1.27)

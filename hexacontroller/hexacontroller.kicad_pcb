@@ -7804,7 +7804,7 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Resistor, small symbol"
 			(at 0 0 -150)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -7817,7 +7817,7 @@
 				)
 			)
 		)
-		(property "Designation" "0402WGF2201TCE"
+		(property "Designation" "0402WGF4701TCE"
 			(at 0 0 -150)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -7830,7 +7830,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C25879"
+		(property "LCSC" "C25900"
 			(at 0 0 -150)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -7844,7 +7844,7 @@
 			)
 		)
 		(property ki_fp_filters "R_*")
-		(path "/412c8b32-87ee-4e10-a49e-ffa4e8c164a1")
+		(path "/bfa1397a-547f-45d1-b07f-34d9338cd2a2")
 		(sheetname "Root")
 		(sheetfile "hexacontroller.kicad_sch")
 		(attr smd)
@@ -10441,7 +10441,7 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Resistor, small symbol"
 			(at 0 0 -150)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -10454,7 +10454,7 @@
 				)
 			)
 		)
-		(property "Designation" "0402WGF2201TCE"
+		(property "Designation" "0402WGF4701TCE"
 			(at 0 0 -150)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -10467,7 +10467,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C25879"
+		(property "LCSC" "C25900"
 			(at 0 0 -150)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -10481,7 +10481,7 @@
 			)
 		)
 		(property ki_fp_filters "R_*")
-		(path "/8bf23b16-669d-4fdb-b79a-1891cad8a0bf")
+		(path "/115c3b95-b4eb-4df1-8701-7d312ae5b0c8")
 		(sheetname "Root")
 		(sheetfile "hexacontroller.kicad_sch")
 		(attr smd)
@@ -14521,12 +14521,25 @@
 				)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "FRC0402F1804TS"
 			(at 0 0 -60)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "fc164879-200b-440b-8431-8d8837a8b959")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "LCSC" "C2933079"
+			(at 0 0 -60)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "6f42018c-6970-4930-b059-2bb25d5fcfc5")
 			(effects
 				(font
 					(size 1 1)
@@ -20618,12 +20631,25 @@
 				)
 			)
 		)
-		(property "Designation" ""
+		(property "Designation" "CC0402KRX7R7BB103"
 			(at 0 0 -150)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "c76df660-a9f8-496d-8240-82d0d86a68c8")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "LCSC" "C327009"
+			(at 0 0 -150)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8c0cf6b7-04d4-4d59-9edd-e0911a40ece8")
 			(effects
 				(font
 					(size 1 1)
