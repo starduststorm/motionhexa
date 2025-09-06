@@ -358,6 +358,15 @@ public:
   }
 };
 
+class PixelSand : public BouncyPixels {
+public:
+  PixelSand() : BouncyPixels(60, 0x07, 0xC0) {
+  }
+  const char *description() {
+    return "PixelSand";
+  }
+};
+
 class RandomDust : public BouncyPixels {
 public:
   RandomDust() : BouncyPixels(random8(100)+1, random8(20), random8(255)) {
@@ -370,47 +379,47 @@ public:
 
 class ChargingPattern : public Pattern {
 public:
-  int lastDisplayValue = 0;
-  int animateFromValue = 0;
+  int lastStateOfCharge = 0;
+  int animateFromSOC = 0;
   unsigned long lastValueChange;
 
   ChargingPattern() : lastValueChange(millis()) {}
   void update() {
     ctx.leds.fill_solid(CRGB::Black);
-    const int ringAnimateTime = 1000;
+    HexaShells shells;
+    auto outerShell = shells.shells.back();
 
+    const int ringAnimateTime = 1000;
     const int minHue = 0;
     const int maxHue = 0x66;
     const PixelIndex firstIdx = 14; // start near usb port
+    int SOC = batteryData.stateOfCharge;
 
     // animate any jumps in reported battery value
-    if (batteryData.stateOfCharge != lastDisplayValue) {
+    if (SOC != lastStateOfCharge) {
       lastValueChange = millis();
-      animateFromValue = lastDisplayValue;
-      lastDisplayValue = batteryData.stateOfCharge;
+      animateFromSOC = lastStateOfCharge;
+      lastStateOfCharge = SOC;
     }
-
-    HexaShells shells;
-    auto outerShell = shells.shells.back();
-    int maxLength = batteryData.stateOfCharge * outerShell.size() / 100;
-    int length = maxLength;
-    uint8_t hue = maxHue * maxLength / outerShell.size() - minHue;
-    // logf("batteryData.stateOfCharge = %i, maxLength = %i, hue = %i", batteryData.stateOfCharge, maxLength, hue);
+    
+    long animationMillis = millis() - lastValueChange;
+    int displaySOC = (animationMillis > ringAnimateTime)
+                      ? SOC
+                      : (animateFromSOC + (SOC - animateFromSOC) * ease8InOutQuad(0xFF*animationMillis/ringAnimateTime) / 0xFF);
+    int displayLength = displaySOC * outerShell.size() / 100;
+    int maxLength = SOC * outerShell.size() / 100;
+    
+    uint8_t hue = maxHue * SOC / 100 - minHue;
     CRGB color = CHSV(hue, 0xFF, 0xAF);
 
-    long animationMillis = millis() - lastValueChange;
-    if (animationMillis < ringAnimateTime) {
-      length = maxLength * ease8InOutQuad(0xFF*animationMillis/ringAnimateTime) / 0xFF - animateFromValue*outerShell.size() / 100;
+    for (int i = 0; i < displayLength; ++i) {
+      ctx.leds[outerShell[(i + firstIdx) % outerShell.size()].value()] = color.scale8(0x50 + 0x9F*i / displayLength);
     }
-    for (int i = 0; i < length; ++i) {
-      ctx.leds[outerShell[(i + firstIdx) % outerShell.size()].value()] = color.scale8(0x50 + 0x9F*i / maxLength);
-    }
-    if (animationMillis > 1000) {
-      if (length < outerShell.size()) {
-        ctx.leds[outerShell[(length + firstIdx) % outerShell.size()].value()] = color.scale8(beatsin8(30));
+    if (animationMillis > ringAnimateTime) {
+      if (displayLength < outerShell.size()) {
+        ctx.leds[outerShell[(displayLength + firstIdx) % outerShell.size()].value()] = color.scale8(beatsin8(30));
       }
     }
-    // logdf("  charging pattern drew onto leds for soc=%i, ctx.leds bool = %i, alpha=%i, maxAlpha=%i", batteryData.stateOfCharge, (bool)ctx.leds, alpha, maxAlpha);
   }
   const char *description() {
     return "ChargingPattern";
