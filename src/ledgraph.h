@@ -108,23 +108,54 @@ struct Axial : vector16 {
   }
 };
 
-template<int SIZE>
+struct fAxial : vectorT<float> {
+  fAxial() : vectorT<float>(0,0,0) {}
+  fAxial(Axial ax) : vectorT<float>(ax.q(),ax.r(), ax.s()) {}
+  fAxial(float q, float r) : vectorT<float>(q,r,-q-r) {}
+  float q() { return x; };
+  float r() { return y; };
+  float s() { return z; };
+  void setQR(float q, float r) {
+    x = q;
+    y = r;
+    z = -q - r;
+  }
+  Axial cubeRound() {
+    int qi = round(q());
+    int ri = round(r());
+    int si = round(s());
+
+    float q_diff = fabs(qi - q());
+    float r_diff = fabs(ri - r());
+    float s_diff = fabs(si - s());
+
+    if (q_diff > r_diff && q_diff > s_diff) {
+      qi = -ri-si;
+    } else if (r_diff > s_diff) {
+      ri = -qi-si;
+    } else {
+      si = -qi-ri;
+    }
+    return Axial(qi, ri);
+  }
+};
+
 class AxialAccess {
   int meridian;
   std::optional<PixelIndex> *rectToPixelMap; // rect index -> pixel index
   int16_t *pixelToRectMap; // pixel index -> rect index
-  CRGBArray<SIZE>& leds;
   unsigned int index(int q, int r) { // q,r -> rect index
     return (q+meridian/2) + meridian*(r+meridian/2);
   }
 public:
-  AxialAccess(CRGBArray<SIZE>& leds, HexGrid<PixelIndex> &hexGrid) : leds(leds) {
+  AxialAccess(HexGrid<PixelIndex> &hexGrid) {
     assert(hexGrid.nodes.size() > 0, "hexGrid uninitialized");
-    meridian = (3 + sqrt(12*SIZE-3))/6 * 2 - 1;
+    int size = hexGrid.valueCount();
+    meridian = (3 + sqrt(12*size-3))/6 * 2 - 1;
     rectToPixelMap = (std::optional<PixelIndex> *)malloc(meridian * meridian * sizeof(std::optional<PixelIndex>)); // rectangular storage
     memset(rectToPixelMap, 0, meridian*meridian*sizeof(std::optional<PixelIndex>));
-    pixelToRectMap = (int16_t*)malloc(SIZE * sizeof(int16_t)); // mapping from pixel index back to Axial
-    memset(pixelToRectMap, 0xFF, SIZE*sizeof(int16_t));
+    pixelToRectMap = (int16_t*)malloc(size * sizeof(int16_t)); // mapping from pixel index back to Axial
+    memset(pixelToRectMap, 0xFF, size*sizeof(int16_t));
 
     HexGrid<PixelIndex>::HexNode *leftNode = hexGrid.nodes[0]; // starts at top-left node
     int q = 0, r = -meridian/2;
@@ -167,20 +198,24 @@ public:
     int rectIndex = index(q,r);
     return rectToPixelMap[rectIndex];
   }
-
-  CRGB* at(int q, int r) {
-    int idx = index(q,r);
-    if (idx >= 0 && idx < SIZE) {
-      return &leds[rectToPixelMap[idx]];
-    }
-    return nullptr;
+  vectorT<PixelIndex> hexToRect(fAxial ax, float size = kMeridian) {
+    float x = 3./2 * ax.q();
+    float y = sqrt(3)/2 * ax.q() + sqrt(3) * ax.r();
+    x = x * size;
+    y = y * size;
+    return vectorT<float>(x, y);
   }
-  CRGB& operator()(int q, int r) {
-    int idx = index(q,r);
-    assert(idx >= 0 && idx < SIZE, "axial access (%i, %i) out of range 0 <= idx %i < SIZE %i", q, r, idx, SIZE);
-    return leds[rectToPixelMap[idx]];
+
+  fAxial rectToHex(vectorT<float> point, float size = kMeridian) {
+    float x = point.x / size;
+    float y = point.y / size;
+    float q = 2./3 * x;
+    float r = -1./3 * x  +  sqrt(3)/3 * y;
+    return fAxial(q, r);
   }
 };
+
+AxialAccess axial(hexGrid);
 
 void initLEDGraph() {
   assert(hexGrid.valueCount() == LED_COUNT, "led count issue");
@@ -216,5 +251,125 @@ void initLEDGraph() {
     }
   }
 };
+
+/* ---------------------------------------------- */
+
+// hex adaptation of Wu's
+static float fpart(float x) {
+  return x - floor(x);
+}
+static float rfpart(float x) {
+  return 1 - fpart(x);
+}
+static void point(PixelStorage<LED_COUNT> &ctx, int q, int r, CRGB color, float brightness) {
+  auto index = axial.indexAtAxial(q, r);
+  if (index.has_value()) {
+    color.nscale8_video(brightness * 0xFF);
+    ctx.point(index.value(), color, blendBrighten);
+  }
+}
+static void hexline(PixelStorage<LED_COUNT> &ctx, float q0, float r0, float q1, float r1, std::function<CRGB(uint8_t)> colorFunc) {
+  CRGB color0 = colorFunc(0);
+  CRGB color1 = colorFunc(0xFF);
+  
+  float s0 = -q0-r0;
+  float s1 = -q1-r1;
+  // determine axis of iteration (steep)
+  float qdiff = fabs(q1 - q0);
+  float rdiff = fabs(r1 - r0);
+  float sdiff = fabs(s1 - s0);
+  bool qline = qdiff >= rdiff && qdiff >= sdiff;
+  bool rline = rdiff > qdiff && rdiff >= sdiff;
+  bool sline = sdiff > qdiff && sdiff > rdiff;
+
+  bool swapped = false;
+  // flip draw direction upwards to halve cases
+  if ((qline && q0 > q1) || (rline && r0 > r1) || (sline && s0 > s1)) {
+    swapped = true;
+    std::swap(q0, q1);
+    std::swap(r0, r1);
+    std::swap(s0, s1);
+    std::swap(color0, color1);
+  }
+
+  // we consider the three cubic line directions separately but inline them this way
+  if (sline) {
+    std::swap(q0,s0);
+    std::swap(q1,s1);
+  } else if (rline) {
+    std::swap(q0,r0);
+    std::swap(q1,r1);
+  }
+
+  float dq = q1 - q0;
+  float dr = r1 - r0;
+  float ds = s1 - s0;
+
+  float gradient = (dq == 0.0 ? 1.0 : dr/dq);
+
+  // handle first endpoint
+  float qend = roundf(q0);
+  float rend = r0 + gradient * (qend - q0);
+  float qgap = rfpart(q0 + 0.5);
+  float qpxl0 = qend; // this will be used in the main loop
+  float rpxl0 = floorf(rend);
+  if (sline) {
+    point(ctx, -qpxl0-rpxl0, rpxl0,   color0, rfpart(rend) * qgap);
+    point(ctx, -qpxl0-(rpxl0+1), rpxl0+1, color0,  fpart(rend) * qgap);
+  } else if (rline) {
+    point(ctx, rpxl0,   qpxl0, color0, rfpart(rend) * qgap);
+    point(ctx, rpxl0+1, qpxl0, color0,  fpart(rend) * qgap);
+  } else {
+    point(ctx, qpxl0, rpxl0  , color0, rfpart(rend) * qgap);
+    point(ctx, qpxl0, rpxl0+1, color0,  fpart(rend) * qgap);
+  }
+
+  float rinter = rend + gradient; // first r-intersection for the main loop
+
+  // handle second endpoint
+  qend = roundf(q1);
+  rend = r1 + gradient * (qend - q1);
+  qgap = fpart(q1 + 0.5);
+  float qpxl1 = qend; //this will be used in the main loop
+  float rpxl1 = floorf(rend);
+  if (sline) {
+    point(ctx, -qpxl1-rpxl1,     rpxl1,   color1, rfpart(rend) * qgap);
+    point(ctx, -qpxl1-(rpxl1+1), rpxl1+1, color1,  fpart(rend) * qgap);
+  } else if (rline) {
+    point(ctx, rpxl1,   qpxl1, color1, rfpart(rend) * qgap);
+    point(ctx, rpxl1+1, qpxl1, color1,  fpart(rend) * qgap);
+  } else {
+    point(ctx, qpxl1, rpxl1,   color1, rfpart(rend) * qgap);
+    point(ctx, qpxl1, rpxl1+1, color1,  fpart(rend) * qgap);
+  }
+
+  // main loop
+  for (float q = qpxl0 + 1; q <= qpxl1 - 1; ++q) {
+    uint8_t progress = 0xFF * (uint8_t)(q-(qpxl0 + 1)) / (uint8_t)(qpxl1 - 1-(qpxl0 + 1));
+    if (swapped) progress = 0xFF - progress;
+    CRGB color = colorFunc(progress);
+    if (sline) {
+      point(ctx, -q-floorf(rinter), floorf(rinter),   color, rfpart(rinter));
+      point(ctx, -q-(floorf(rinter)+1), floorf(rinter)+1, color,  fpart(rinter));
+    } else if (rline) {
+      point(ctx, floorf(rinter),   q,   color, rfpart(rinter));
+      point(ctx, floorf(rinter)+1, q, color,  fpart(rinter));
+    } else {
+      point(ctx, q, floorf(rinter),   color, rfpart(rinter));
+      point(ctx, q, floorf(rinter)+1, color,  fpart(rinter));
+    }
+    rinter = rinter + gradient;
+  }
+}
+
+void hexline(PixelStorage<LED_COUNT> &ctx, fAxial p0, fAxial p1, std::function<CRGB(uint8_t)> colorFunc) {
+  hexline(ctx, p0.q(), p0.r(), p1.q(), p1.r(), colorFunc);
+}
+void hexline(PixelStorage<LED_COUNT> &ctx, fAxial p0, fAxial p1, CRGB color) {
+  hexline(ctx, p0, p1, [color] (uint8_t progress) {
+    return color;
+  });
+}
+
 
 #endif

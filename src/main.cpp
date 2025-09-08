@@ -95,7 +95,6 @@ HardwareControls controls;
 
 FrameCounter fc;
 PatternManager patternManager(ctx);
-AxialAccess<LED_COUNT> axial(ctx.leds, hexGrid);
 
 #include "patterns.h"
 
@@ -224,9 +223,9 @@ void hard_reset_check_core1() {
   }
   if (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE) {
     if (millis() - lastButtonReleased > 10000) {
-        logf("hard reset!");
-        Serial.flush();
-        watchdog_reboot(0,0,0);
+      logf("hard reset!");
+      Serial.flush();
+      watchdog_reboot(0,0,0);
     }
   } else {
     lastButtonReleased = curMillis;
@@ -356,8 +355,11 @@ void setup() {
   patternManager.registerPattern<MotionHexa>();
   patternManager.registerPattern<TriBounce>();
   patternManager.registerPattern<PixelDust>();
+  patternManager.registerPattern<PixelSand>();
   patternManager.registerPattern<PulseHexaSmooth>();
   patternManager.registerPattern<PulseHexa>();
+
+  // patternManager.setTestRunner<LineTest>();
 
 #if HARDWARE_VERSION >= 3
   patternManager.registerPattern<ChargingPattern>(1);
@@ -367,9 +369,7 @@ void setup() {
     const int kSitTimeAtFullCharge = 5000;
     const int kRecentStateChangeDelay = 200;
     
-    EVERY_N_MILLIS(1000) {
-      logf("isCharging=%i, isHexaRunning=%i, hasPattern = %i, lastReachedFullCharge= %i, lastChargingStateChange= %i, millis=%i", isCharging, runState.isRunning(), (bool)(runner.pattern), lastReachedFullCharge, lastChargingStateChange, millis());
-    }
+    // logf("isCharging=%i, isHexaRunning=%i, hasPattern = %i, lastReachedFullCharge= %i, lastChargingStateChange= %i, millis=%i", isCharging, runState.isRunning(), (bool)(runner.pattern), lastReachedFullCharge, lastChargingStateChange, millis());
 
     uint8_t chargeAlpha = 0;
 
@@ -435,19 +435,24 @@ void setup() {
       bool usbPower = digitalRead(VBUS_SENSOR_PIN);
       if (!usbPower) {
         // power down
-        patternManager.runOneShotPattern<PowerOffAnimation>(0xFF, 0xFF, [](PatternRunner&) {
-          indexedRunner->stop();
-          bool usbPower = digitalRead(VBUS_SENSOR_PIN);
-          if (usbPower) {
-            runState.setRunning(false);
-          } else {
-            powerOff();
-            while (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE) {
-              // handle the button being left pressed after power off
-              delay(50);
+        if (patternManager.hasTestRunner()) {
+          // special case test runner since the power off animation will not run
+          powerOff();
+        } else {
+          patternManager.runOneShotPattern<PowerOffAnimation>(0xFF, 0xFF, [](PatternRunner&) {
+            indexedRunner->stop();
+            bool usbPower = digitalRead(VBUS_SENSOR_PIN);
+            if (usbPower) {
+              runState.setRunning(false);
+            } else {
+              powerOff();
+              while (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE) {
+                // handle the button being left pressed after power off
+                delay(50);
+              }
             }
-          }
-        });
+          });
+        }
       } else {
         runState.setRunning(false);
         indexedRunner->stop();

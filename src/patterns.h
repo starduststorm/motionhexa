@@ -377,6 +377,35 @@ public:
   }
 };
 
+/* ------------------------------------------------------------------------------- */
+
+class LineTest : public Pattern, PaletteRotation<CRGBPalette256> {
+  HexaShells shells;
+public:
+  LineTest() {
+    minBrightness = 20;
+    setPalette(Trans_Flag_gp);
+    pauseRotation = true;
+  }
+  void update() {
+    ctx.leds.fadeToBlackBy(5);
+    
+    vectorT<float> pt1 = {kMeridian*cosf(millis()/500.), kMeridian*sinf(millis()/500.)};
+    vectorT<float> pt2 = {kMeridian*-cosf(millis()/500.), kMeridian*-sinf(millis()/500.)};
+    fAxial ax1 = axial.rectToHex(pt1, 1.0);
+    fAxial ax2 = axial.rectToHex(pt2, 1.0);
+
+    hexline(ctx, ax1, ax2, [this] (uint8_t progress) {
+      return this->getPaletteColor(progress);
+    });
+  }
+  const char *description() {
+    return "LineTest";
+  }
+};
+
+/* ------------------------------------------------------------------------------- */
+
 class ChargingPattern : public Pattern {
 public:
   int lastStateOfCharge = 0;
