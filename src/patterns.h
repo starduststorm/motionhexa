@@ -117,7 +117,8 @@ public:
 
   void update() {
     int mult = 1000; // smooth everything with integer math
-    vector32 acc = vector32(MotionManager::agmt.acc.axes.x, MotionManager::agmt.acc.axes.y, MotionManager::agmt.acc.axes.z);
+    auto agmt = MotionManager::motionFrame.agmt;
+    vector32 acc = vector32(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
     smoothAcc = (9 * smoothAcc + acc) / 10;
 
     constexpr int kInverseRootThree = 1000*1/sqrt(3); // FIXME: save as integer?
@@ -165,7 +166,7 @@ public:
   void update() {
     const int gyrScale = 2000;
     const int accScale = 2000;
-    ICM_20948_AGMT_t agmt = MotionManager::agmt;
+    ICM_20948_AGMT_t agmt = MotionManager::motionFrame.agmt;
     gyrAccum32 += vector16(agmt.gyr.axes.x, agmt.gyr.axes.y, agmt.gyr.axes.z);
     accAccum32 += vector16(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
     vector16 gyrAccum = gyrAccum32 / gyrScale;
@@ -318,7 +319,7 @@ public:
   virtual void update() {
     ctx.leds.fadeToBlackBy(fadeDown);
     physics.update([](PixelIndex index) {
-      return accelerationAtPixelIndex(index, MotionManager::agmt);
+      return accelerationAtPixelIndex(index, MotionManager::motionFrame.agmt);
     });
     int i = 0;
     for (PixelPhysics<LED_COUNT>::Particle *p : physics.particles) {
@@ -380,7 +381,6 @@ public:
 /* ------------------------------------------------------------------------------- */
 
 class LineTest : public Pattern, PaletteRotation<CRGBPalette256> {
-  HexaShells shells;
 public:
   LineTest() {
     minBrightness = 20;

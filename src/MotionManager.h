@@ -20,18 +20,28 @@ typedef enum : unsigned int {
 typedef std::function<void()> ActivityHandler;
 typedef std::map<const char *, ActivityHandler> ActivityHandlerMap;
 
+struct Euler {
+  float pitch, roll,yaw;
+};
+
+struct MotionFrame {
+  ICM_20948_AGMT_t agmt;
+  icm_20948_DMP_data_t dmpData;
+  Euler euler;
+};
+
 class MotionManager {
 protected:
     static MotionManager *_singleton;
     MotionManager() {}
-    const bool enableDMP = false;
 public:
+    const bool enableDMP = false;
     MotionManager(MotionManager &other) = delete;
     void operator=(const MotionManager &) = delete;
     static MotionManager &manager();
 
     // for external access, currently using this from core0 and the rest of the class from core1
-    static ICM_20948_AGMT_t agmt;
+    static MotionFrame motionFrame;
 
 private:
   bool hasSensor = false;
@@ -44,7 +54,10 @@ private:
     bool success = true; // Use success to show if the DMP configuration was successful
 
     // Initialize the DMP. initializeDMP is a weak function. You can overwrite it if you want to e.g. to change the sample rate
-    success &= (icm.initializeDMP() == ICM_20948_Stat_Ok);
+    // TIMEIT(initializeDMP, {
+      success &= (icm.initializeDMP() == ICM_20948_Stat_Ok);
+    // });
+
 
     // DMP sensor options are defined in ICM_20948_DMP.h
     //    INV_ICM20948_SENSOR_ACCELEROMETER               (16-bit accel)
@@ -64,7 +77,8 @@ private:
     //    INV_ICM20948_SENSOR_ORIENTATION                 (32-bit 9-axis quaternion + heading accuracy)
 
     success &= (icm.enableDMPSensor(INV_ICM20948_SENSOR_LINEAR_ACCELERATION) == ICM_20948_Stat_Ok);
-
+    // success &= (icm.enableDMPSensor(INV_ICM20948_SENSOR_ORIENTATION) == ICM_20948_Stat_Ok);
+    
     // Enable any additional sensors / features
     //success &= (icm.enableDMPSensor(INV_ICM20948_SENSOR_RAW_GYROSCOPE) == ICM_20948_Stat_Ok);
     //success &= (icm.enableDMPSensor(INV_ICM20948_SENSOR_RAW_ACCELEROMETER) == ICM_20948_Stat_Ok);
@@ -75,7 +89,7 @@ private:
     // Setting value can be calculated as follows:
     // Value = (DMP running rate / ODR ) - 1
     // E.g. For a 5Hz ODR rate when DMP is running at 55Hz, value = (55/5) - 1 = 10.
-    success &= (icm.setDMPODRrate(DMP_ODR_Reg_Quat6, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+    success &= (icm.setDMPODRrate(DMP_ODR_Reg_Quat9, 0) == ICM_20948_Stat_Ok); // Set to the maximum
     //success &= (icm.setDMPODRrate(DMP_ODR_Reg_Accel, 0) == ICM_20948_Stat_Ok); // Set to the maximum
     //success &= (icm.setDMPODRrate(DMP_ODR_Reg_Gyro, 0) == ICM_20948_Stat_Ok); // Set to the maximum
     //success &= (icm.setDMPODRrate(DMP_ODR_Reg_Gyro_Calibr, 0) == ICM_20948_Stat_Ok); // Set to the maximum
@@ -136,20 +150,20 @@ public:
   //   }
   //   return eventMap[type];
   // }
-
-  ICM_20948_AGMT_t loop() {
+  MotionFrame frame = {0}; // store frame between loops since our framerate usually exceeds the dmp odr
+  MotionFrame loop() {
     if (!hasSensor) {
       return {0};
     }
 
     ICM_20948_AGMT_t agmt = icm.getAGMT();
+    frame.agmt = agmt;
     if (!enableDMP) {
-      return agmt;
+      return frame;
     }
-
     icm_20948_DMP_data_t data;
     icm.readDMPdataFromFIFO(&data);
-
+    
     if ((icm.status == ICM_20948_Stat_Ok) || (icm.status == ICM_20948_Stat_FIFOMoreDataAvail)) // Was valid data available?
     {
       //SERIAL_PORT.print(F("Received data! Header: 0x")); // Print the header in HEX so we can see what data is arriving in the FIFO
@@ -157,19 +171,19 @@ public:
       //if ( data.header < 0x100) SERIAL_PORT.print( "0" );
       //if ( data.header < 0x10) SERIAL_PORT.print( "0" );
       //SERIAL_PORT.println( data.header, HEX );
+      frame.dmpData = data;
 
-      if ((data.header & DMP_header_bitmap_Quat6) > 0) // We have asked for GRV data so we should receive Quat6
+      if ((data.header & DMP_header_bitmap_Quat9) > 0) // We have asked for GRV data so we should receive Quat6
       {
         // Q0 value is computed from this equation: Q0^2 + Q1^2 + Q2^2 + Q3^2 = 1.
         // In case of drift, the sum will not add to 1, therefore, quaternion data need to be corrected with right bias values.
         // The quaternion data is scaled by 2^30.
 
         //SERIAL_PORT.printf("Quat6 data is: Q1:%ld Q2:%ld Q3:%ld\r\n", data.Quat6.Data.Q1, data.Quat6.Data.Q2, data.Quat6.Data.Q3);
-
         // Scale to +/- 1
-        double q1 = ((double)data.Quat6.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
-        double q2 = ((double)data.Quat6.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
-        double q3 = ((double)data.Quat6.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
+        double q1 = ((double)data.Quat9.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
+        double q2 = ((double)data.Quat9.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
+        double q3 = ((double)data.Quat9.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
 
         // Convert the quaternions to Euler angles (roll, pitch, yaw)
         // https://en.wikipedia.org/w/index.php?title=Conversion_between_quaternions_and_Euler_angles&section=8#Source_code_2
@@ -194,6 +208,10 @@ public:
         double t4 = +1.0 - 2.0 * (q2sqr + q3 * q3);
         double yaw = atan2(t3, t4) * 180.0 / PI;
 
+        frame.euler.pitch = pitch;
+        frame.euler.roll = roll;
+        frame.euler.yaw = yaw;
+
         // Output the Quaternion data in the format expected by ZaneL's Node.js Quaternion animation tool
         // Serial.print(F("{\"quat_w\":"));
         // Serial.print(q0, 3);
@@ -206,9 +224,15 @@ public:
         // Serial.println(F("}"));
 
         // logf("Pitch: %0.3f, roll: %0.3f, yaw: %0.3f", pitch, roll, yaw);
+      } else {
+        logdf("DMP_header_bitmap_Quat9 failed");
       }
+    } else if (icm.dataReady()){
+      // logdf("icm data not ready");
+    } else {
+      // logdf("DMP FIFO read icm.status = %i", icm.status);
     }
-    return agmt;
+    return frame;
   }
 
 private:
@@ -295,12 +319,12 @@ void printScaledAGMT(ICM_20948_I2C *sensor)
 }
 
 MotionManager *MotionManager::_singleton = nullptr;
-ICM_20948_AGMT_t MotionManager::agmt{0};
+MotionFrame MotionManager::motionFrame{0};
 MotionManager &MotionManager::manager() {
-    if (_singleton==nullptr) {
-        _singleton = new MotionManager();
-    }
-    return *_singleton;
+  if (_singleton==nullptr) {
+    _singleton = new MotionManager();
+  }
+  return *_singleton;
 }
 
 #endif

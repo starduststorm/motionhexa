@@ -105,6 +105,7 @@ static unsigned long setupDoneTime;
 
 
 void init_i2c() {
+  assert(1 == get_core_num(), "init_i2c not on core1");
   Wire.setSDA(SDA);
   Wire.setSCL(SCL);
   Wire.setClock(400000);
@@ -134,7 +135,7 @@ void init_serial() {
 #if WAIT_FOR_SERIAL
   long setupStart = millis();
   while (!Serial) {
-    if (millis() - setupStart > 10000) {
+    if (millis() - setupStart > 8000) {
       serialTimeout = true;
       break;
     }
@@ -196,23 +197,24 @@ BatteryData getBatteryData()
 // }
 
 mutex_t core1DataLock;
-ICM_20948_AGMT_t _gAGMT;   // locked AGMT read
+MotionFrame _gMotionFrame; // locked AGMT/motion read
 BatteryData _gBatteryData = {0}; // locked BatteryData read
 bool _gCore1DataGetNext = true; // prevent core1 from doing multiple motion reads in a single frame
 
-void getAsyncData(ICM_20948_AGMT_t *agmtRef, BatteryData *batteryDataRef) {
+void getAsyncData(MotionFrame *motionFrameRef, BatteryData *batteryDataRef) {
   assert(0 == get_core_num(), "getAGMT not on core0");
   mutex_enter_blocking(&core1DataLock);
-  ICM_20948_AGMT_t agmt = _gAGMT;
+  MotionFrame motionFrame = _gMotionFrame;
   BatteryData bd = _gBatteryData;
   _gCore1DataGetNext = true;
   mutex_exit(&core1DataLock);
 
-  if (agmtRef) *agmtRef = agmt;
+  if (motionFrameRef) *motionFrameRef = motionFrame;
   if (batteryDataRef) *batteryDataRef = bd;
 }
 
 void hard_reset_check_core1() {
+  assert(1 == get_core_num(), "hard_reset_check_core1 not on core1");
     // hard reset
   static unsigned long lastButtonReleased = 0 ;
   static unsigned long lastMillis = 0;
@@ -234,6 +236,7 @@ void hard_reset_check_core1() {
 }
 
 void core1_main() {
+  assert(1 == get_core_num(), "core1_main not on core1");
   // Motion data reads take upwards of 4.5ms so we're doing them on core1
   init_i2c();
 
@@ -267,8 +270,7 @@ void core1_main() {
       delayMicroseconds(100); // FIXME: i would rather do this with multicore fifo but cannot seem to get fifo to work at all
     }
     hard_reset_check_core1();
-    ICM_20948_AGMT_t agmt = MotionManager::manager().loop();
-    
+    MotionFrame motionFrame = MotionManager::manager().loop();
 #if HARDWARE_VERSION > 2
     BatteryData batteryData;
     if (lastBatteryPoll == 0 || millis() - lastBatteryPoll > 3000) {
@@ -281,7 +283,7 @@ void core1_main() {
 #endif
 
     mutex_enter_blocking(&core1DataLock);
-    _gAGMT = agmt;
+    _gMotionFrame = motionFrame;
     _gBatteryData = batteryData;
     _gCore1DataGetNext = false;
     mutex_exit(&core1DataLock);
@@ -358,9 +360,8 @@ void setup() {
   patternManager.registerPattern<PixelSand>();
   patternManager.registerPattern<PulseHexaSmooth>();
   patternManager.registerPattern<PulseHexa>();
-
-  // patternManager.setTestRunner<LineTest>();
-
+  patternManager.registerPattern<LineTest>();
+  
 #if HARDWARE_VERSION >= 3
   patternManager.registerPattern<ChargingPattern>(1);
   patternManager.setupConditionalRunner<ChargingPattern>([](PatternRunner &runner) -> uint8_t {
@@ -378,15 +379,15 @@ void setup() {
         int runTime = runner.pattern->runTime();
         if (runState.isRunning() && runTime > kChargePatternOverlayDuration) {
           // fade down overlay while device on
-          logf("fade down overlay device on");
+          // logf("fade down overlay device on");
           chargeAlpha = max(0L, 0xFF - 0xFF * (long)(millis() - max(runState.lastRunStateChange(), lastChargingStateChange)) / kFadeTime);
         } else if (lastReachedFullCharge && millis() - lastReachedFullCharge > kSitTimeAtFullCharge && runTime > kChargePatternOverlayDuration) {
           // fade down charging ui when fully charged
-          logf("fade down fully charged");
+          // logf("fade down fully charged");
           chargeAlpha = max(0L, 0xFF - 0xFF * (long)(millis() - lastReachedFullCharge - kSitTimeAtFullCharge) / kFadeTime);
         } else if (runTime < kFadeTime) {
           // fade up overlay
-          logf("fade up overlay");
+          // logf("fade up overlay");
           chargeAlpha = min(0xFFL, (long)0xFF * runTime / kFadeTime);
         } else {
           // run overlay
@@ -396,13 +397,13 @@ void setup() {
               || millis() - lastChargingStateChange < kRecentStateChangeDelay 
               || (millis() - runState.lastRunStateChange() < kRecentStateChangeDelay && lastReachedFullCharge == 0)) {
         // start overlay
-        logf("start overlay");
+        // logf("start overlay");
         chargeAlpha = 0x1;
       }
     } else {
       if (runner.pattern) {
         // fadedown overlay due to not charging
-        logf("fade down overlay not charging");
+        // logf("fade down overlay not charging");
         chargeAlpha = max(0L, 0xFF - 0xFF * (long)(millis() - lastChargingStateChange) / kFadeTime);
       }
     }
@@ -503,7 +504,7 @@ void loop() {
     }
   }
 #endif
-
+ 
 #if HARDWARE_VERSION >= 3
   static unsigned long lastLipoChargeIndicator = 0;
   // The charge indicator read from the lipo charger is too noisy/bouncy to use for charging UI. 
@@ -531,8 +532,8 @@ void loop() {
     lastChargingStateChange = millis();
   }
 #endif
-
-  getAsyncData(&MotionManager::agmt, &batteryData);
+  
+  getAsyncData(&MotionManager::motionFrame, &batteryData);
   if (batteryData.stateOfCharge >= kFullCharge && knownChargePercent < kFullCharge) {
     logdf("Reached Full Charge!");
     lastReachedFullCharge = millis();
@@ -559,7 +560,7 @@ void loop() {
     && (pixelsNeedPower || millis() - lastPixelsNeedPower > 300)) { // don't turn off panel for very brief periods
     logdf("Turn %s pixels", pixelsNeedPower?"on":"off");
     pixelsHavePower = pixelsNeedPower;
-    digitalWrite(LED_LINE_0_PWR_PIN, pixelsNeedPower); // FIXME: debounce this for quick pattern transitions. no need to turn off panel for just a few frames
+    digitalWrite(LED_LINE_0_PWR_PIN, pixelsNeedPower);
   }
 #endif
   
