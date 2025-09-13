@@ -33,6 +33,7 @@ parser.add_argument('--lock', action='store_true', default=False, help='Lock pcb
 # info
 parser.add_argument('--dump-objects', action='store', nargs='?', const=True, default=None)
 parser.add_argument('--stats', action='store_true', default=False)
+parser.add_argument('--draw-vias', action='store', type=str, default=False, help='replace vias with a drawn circle on the given layer')
 
 
 args = parser.parse_args()
@@ -227,7 +228,7 @@ def pretty(obj):
   elif isTrack(obj):
     return "<pcbnew.PCB_TRACK ({}) at {} => {} [this={}]".format(obj.GetNetname(), Point(obj.GetStart()), Point(obj.GetEnd()), obj.this)
   elif type(obj) is pcbnew.PCB_VIA:
-    return "<pcbnew.PCB_VIA ({}) at {} [this={}]".format(obj.GetNetname(), Point(obj.GetPosition()), obj.this)
+    return "<pcbnew.PCB_VIA ({}) at {} drill {} width {} [this={}]".format(obj.GetNetname(), Point(obj.GetPosition()), obj.GetDrill()/pcbnew.PCB_IU_PER_MM, obj.GetWidth()/pcbnew.PCB_IU_PER_MM, obj.this)
   elif type(obj) is pcbnew.FOOTPRINT:
     return "<pcbnew.FOOTPRINT '{}' at {}>", obj.GetReference(), Point(obj.GetPosition())
   elif type(obj) is pcbnew.BOARD_ITEM_CONTAINER:
@@ -531,6 +532,17 @@ class KiCadPCB(object):
         if tn1 != tn2:
           assert set(tn1.tracks).isdisjoint(tn2.tracks), "Overlapping groups: maybe failed to follow a connected trace path: {} and {}".format(tn1, tn2)
 
+  def drawVias(self, layer):
+    """ replace vias with a circle """
+    vias = list(v for v in self.tracks if isVia(v))
+    print(dir(vias[0].item))
+    for v in vias:
+      p = Point(v.GetPosition());
+      width = v.GetWidth()/pcbnew.PCB_IU_PER_MM
+      print(pretty(v))
+      self.draw_circle(p, width/2, layer, width=0.1, filled=True)
+      self.board.Delete(v)
+
   def itemLayersIntersect(self, item1, item2):
     parent = item1.GetParentFootprint() if item1.GetParentFootprint() else item1.GetParent()
     if parent.GetFlags() & pcbnew.STRUCT_DELETED:
@@ -669,7 +681,7 @@ class KiCadPCB(object):
     line.SetLocked(args.lock)
     return line
   
-  def draw_circle(self, center, radius, layer='F.Silkscreen', width=0.15):
+  def draw_circle(self, center, radius, layer='F.Silkscreen', width=0.15, filled=False):
       print("CIRCLE at {} radius {} on {}".format(center, radius, layer))
       circle = pcbnew.PCB_SHAPE()
       self.board.Add(circle)
@@ -680,6 +692,7 @@ class KiCadPCB(object):
       circle.SetLayer(self.layertable[layer])
       circle.SetWidth(int(width * IU_PER_MM))
       circle.SetLocked(args.lock)
+      circle.SetFilled(filled)
       return circle
 
   def draw_arc(self, start, center=None, end=None, angle=None, layer='F.Silkscreen', width=0.15):
@@ -1293,6 +1306,10 @@ class PCBLayout(object):
 
     if args.stats:
       self.kicadpcb.dumpStats()
+
+    if args.draw_vias:
+      self.kicadpcb.drawVias(args.draw_vias)
+      needSave = True
 
     if not args.dry_run and needSave:
       self.kicadpcb.save()
