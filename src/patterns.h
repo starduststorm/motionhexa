@@ -164,8 +164,8 @@ public:
   vector32 accAccum32;
 
   void update() {
-    const int gyrScale = 2000;
-    const int accScale = 2000;
+    const int accScale = (MotionManager::manager().enableDMP ? 1000 : 2000); // coolcool cool coooool
+    const int gyrScale = (MotionManager::manager().enableDMP ? 200 : 2000); // coolcoolcool
     ICM_20948_AGMT_t agmt = MotionManager::motionFrame.agmt;
     gyrAccum32 += vector16(agmt.gyr.axes.x, agmt.gyr.axes.y, agmt.gyr.axes.z);
     accAccum32 += vector16(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
@@ -375,6 +375,44 @@ public:
   }
   const char *description() {
     return "RandomDust";
+  }
+};
+
+/* ------------------------------------------------------------------------------- */
+
+class TriangleSpin : public Pattern, PaletteRotation<CRGBPalette256> {
+public:
+  TriangleSpin() {
+    secondsPerPalette = 20;
+  };
+  void update() {
+    ctx.leds.fill_solid(CRGB::Black);
+    float yaw = MotionManager::motionFrame.euler.yaw*PI/180;
+    uint16_t yawBytes = max(0, min(0x1FF, (MotionManager::motionFrame.euler.yaw+180) * 0x1FF/360));
+
+    float r = kMeridian-6;
+    unsigned timeOffset = millis() / 50;
+
+    vectorT<float> pt1 = {r * cosf(yaw + 0),      r * sinf(yaw + 0)};
+    vectorT<float> pt2 = {r * cosf(yaw + 2*PI/3), r * sinf(yaw + 2*PI/3)};
+    vectorT<float> pt3 = {r * cosf(yaw + 4*PI/3), r * sinf(yaw + 4*PI/3)};
+    fAxial ax1 = axial.rectToHex(pt1, 1.0);
+    fAxial ax2 = axial.rectToHex(pt2, 1.0);
+    fAxial ax3 = axial.rectToHex(pt3, 1.0);
+
+    hexline(ctx, ax1, ax2, [this, yawBytes, timeOffset] (uint8_t progress) {
+      return getMirroredPaletteColor(timeOffset + yawBytes + 0 + progress);
+    });
+    hexline(ctx, ax2, ax3, [this, yawBytes, timeOffset] (uint8_t progress) {
+      return getMirroredPaletteColor(timeOffset + yawBytes + 1*0x1FF/3 + progress);
+    });
+    hexline(ctx, ax3, ax1, [this, yawBytes, timeOffset] (uint8_t progress) {
+      return getMirroredPaletteColor(timeOffset + yawBytes + 2*0x1FF/3 + progress);
+    });
+  }
+
+  const char *description() {
+    return "TriangleSpin";
   }
 };
 

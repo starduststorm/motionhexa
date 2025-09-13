@@ -103,6 +103,7 @@ IndexedPatternRunner *indexedRunner; // main pattern runner
 static bool serialTimeout = false;
 static unsigned long setupDoneTime;
 
+const unsigned kBootDelay = 1000;
 
 void init_i2c() {
   assert(1 == get_core_num(), "init_i2c not on core1");
@@ -359,8 +360,11 @@ void setup() {
   patternManager.registerPattern<PixelDust>();
   patternManager.registerPattern<PixelSand>();
   patternManager.registerPattern<PulseHexaSmooth>();
-  patternManager.registerPattern<PulseHexa>();
+  patternManager.registerPattern<PulseHexa>();  
   patternManager.registerPattern<LineTest>();
+  patternManager.registerPattern<TriangleSpin>();
+  
+  // patternManager.setTestRunner<TriangleSpin>();
   
 #if HARDWARE_VERSION >= 3
   patternManager.registerPattern<ChargingPattern>(1);
@@ -493,7 +497,7 @@ void loop() {
 
 #if HARDWARE_VERSION >= 4
   static bool didButtonBoot = false;
-  if (!didButtonBoot && millis() > 500) {
+  if (!didButtonBoot && millis() > kBootDelay) {
     didButtonBoot = true;
     runState.setRunning(isButtonPressed && !isVBUSPowered); // draw patterns if we weren't powered up by usb
     if (!isButtonPressed && !isVBUSPowered) {

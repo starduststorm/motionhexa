@@ -35,7 +35,7 @@ protected:
     static MotionManager *_singleton;
     MotionManager() {}
 public:
-    const bool enableDMP = false;
+    const bool enableDMP = true;
     MotionManager(MotionManager &other) = delete;
     void operator=(const MotionManager &) = delete;
     static MotionManager &manager();
@@ -77,7 +77,7 @@ private:
     //    INV_ICM20948_SENSOR_ORIENTATION                 (32-bit 9-axis quaternion + heading accuracy)
 
     success &= (icm.enableDMPSensor(INV_ICM20948_SENSOR_LINEAR_ACCELERATION) == ICM_20948_Stat_Ok);
-    // success &= (icm.enableDMPSensor(INV_ICM20948_SENSOR_ORIENTATION) == ICM_20948_Stat_Ok);
+    success &= (icm.enableDMPSensor(INV_ICM20948_SENSOR_ORIENTATION) == ICM_20948_Stat_Ok);
     
     // Enable any additional sensors / features
     //success &= (icm.enableDMPSensor(INV_ICM20948_SENSOR_RAW_GYROSCOPE) == ICM_20948_Stat_Ok);
