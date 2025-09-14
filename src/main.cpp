@@ -305,6 +305,12 @@ void powerOff() {
 void setup() {
   init_serial();
 
+#if !DEBUG
+  // watchdog barks if we hang or hardfault
+  // 15000ms actually fires after around 8300ms tho??
+  watchdog_enable(15000, true);
+#endif
+
   mutex_init(&core1DataLock);
   multicore_launch_core1(core1_main);
 
@@ -483,6 +489,11 @@ void setup() {
 } 
 
 void loop() {
+#if !DEBUG
+  // pet the dog
+  watchdog_update();
+#endif
+
   static bool pixelsHavePower = false;
 
   if (serialTimeout && millis() - setupDoneTime < 1000) {
