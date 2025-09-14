@@ -50,11 +50,14 @@ struct BatteryData {
   uint16_t temperature;     // K
   uint16_t flags;
   void print() {
-    logdf("soc: %u%%, soh: %u%%, voltage: %umV, capacity: %umAh / %umAh, power: %imW, temp: %uK, flags: %X", 
-        stateOfCharge, stateOfHealth, voltage, currentCapacity, fullCapacity, powerDraw, temperature, flags);
+    logf("battery: %s, soc: %u%%, soh: %u%%, voltage: %umV, capacity: %umAh / %umAh, power: %imW, temp: %uK, flags: %X",
+      batteryDetected()?"yes":"no", stateOfCharge, stateOfHealth, voltage, currentCapacity, fullCapacity, powerDraw, temperature, flags);
   }
   bool batteryDetected() {
-    return stateOfCharge < 100 && flags & 1<<3;
+    // Issue: almost always detects a battery, presumably mistaking the lipo charger, powering the load, as a battery
+    //   but if the charger is off then the i2c reads will be all 1s, SoC will be 0xFFFF. 
+    //   if charger is on then voltage will be > max battery voltage, so we can do guesswork.
+    return stateOfCharge <= 100 && voltage < 4350 && flags & 1<<3;
   }
 };
 const unsigned int BATTERY_CAPACITY = 2000;
@@ -167,7 +170,7 @@ BatteryData getBatteryData()
   BatteryData data;
 #if HARDWARE_VERSION > 2
   // TODO: fetch only the data items we'll actually use, for perf
-  data.stateOfCharge = lipo.soc();
+  data.stateOfCharge = lipo.soc(FILTERED);
   data.stateOfHealth = lipo.soh(PERCENT);
   data.voltage = lipo.voltage();
   data.currentCapacity = lipo.capacity(REMAIN);
@@ -178,24 +181,6 @@ BatteryData getBatteryData()
 #endif
   return data;
 }
-
-// bool checkBatteryPresence() {
-  
-  
-//   // it takes some 600ms for BATSYS to fall LOWish. so this check needs to be async
-
-
-
-//   bool hasBattery = true;
-// #if HARDWARE_VERSION >= 4
-//   digitalWrite(DISABLE_CHARGE_PIN, true);
-//   FastLED.delay(2); // FIXME:
-//   int batteryVoltage = analogRead(BATTERY_VOLTAGE_PIN);
-//   digitalWrite(DISABLE_CHARGE_PIN, false);
-//   logf("read batteryVoltage = %i", batteryVoltage);
-// #endif
-//   return hasBattery;
-// }
 
 mutex_t core1DataLock;
 MotionFrame _gMotionFrame; // locked AGMT/motion read
@@ -242,25 +227,12 @@ void core1_main() {
   init_i2c();
 
 #if HARDWARE_VERSION > 2
-  // if (!lipo.begin(SDA, SCL)) {
-  //   logf("Error: Unable to communicate with BQ27427.");
-  // } else {
-  //   logf("Connected to BQ27427!");
-  // }
   // logf("device type = %i", lipo.deviceType());
-  // NOTE: I am seeing my BQ27427 say lipo.deviceType is 0x427, though this library expects 0x0421
-  // i2c is already initialized anyway.
-
-  // FIXME: //   // set_lipo_config took 3111852us
-  // not sure why this is taking 3 seconds. probably hitting a watchdog from repeated writes.
-  //
-  // TIMEIT(set_lipo_config, {
-  // lipo.enterConfig(true);
-  // lipo.setCapacity(BATTERY_CAPACITY);
-  // lipo.setGPOUTPolarity(LOW); // Set GPOUT to active-low
-  // lipo.setGPOUTFunction(BAT_LOW);
-  // lipo.exitConfig(true);
-  // });
+  // NOTE: I am seeing my BQ27427 say lipo.deviceType is 0x427, though this library expects 0x0421..?
+  lipo.enterConfig(true);
+  lipo.setCapacity(BATTERY_CAPACITY);
+  lipo.setChemID(CHEM_B);
+  lipo.exitConfig(true);
 #endif
 
   MotionManager::manager().init();
@@ -277,8 +249,6 @@ void core1_main() {
     if (lastBatteryPoll == 0 || millis() - lastBatteryPoll > 3000) {
       batteryData = getBatteryData();
       batteryData.print();
-      // FIXME: almost always returning 1, presumably mistaking the lipo charger, powering the load, as a battery
-      logf("battery detected? %i", batteryData.batteryDetected());
       lastBatteryPoll = millis();
     }
 #endif
@@ -307,8 +277,7 @@ void setup() {
 
 #if !DEBUG
   // watchdog barks if we hang or hardfault
-  // 15000ms actually fires after around 8300ms tho??
-  watchdog_enable(15000, true);
+  watchdog_enable(8388 /* max value is 0xffffffu decremented twice per microsecond, roughly 8.3s */, true);
 #endif
 
   mutex_init(&core1DataLock);
@@ -488,20 +457,8 @@ void setup() {
   logf("setup done");
 } 
 
-void loop() {
-#if !DEBUG
-  // pet the dog
-  watchdog_update();
-#endif
-
-  static bool pixelsHavePower = false;
-
-  if (serialTimeout && millis() - setupDoneTime < 1000) {
-    serialTimeoutIndicator();
-    return;
-  }
-
-#if HARDWARE_VERSION > 2
+void powerStateLoop() {
+  #if HARDWARE_VERSION > 2
   bool isButtonPressed = (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE);
   bool isVBUSPowered = digitalRead(VBUS_SENSOR_PIN);
 #endif
@@ -536,10 +493,7 @@ void loop() {
   if (isLipoCharging) {
     lastLipoChargeIndicator = millis();
   }
-  bool isChargingRead = isVBUSPowered;// && (millis() - lastLipoChargeIndicator < 20000);
-
-  // FIXME: isLipoCharging might flip back and forth on a longer timer when near full charge. maybe if SOC is above e.g. 95% then we stop tracking that.
-  // OR: maybe don't re-show the charging UI unless VBUS flips from off back to on, even if charging state switches
+  bool isChargingRead = isVBUSPowered && batteryData.batteryDetected();
   
   if (isCharging != isChargingRead) {
     logdf("Charging State Change %i -> %i, millis since last lipo change = %i", isCharging, isChargingRead, millis() - lastLipoChargeIndicator);
@@ -549,6 +503,7 @@ void loop() {
 #endif
   
   getAsyncData(&MotionManager::motionFrame, &batteryData);
+
   if (batteryData.stateOfCharge >= kFullCharge && knownChargePercent < kFullCharge) {
     logdf("Reached Full Charge!");
     lastReachedFullCharge = millis();
@@ -556,7 +511,20 @@ void loop() {
     lastReachedFullCharge = 0;
   }
   knownChargePercent = batteryData.stateOfCharge;
+}
 
+void loop() {
+#if !DEBUG
+  // pet the dog
+  watchdog_update();
+#endif
+
+  if (serialTimeout && millis() - setupDoneTime < 1000) {
+    serialTimeoutIndicator();
+    return;
+  }
+
+  powerStateLoop();
   indexedRunner->paused = !runState.isRunning();
   controls.update();
   patternManager.loop();
@@ -566,6 +534,7 @@ void loop() {
   // autoBrightness->loop();
  
 #if HARDWARE_VERSION > 1
+  static bool pixelsHavePower = false;
   static unsigned long lastPixelsNeedPower = 0;
   bool pixelsNeedPower = ctx.leds(0, LED_COUNT-1);
   if (pixelsNeedPower) {
@@ -581,7 +550,7 @@ void loop() {
   
 #if DEBUG
 #if HARDWARE_VERSION > 2
-  ctx.leds[0] = isVBUSPowered ? CRGB::Red : CRGB::Black;
+  ctx.leds[0] = digitalRead(VBUS_SENSOR_PIN) ? CRGB::Red : CRGB::Black;
 #endif
   ctx.leds[1] = runState.isRunning() ? CRGB::Green : CRGB::Black;
   ctx.leds[2] = isCharging ? CRGB::Blue : CRGB::Black;
