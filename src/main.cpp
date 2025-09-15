@@ -16,11 +16,6 @@ extern char *__brkval;
 
 #include "pinout.h"
 
-#if defined(I2S_BCLK)
-#include <I2S.h>
-I2S i2s(INPUT);
-#endif
-
 #if defined(PDM_BCLK)
 #include <PDM.h>
 #endif
@@ -39,55 +34,9 @@ I2S i2s(INPUT);
 #include <controls.h>
 #include <drawing.h>
 
-#include <BQ27427.h>
-struct BatteryData {
-  uint16_t stateOfCharge;   // %
-  uint16_t stateOfHealth;   // %
-  uint16_t voltage;         // mV
-  uint16_t currentCapacity; // mAh
-  uint16_t fullCapacity;    // mAh
-  int16_t powerDraw;        // mW
-  uint16_t temperature;     // K
-  uint16_t flags;
-  void print() {
-    logf("battery: %s, soc: %u%%, soh: %u%%, voltage: %umV, capacity: %umAh / %umAh, power: %imW, temp: %uK, flags: %X",
-      batteryDetected()?"yes":"no", stateOfCharge, stateOfHealth, voltage, currentCapacity, fullCapacity, powerDraw, temperature, flags);
-  }
-  bool batteryDetected() {
-    // Issue: almost always detects a battery, presumably mistaking the lipo charger, powering the load, as a battery
-    //   but if the charger is off then the i2c reads will be all 1s, SoC will be 0xFFFF. 
-    //   if charger is on then voltage will be > max battery voltage, so we can do guesswork.
-    return stateOfCharge <= 100 && voltage < 4350 && flags & 1<<3;
-  }
-};
-const unsigned int BATTERY_CAPACITY = 2000;
-BatteryData batteryData = {0};
+#include "power.h"
 
-class RunState {
-  bool running;
-  unsigned long lastChange;
-public:
-  bool isRunning() {
-    return running;
-  }
-  void setRunning(bool isRunning) {
-    running = isRunning;
-    lastChange = millis();
-  }
-  unsigned long lastRunStateChange() {
-    return lastChange;
-  }
-};
-
-RunState runState;
-
-const int kFullCharge = 98; // %
-bool isCharging;
-unsigned long lastChargingStateChange; // ms
-bool powerSwitchOn = true;
-unsigned long lastPowerSwitchChange;   // ms
-int knownChargePercent;                // 0 - 100%
-unsigned long lastReachedFullCharge;   // ms
+PowerManager powerState;
 
 #include "MotionManager.h"
 
@@ -124,16 +73,6 @@ void init_pdm() {
 }
 #endif
 
-#if defined(I2S_BCLK)
-void init_i2s() {
-  i2s.setBCLK(I2S_BCLK);
-  i2s.setDATA(I2S_DATA);
-  i2s.setBitsPerSample(32);
-  i2s.setFrequency(16000);
-  assert(i2s.begin(),"i2s");
-}
-#endif
-
 void init_serial() {
   Serial.begin(57600);
 #if WAIT_FOR_SERIAL
@@ -145,11 +84,9 @@ void init_serial() {
     }
     delay(10);
   }
+  Serial.flush();
   delay(10); // Serial needs a bit more time before it'll actually log?
   logf("begin - waited %ims for Serial", millis() - setupStart);
-#elif DEBUG
-  // delay(2000); // FIXME: put back debug delay?
-  // Serial.println("Done waiting at boot.");
 #endif
 }
 
@@ -162,24 +99,6 @@ void serialTimeoutIndicator() {
   gpio_put(LED_LINE_0_PWR_PIN, true);
   FastLED.show();
   delay(20);
-}
-
-BatteryData getBatteryData()
-{
-  assert(1 == get_core_num(), "getBatteryData not on core1");
-  BatteryData data;
-#if HARDWARE_VERSION > 2
-  // TODO: fetch only the data items we'll actually use, for perf
-  data.stateOfCharge = lipo.soc(FILTERED);
-  data.stateOfHealth = lipo.soh(PERCENT);
-  data.voltage = lipo.voltage();
-  data.currentCapacity = lipo.capacity(REMAIN);
-  data.fullCapacity = lipo.capacity(FULL);
-  data.powerDraw = lipo.power();
-  data.temperature = lipo.temperature(INTERNAL_TEMP)/10.;
-  data.flags = lipo.flags();
-#endif
-  return data;
 }
 
 mutex_t core1DataLock;
@@ -226,14 +145,7 @@ void core1_main() {
   // Motion data reads take upwards of 4.5ms so we're doing them on core1
   init_i2c();
 
-#if HARDWARE_VERSION > 2
-  // logf("device type = %i", lipo.deviceType());
-  // NOTE: I am seeing my BQ27427 say lipo.deviceType is 0x427, though this library expects 0x0421..?
-  lipo.enterConfig(true);
-  lipo.setCapacity(BATTERY_CAPACITY);
-  lipo.setChemID(CHEM_B);
-  lipo.exitConfig(true);
-#endif
+  initializeBattery();
 
   MotionManager::manager().init();
   static unsigned long lastBatteryPoll = 0;
@@ -244,33 +156,31 @@ void core1_main() {
     }
     hard_reset_check_core1();
     MotionFrame motionFrame = MotionManager::manager().loop();
+    BatteryData bd = {0};
+    bool batteryDateUpdated = false;
 #if HARDWARE_VERSION > 2
-    BatteryData batteryData;
     if (lastBatteryPoll == 0 || millis() - lastBatteryPoll > 3000) {
-      batteryData = getBatteryData();
-      batteryData.print();
+      bd = getBatteryData();
+      bd.print();
+      batteryDateUpdated = true;
       lastBatteryPoll = millis();
     }
 #endif
 
     mutex_enter_blocking(&core1DataLock);
     _gMotionFrame = motionFrame;
-    _gBatteryData = batteryData;
+    if (batteryDateUpdated) _gBatteryData = bd;
     _gCore1DataGetNext = false;
     mutex_exit(&core1DataLock);
   }
 }
 
-#if HARDWARE_VERSION >= 4
-void powerOff() {
-  // gpio_set_pulls(EN_LDO_PIN, false, false); // stop pulling up // FIXME: needed?
-  // FIXME: there seems to be behavior difference between gpio_put here and digitalWrite?
-  gpio_put(EN_LDO_PIN, false);
-  // digitalWrite(EN_LDO_PIN, false);
-  // should power off here, but delay a little since sometimes we bounce back on
-  delay(500);
+volatile bool buttonWake = false;
+void buttonUpISR() {
+  buttonWake = true;
 }
-#endif
+
+/* ------ Setup ------------------------------------------------------------------------------------------------------------ */
 
 void setup() {
   init_serial();
@@ -278,6 +188,28 @@ void setup() {
 #if !DEBUG
   // watchdog barks if we hang or hardfault
   watchdog_enable(8388 /* max value is 0xffffffu decremented twice per microsecond, roughly 8.3s */, true);
+#endif
+
+#if HARDWARE_VERSION >= 4
+  // on v4, power-on happens by squeezing the unit, which often happens in a bag. 
+  // if the device is squeezed to hard reset (10s), wait in a lower-power state until button-up before doing anything
+  // this will also happen after crash/hang and after reprogramming, which is fine.
+  if (watchdog_caused_reboot() && digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE) {
+    logf("Watchdog detected, button pressed. Sleeping until button up...");
+    Serial.flush();
+    attachInterrupt(digitalPinToInterrupt(BUTTON_0), buttonUpISR, (BUTTON_PRESSED_STATE == HIGH ? FALLING : RISING));
+    set_sys_clock_khz(10*1000, false);
+    do {
+      __wfi();
+    } while (!buttonWake);
+    // it's likely that we actually powered off here. in case we didn't, startup normally.
+    set_sys_clock_khz(133*1000, false);
+    detachInterrupt(digitalPinToInterrupt(BUTTON_0));
+    delay(100);
+    init_serial();
+    logf("Wake up, Neo");
+    buttonWake = false;
+  }
 #endif
 
   mutex_init(&core1DataLock);
@@ -323,9 +255,6 @@ void setup() {
   FastLED.delay(10);
 #endif
 
-#if defined(I2S_BCLK)
-  init_i2s();
-#endif
 #if defined(PDM_BCLK)
   init_pdm();
 #endif
@@ -344,52 +273,7 @@ void setup() {
 #if HARDWARE_VERSION >= 3
   patternManager.registerPattern<ChargingPattern>(1);
   patternManager.setupConditionalRunner<ChargingPattern>([](PatternRunner &runner) -> uint8_t {
-    const int kChargePatternOverlayDuration = 1500; // how long to show charge pattern while pwrSwitchOn
-    const int kFadeTime = 300;
-    const int kSitTimeAtFullCharge = 5000;
-    const int kRecentStateChangeDelay = 200;
-    
-    // logf("isCharging=%i, isHexaRunning=%i, hasPattern = %i, lastReachedFullCharge= %i, lastChargingStateChange= %i, millis=%i", isCharging, runState.isRunning(), (bool)(runner.pattern), lastReachedFullCharge, lastChargingStateChange, millis());
-
-    uint8_t chargeAlpha = 0;
-
-    if (isCharging) {
-      if (runner.pattern) {
-        int runTime = runner.pattern->runTime();
-        if (runState.isRunning() && runTime > kChargePatternOverlayDuration) {
-          // fade down overlay while device on
-          // logf("fade down overlay device on");
-          chargeAlpha = max(0L, 0xFF - 0xFF * (long)(millis() - max(runState.lastRunStateChange(), lastChargingStateChange)) / kFadeTime);
-        } else if (lastReachedFullCharge && millis() - lastReachedFullCharge > kSitTimeAtFullCharge && runTime > kChargePatternOverlayDuration) {
-          // fade down charging ui when fully charged
-          // logf("fade down fully charged");
-          chargeAlpha = max(0L, 0xFF - 0xFF * (long)(millis() - lastReachedFullCharge - kSitTimeAtFullCharge) / kFadeTime);
-        } else if (runTime < kFadeTime) {
-          // fade up overlay
-          // logf("fade up overlay");
-          chargeAlpha = min(0xFFL, (long)0xFF * runTime / kFadeTime);
-        } else {
-          // run overlay
-          chargeAlpha = 0xFF;
-        }
-      } else if ((!runState.isRunning() && lastReachedFullCharge == 0) 
-              || millis() - lastChargingStateChange < kRecentStateChangeDelay 
-              || (millis() - runState.lastRunStateChange() < kRecentStateChangeDelay && lastReachedFullCharge == 0)) {
-        // start overlay
-        // logf("start overlay");
-        chargeAlpha = 0x1;
-      }
-    } else {
-      if (runner.pattern) {
-        // fadedown overlay due to not charging
-        // logf("fade down overlay not charging");
-        chargeAlpha = max(0L, 0xFF - 0xFF * (long)(millis() - lastChargingStateChange) / kFadeTime);
-      }
-    }
-    // if (chargeAlpha) {
-    //   logf("  charge overlay alpha = %02X", chargeAlpha);
-    // }
-    return chargeAlpha;
+    return chargingPatternCheck(runner, powerState);
   }, 0xFF, 0xFF);
 #endif
   
@@ -398,20 +282,20 @@ void setup() {
   SPSTButton *button = controls.addButton(BUTTON_0, BUTTON_PRESSED_STATE);
   button->ignoreEventsUntilFirstButtonUp = true;
   button->onSinglePress([]() {
-    if (runState.isRunning()) {
+    if (powerState.isRunning()) {
       indexedRunner->nextPattern();
     }
   });
   button->onDoublePress([]() {
-    if (runState.isRunning()) {
+    if (powerState.isRunning()) {
       indexedRunner->previousPattern();
     }
   });
 #if HARDWARE_VERSION >= 4
   button->longPressInterval = 1000;
   button->onLongPress([]() {
-    logf("Long press! isHexaRunning = %i", runState.isRunning());
-    if (runState.isRunning()) {
+    logf("Long press! isHexaRunning = %i", powerState.isRunning());
+    if (powerState.isRunning()) {
       bool usbPower = digitalRead(VBUS_SENSOR_PIN);
       if (!usbPower) {
         // power down
@@ -423,7 +307,8 @@ void setup() {
             indexedRunner->stop();
             bool usbPower = digitalRead(VBUS_SENSOR_PIN);
             if (usbPower) {
-              runState.setRunning(false);
+              powerState.setRunning(false);
+              indexedRunner->stop();
             } else {
               powerOff();
               while (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE) {
@@ -433,12 +318,12 @@ void setup() {
             }
           });
         }
-      } else {
-        runState.setRunning(false);
+      } else { // usb power, so just stop the main runner
+        powerState.setRunning(false);
         indexedRunner->stop();
       }
     } else { // turn on
-      runState.setRunning(true);
+      powerState.setRunning(true);
       indexedRunner->runPatternAtIndex(0);
     }
   });
@@ -457,61 +342,7 @@ void setup() {
   logf("setup done");
 } 
 
-void powerStateLoop() {
-  #if HARDWARE_VERSION > 2
-  bool isButtonPressed = (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE);
-  bool isVBUSPowered = digitalRead(VBUS_SENSOR_PIN);
-#endif
-
-#if HARDWARE_VERSION >= 4
-  static bool didButtonBoot = false;
-  if (!didButtonBoot && millis() > kBootDelay) {
-    didButtonBoot = true;
-    runState.setRunning(isButtonPressed && !isVBUSPowered); // draw patterns if we weren't powered up by usb
-    if (!isButtonPressed && !isVBUSPowered) {
-      // powered on via button, released prior to threshold
-      logf("Startup interrupted. Powering off...");
-      powerOff();
-      return;
-    }
-  }
-#endif
- 
-#if HARDWARE_VERSION >= 3
-  static unsigned long lastLipoChargeIndicator = 0;
-  // The charge indicator read from the lipo charger is too noisy/bouncy to use for charging UI. 
-  // Instead we'll check if VBUS is powered and that the lipo charger has indicated it's charging anytime within the last 10 seconds.
-#if HARDWARE_VERSION >= 4
-  if (!isButtonPressed && !isVBUSPowered && !runState.isRunning()) {
-    // likely unplugged USB while hexa not running
-    logf("No USB, no button, and no intent to run. Powering off...");
-    powerOff();
-    return;
-  }
-#endif
-  bool isLipoCharging = !digitalRead(CHRG_PIN);
-  if (isLipoCharging) {
-    lastLipoChargeIndicator = millis();
-  }
-  bool isChargingRead = isVBUSPowered && batteryData.batteryDetected();
-  
-  if (isCharging != isChargingRead) {
-    logdf("Charging State Change %i -> %i, millis since last lipo change = %i", isCharging, isChargingRead, millis() - lastLipoChargeIndicator);
-    isCharging = isChargingRead;
-    lastChargingStateChange = millis();
-  }
-#endif
-  
-  getAsyncData(&MotionManager::motionFrame, &batteryData);
-
-  if (batteryData.stateOfCharge >= kFullCharge && knownChargePercent < kFullCharge) {
-    logdf("Reached Full Charge!");
-    lastReachedFullCharge = millis();
-  } else if (batteryData.stateOfCharge < kFullCharge-1) {
-    lastReachedFullCharge = 0;
-  }
-  knownChargePercent = batteryData.stateOfCharge;
-}
+/* ------ Loop ------------------------------------------------------------------------------------------------------------ */
 
 void loop() {
 #if !DEBUG
@@ -524,8 +355,35 @@ void loop() {
     return;
   }
 
-  powerStateLoop();
-  indexedRunner->paused = !runState.isRunning();
+#if HARDWARE_VERSION > 2
+  bool isButtonPressed = (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE);
+  bool isVBUSPowered = digitalRead(VBUS_SENSOR_PIN);
+#endif
+#if HARDWARE_VERSION >= 4
+  static bool didButtonBoot = false;
+  if (!didButtonBoot && millis() > kBootDelay) {
+    didButtonBoot = true;
+    powerState.setRunning(isButtonPressed && !isVBUSPowered); // draw patterns if we weren't powered up by usb
+    if (!isButtonPressed && !isVBUSPowered) {
+      // powered on via button, released prior to threshold
+      logf("Startup interrupted. Powering off...");
+      powerOff();
+      return;
+    }
+  }
+
+  if (!isButtonPressed && !isVBUSPowered && !powerState.isRunning()) {
+    // likely unplugged USB while not drawing patterns
+    logf("No USB, no button, and no intent to run. Powering off...");
+    powerOff();
+    return;
+  }
+#endif
+
+  getAsyncData(&MotionManager::motionFrame, &batteryData);
+  powerState.update(isVBUSPowered, batteryData);
+
+  indexedRunner->paused = !powerState.isRunning();
   controls.update();
   patternManager.loop();
 
@@ -552,8 +410,8 @@ void loop() {
 #if HARDWARE_VERSION > 2
   ctx.leds[0] = digitalRead(VBUS_SENSOR_PIN) ? CRGB::Red : CRGB::Black;
 #endif
-  ctx.leds[1] = runState.isRunning() ? CRGB::Green : CRGB::Black;
-  ctx.leds[2] = isCharging ? CRGB::Blue : CRGB::Black;
+  ctx.leds[1] = powerState.isRunning() ? CRGB::Green : CRGB::Black;
+  ctx.leds[2] = powerState.isCharging() ? CRGB::Blue : CRGB::Black;
   
   digitalWrite(LED_LINE_0_PWR_PIN, true);
 #endif
