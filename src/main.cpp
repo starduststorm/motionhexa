@@ -224,7 +224,9 @@ void setup() {
   pinMode(LED_LINE_0_PWR_PIN, true);
 #endif
 #if HARDWARE_VERSION > 2
+#if HARDWARE_VERSION < 5
   pinMode(PWR_SWITCH_PIN, INPUT_PULLDOWN);
+#endif
   pinMode(CHRG_PIN, INPUT);
   pinMode(VBUS_SENSOR_PIN, INPUT_PULLDOWN);
   pinMode(GPOUT_PIN, INPUT_PULLUP);
