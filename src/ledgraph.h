@@ -98,6 +98,7 @@ struct fAxial;
 struct Axial : vector16 {
   Axial() : vector16(0,0,0) {}
   Axial(int16_t q, int16_t r) : vector16(q,r,-q-r) {}
+  Axial(vector16 v) : Axial(v.x,v.y) {}
   Axial(fAxial fax);
   int16_t q() { return x; };
   int16_t r() { return y; };
@@ -230,7 +231,10 @@ AxialAccess axial(hexGrid);
 void initLEDGraph() {
   assert(hexGrid.valueCount() == LED_COUNT, "led count issue");
   ledgraph = Graph({}, LED_COUNT);
-  
+  ledgraph.transposeMap = {
+                           {clockwise,counterclockwise}, 
+                           {counterclockwise,clockwise}, 
+                          };
   // get clockwise/counterclockwise edges by traversing hexgrid starting at px 0 and circling perimeter
   PixelIndex index = 0;
   int angle = 0;

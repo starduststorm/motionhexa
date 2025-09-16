@@ -15,8 +15,8 @@ int photosensorNearbyPixels[] = {
 
 #if HARDWARE_VERSION == 5
 
-#define PDM_BCLK 20
-#define PDM_LRCLK (BCLK+1)
+#define PDM_CLK 20
+#define PDM_LRCLK (PDM_CLK+1)
 #define PDM_DATA 23
 
 #define UNCONNECTED_PIN_1 26
@@ -46,8 +46,8 @@ int photosensorNearbyPixels[] = {
 
 #elif HARDWARE_VERSION == 4
 
-#define PDM_BCLK 23
-#define PDM_LRCLK (BCLK+1)
+#define PDM_CLK 23
+#define PDM_LRCLK (PDM_CLK+1)
 #define PDM_DATA 25
 
 #define UNCONNECTED_PIN_1 26
@@ -77,8 +77,8 @@ int photosensorNearbyPixels[] = {
 
 #elif HARDWARE_VERSION == 3
 
-#define PDM_BCLK 23
-#define PDM_LRCLK (BCLK+1)
+#define PDM_CLK 23
+#define PDM_LRCLK (PDM_CLK+1)
 #define PDM_DATA 25
 
 #define UNCONNECTED_PIN_1 29
@@ -103,9 +103,9 @@ int photosensorNearbyPixels[] = {
 
 #elif HARDWARE_VERSION == 2 // first form-factor rev
 
-#define I2S_BCLK 23
-#define I2S_LRCLK (BCLK+1)
-#define I2S_DATA 25
+#define PDM_CLK 23
+#define PDM_LRCLK (PDM_CLK+1)
+#define PDM_DATA 25
 
 #define UNCONNECTED_PIN_1 26
 
@@ -126,7 +126,7 @@ int photosensorNearbyPixels[] = {
 #else // first hardware rev
 
 #define I2S_BCLK 1
-#define I2S_LRCLK (BCLK+1)
+#define I2S_LRCLK (I2S_BCLK+1)
 #define I2S_DATA 3
 
 #define UNCONNECTED_PIN_1 27

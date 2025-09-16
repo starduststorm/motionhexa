@@ -14,17 +14,18 @@
 #include "drawing.h"
 #include "MotionManager.h"
 #include "hexaphysics.h"
+#include "particles.h"
 
 struct HexaShells {
   vector<vector<std::optional<PixelIndex> > > shells;
 
-  HexaShells(PixelIndex center) {
+  HexaShells(PixelIndex center, int maxShellCount = 0) {
     // generate a series of hexashells centered around the given pixel
     Axial ax = axial.axialFromPixelIndex(center);
     int centerQ = ax.q();
     int centerR = ax.r();
 
-    int shellCount = (kMeridian+1) / 2 + abs(centerQ) + abs(centerR);
+    int shellCount = min((maxShellCount==0 ? kMeridian : maxShellCount), (kMeridian+1) / 2 + abs(centerQ) + abs(centerR));
 
     shells.emplace_back();
     shells.back().push_back(axial.indexAtAxial(centerQ, centerR)); // center px
@@ -541,6 +542,228 @@ public:
   }
   const char *description() {
     return "PridefulSpinnyThing";
+  }
+};
+
+/* ------------------------------------------------------------------------------- */
+
+class SoundPattern : public Pattern, public FFTReceiver {
+public:
+  unsigned long lastLevelThreshChange{0};
+  int minFFTLevelThreshold{3};
+  int fftLevelThreshold{minFFTLevelThreshold};
+  int autoGainAdjustmentInterval{300};
+
+  SoundPattern() : FFTReceiver(fftProcessing) {
+    // stop main loop from lowering framerate when we have nothing to draw, since that results in visibly-delayed response to sounds
+    fc.takeFPSAssertion(); 
+  }
+  ~SoundPattern() {
+    fc.releaseFPSAssertion();
+  }
+  void autoGainUpdate() {
+    unsigned long mils = millis();
+
+    int litCount{0};
+    for (int i = 0 ; i < LED_COUNT; ++i) {
+      litCount += ctx.leds[i] ? 1 : 0;
+    }
+    /* latch-ditch auto gain:
+     * slowly increase threshold for drawing if we've lit almost the whole panel
+     * less slowly decrease threshold to encourage more drawing when we're not drawing much
+     * quickly adjust at the start of pattern running to find a baseline
+    */
+   int adjustmentInterval = (runTime() > 3000 ? autoGainAdjustmentInterval : autoGainAdjustmentInterval/6);
+    if (litCount > 9*LED_COUNT/10 && mils - lastLevelThreshChange > adjustmentInterval) {
+      fftLevelThreshold++;
+      // logf("SoundPattern litCount = %i, fftLevelThreshold up to %i", litCount, fftLevelThreshold);
+      lastLevelThreshChange = mils;
+    } else if (fftLevelThreshold > minFFTLevelThreshold && litCount < 4*LED_COUNT/10 && mils - lastLevelThreshChange > adjustmentInterval/2) {
+      fftLevelThreshold--;
+      // logf("SoundPattern litCount = %i, fftLevelThreshold down to %i", litCount, fftLevelThreshold);
+      lastLevelThreshChange = mils;
+    }
+  }
+};
+
+class SoundDroplets : public SoundPattern, public PaletteRotation<CRGBPalette256> {
+  HexaShells shells;
+  CRGB cs[LED_COUNT] = {0}; // scratch space
+  unsigned long lastFlow = 0;
+  unsigned long lastLevelThreshChange;
+public:
+  int dropletSize;
+
+  SoundDroplets(int size) : dropletSize(size) {
+    minBrightness = 20;
+  }
+
+  void flowDroplets(int i, int i2) {
+    // This sub-pixel flow algorithm leaves a lot of r,g,&b residue pixels during fadedown
+    const int kFlow = 5;//%
+    const int kEff = 80;//%
+    const int minLoss = 1;
+
+    // calculate flows from og leds, set in scratch
+    CRGB led1 = ctx.leds[i];
+    CRGB led2 = ctx.leds[i2];
+    for (uint8_t sp = 0; sp < 3; ++sp) { // each subpixel
+      uint8_t *refSp = NULL;
+      uint8_t *srcSp = NULL;
+      uint8_t *dstSp = NULL;
+      if (led1[sp] < led2[sp]) {
+        refSp = &led2[sp];
+        srcSp = &cs[i2][sp];
+        dstSp = &cs[i][sp];
+      } else if (led1[sp] > led2[sp] ) {
+        refSp = &led1[sp];
+        srcSp = &cs[i][sp];
+        dstSp = &cs[i2][sp];
+      }
+      if (srcSp && dstSp) {
+        uint8_t flow = min(*srcSp, min(*refSp * kFlow/100, 0xFF - *dstSp));
+        *dstSp += flow * kEff/100;
+        *srcSp = max(0, *srcSp - max(minLoss, flow));
+      }
+    }
+  }
+
+  void makeDroplet(PixelIndex px, int size, uint8_t phase, uint8_t brightness, uint8_t gradientDropoff=0x7F) {
+    CRGB color = getPaletteColor(phase, brightness);
+    if (size > 0) {
+      ctx.leds[px] = color;
+    }
+    if (size > 1) {
+      HexaShells droplet(px, size);
+      for (int s = 1; s < size; ++s) {
+        brightness = scale8(brightness, gradientDropoff);
+        color = getPaletteColor(phase + 20*s, brightness);
+        for (int si = 0; si < droplet.shells[s].size(); ++si) {
+          auto d = droplet.shells[s][si];
+          if (d.has_value()) {
+            ctx.leds[d.value()] = color;
+          }
+        }
+      }
+    }
+  }
+
+  void update() {
+    unsigned long mils = millis();
+    FFTFrame frame = spectrumFrame();
+
+    for (int s = 0 ; s < min(frame.size, shells.shells.size()); ++s) {
+      int32_t level = frame.spectrum[s] - fftLevelThreshold;
+      if (level > 0) {
+        int shellNum = (s + millis()/1000 + random8()%2) % shells.shells.size();
+        int indexInShell = random16()%shells.shells[shellNum].size();
+        
+        paletteRotate(MotionManager::motionFrame.agmt.gyr.axes.z/1000);
+
+        auto pxOpt = shells.shells[shellNum][indexInShell];
+        if (!pxOpt.has_value()) continue;
+        PixelIndex px = pxOpt.value();
+        uint8_t phase = s*15+millis()/100;
+        uint8_t brightness = min(0xFF, level*20);
+        makeDroplet(px, dropletSize,phase, brightness);
+      }
+    }
+
+    int pixelsLit = 0;
+    const unsigned int flowInterval = 30;
+    if (mils - lastFlow > flowInterval) {
+      for (int i = 0; i < LED_COUNT; ++i) {
+        cs[i] = ctx.leds[i];
+      }
+      for (int i = 0; i < LED_COUNT; ++i) {
+        Axial ax = axial.axialFromPixelIndex(i);
+        std::optional<PixelIndex> other;
+        other = axial.indexAtAxial(ax + Axial(1,0));
+        if (other.has_value()) flowDroplets(i, other.value());
+        other = axial.indexAtAxial(ax + Axial(-1,1));
+        if (other.has_value()) flowDroplets(i, other.value());
+        other = axial.indexAtAxial(ax + Axial(0,1));
+        if (other.has_value()) flowDroplets(i, other.value());
+      }
+      for (int i = 0; i < LED_COUNT; ++i) {
+        ctx.leds[i] = cs[i];
+      }
+      lastFlow  = mils;
+    }
+    autoGainUpdate();
+  }
+  const char *description() {
+    return "SoundDroplets";
+  }
+};
+
+class SparkleDroplets : public SoundDroplets {
+public:
+  SparkleDroplets() : SoundDroplets(1) { }
+  const char *description() {
+    return "SparkleDroplets";
+  }
+};
+
+class BlobDroplets : public SoundDroplets {
+public:
+  BlobDroplets() : SoundDroplets(2) { }
+  const char *description() {
+    return "BlobDroplets";
+  }
+};
+
+class SoundBits : public SoundPattern, public PaletteRotation<CRGBPalette256> {
+  HexaShells shells;
+public:
+  ParticleSim<LED_COUNT> particles;
+
+  int bitLoudZoom = 70;
+
+  SoundBits() : particles(ledgraph, ctx, 0, 0, 1200, {clockwise, counterclockwise}) {
+    minBrightness = 20;
+    particles.setFadeUpDistance(1);
+    particles.handleUpdateParticle = [this](Particle &bit, uint8_t index) {
+      if (bit.age() > bit.lifespan/2) {
+        bit.brightness = min(0xFF, max(0, (int)(0xFF - 0xAF * (bit.age()-bit.lifespan/2) / (bit.lifespan-bit.lifespan/2))));
+      }
+      if (bit.speed > bitLoudZoom - bitLoudZoom * bit.age() / bit.lifespan) {
+        bit.speed--;
+      }
+    };
+  }
+
+  vector32 gyrAccum32;
+  
+  void update() {
+    unsigned long mils = millis();
+    
+    auto agmt = MotionManager::motionFrame.agmt;
+    gyrAccum32 += vector16(agmt.gyr.axes.x/100, agmt.gyr.axes.y/100, agmt.gyr.axes.z/100); // drop low order noisy data
+
+    FFTFrame frame = spectrumFrame();
+    for (int s = 0 ; s < min(frame.size, shells.shells.size()); ++s) {
+      int32_t level = frame.spectrum[s] - fftLevelThreshold;
+      if (level > 0 && particles.particles.size() < 255) {
+        int shellNum = (s + millis()/1000 + random8()%2 + gyrAccum32.z/200) % shells.shells.size();
+        int indexInShell = random16()%shells.shells[shellNum].size();
+        
+        unsigned maxlifespan = 300;
+        Particle &p = particles.addParticle();
+        p.px = shells.shells[shellNum][indexInShell].value();
+        p.lifespan = max(1, min(maxlifespan, maxlifespan * level/30));
+        uint8_t phase = s*15+millis()/100;
+        uint8_t brightness = min(0xFF, level*10);
+        p.color = getPaletteColor(phase, brightness);
+        p.speed = min(bitLoudZoom, 3*level);
+      }
+      autoGainUpdate();
+    }
+    particles.update();
+  }
+
+  const char *description() {
+    return "SoundBits";
   }
 };
 

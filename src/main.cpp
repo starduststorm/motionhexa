@@ -16,10 +16,6 @@ extern char *__brkval;
 
 #include "pinout.h"
 
-#if defined(PDM_BCLK)
-#include <PDM.h>
-#endif
-
 #define FASTLED_USE_PROGMEM 1
 #define FASTLED_USE_GLOBAL_BRIGHTNESS 1
 #define FASTLED_ALLOW_INTERRUPTS 0
@@ -51,6 +47,11 @@ SPSTButton *mainButton = NULL;
 FrameCounter fc;
 PatternManager patternManager(ctx);
 
+#include "audio.h"
+AudioInputPDM audioInput(PDM_DATA, PDM_CLK, (HARDWARE_VERSION >= 4));
+// TODO: fft numBins should be pattern-determined. how to rationalize this with a shared fft?
+FFTProcessing fftProcessing(audioInput, 10, 128);
+
 #include "patterns.h"
 
 IndexedPatternRunner *indexedRunner; // main pattern runner
@@ -68,14 +69,6 @@ void init_i2c() {
   Wire.setClock(400000);
   Wire.begin();
 }
-
-#if defined(PDM_BCLK)
-void init_pdm() {
-    PDM.setCLK(PDM_BCLK);
-    PDM.setDIN(PDM_DATA);
-    assert(1 == PDM.begin(1, 16384), "Failed to initialize PDM device");
-}
-#endif
 
 void init_serial() {
   Serial.begin(57600);
@@ -291,10 +284,6 @@ void setup() {
   FastLED.delay(10);
 #endif
 
-#if defined(PDM_BCLK)
-  init_pdm();
-#endif
-
   patternManager.registerPattern<MotionHexa>();
   patternManager.registerPattern<TriBounce>();
   patternManager.registerPattern<PixelDust>();
@@ -304,6 +293,9 @@ void setup() {
   patternManager.registerPattern<PulseHexa>();  
   patternManager.registerPattern<PridefulSpinnyThing>();
   patternManager.registerPattern<TriangleSpin>();
+  patternManager.registerPattern<SparkleDroplets>();
+  patternManager.registerPattern<BlobDroplets>();
+  patternManager.registerPattern<SoundBits>();
   
 #if HARDWARE_VERSION >= 3
   patternManager.registerPattern<ChargingPattern>(1);
@@ -365,6 +357,10 @@ void setup() {
 #endif
 
   patternManager.setup();
+
+  // stream audio forever, since stopping and starting PDM introduces a noticeable hitch during pattern switching.
+  // TODO: stop audio device when not in use by a pattern, but don't toggle twice between two audio patterns?
+  audioInput.subscribe();
 
   setupDoneTime = millis();
   logf("setup done");
@@ -441,6 +437,9 @@ void loop() {
   getAsyncData(&MotionManager::motionFrame, &batteryData);
   powerState.update(isVBUSPowered, batteryData);
 
+  // shared fft cache reset
+  fftProcessing.frameReset();
+
   indexedRunner->paused = !powerState.isRunning();
   controls.update();
   patternManager.loop();
@@ -453,7 +452,7 @@ void loop() {
     lastPixelsNeedPower = millis();
   }
   if (pixelsNeedPower != pixelsHavePower 
-    && (pixelsNeedPower || millis() - lastPixelsNeedPower > 500)) { // don't turn off papixelsNeedPower || millis() - lastPixelsNeedPowerel for very brief periods
+    && (pixelsNeedPower || millis() - lastPixelsNeedPower > (fc.hasFPSAssertion() ? 10000 : 500))) { // don't turn off panel for very brief periods
     logf("Turn %s pixels", pixelsNeedPower?"on":"off");
     pixelsHavePower = pixelsNeedPower;
     digitalWrite(LED_LINE_0_PWR_PIN, pixelsNeedPower);
@@ -499,6 +498,6 @@ void loop() {
 
   if (!pixelsNeedPower) {
     // FIXME: proper sleep
-    FastLED.delay(100);
+    fc.idleDelay(100);
   }
 }
