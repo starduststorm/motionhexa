@@ -225,7 +225,7 @@ public:
 
         // logf("Pitch: %0.3f, roll: %0.3f, yaw: %0.3f", pitch, roll, yaw);
       } else {
-        logdf("DMP_header_bitmap_Quat9 failed");
+        // logdf("DMP_header_bitmap_Quat9 failed");
       }
     } else if (icm.dataReady()){
       // logdf("icm data not ready");

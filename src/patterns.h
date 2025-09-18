@@ -116,14 +116,14 @@ public:
   vector32 smoothAcc;
 
   void update() {
-    int mult = 1000; // smooth everything with integer math
+    constexpr int mult = 1000; // smooth everything with integer math
     auto agmt = MotionManager::motionFrame.agmt;
     vector32 acc = vector32(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
     smoothAcc = (9 * smoothAcc + acc) / 10;
 
-    constexpr int kInverseRootThree = 1000*1/sqrt(3); // FIXME: save as integer?
+    constexpr int kInverseRootThree = mult*1/sqrt(3);
     Axial offcenter = center;
-    int q = offcenter.q() + smoothAcc.y + kInverseRootThree * smoothAcc.x / 1000;
+    int q = offcenter.q() + smoothAcc.y + kInverseRootThree * smoothAcc.x / mult;
     int r = offcenter.r() - smoothAcc.x;
     offcenter.setQR(q,r);
 
@@ -375,6 +375,57 @@ public:
   }
   const char *description() {
     return "RandomDust";
+  }
+};
+
+// Note: for this and any other "smooth motion" physics patterns, i could just do cartesian floating point physics on a single particle with walls and it'd probably be fine and even smoother.
+class LargeBouncyBall : public Pattern, PaletteRotation<CRGBPalette256> {
+  HexGrid<PixelIndex> insetHexGrid;
+public:
+  const int inset = 3;
+  PixelPhysics<LED_COUNT> physics;
+  LargeBouncyBall() : insetHexGrid(kMeridian), physics(insetHexGrid, 1, 0x07, 0xF0, 1) {
+    minBrightness = 15;
+    insetHexGrid.insetEdgeNodesBy(inset, axial);
+    physics.particles[0]->index = kHexaCenterIndex;
+  }
+
+  vector32 gyrAccum32;
+  virtual void update() {
+    ctx.leds.fill_solid(CRGB::Black);
+
+    const int gyrScale = (MotionManager::manager().enableDMP ? 200 : 2000); // coolcoolcool
+    auto agmt = MotionManager::motionFrame.agmt;
+    gyrAccum32 += vector16(agmt.gyr.axes.x, agmt.gyr.axes.y, agmt.gyr.axes.z);
+    vector16 gyrAccum = gyrAccum32 / gyrScale;
+
+    physics.update([](PixelIndex index) {
+      return accelerationAtPixelIndex(index, MotionManager::motionFrame.agmt);
+    });
+    int i = 0;
+    for (PixelPhysics<LED_COUNT>::Particle *p : physics.particles) {
+      Axial ballAx = axial.axialFromPixelIndex(p->index);
+
+      constexpr int kInverseRootThree = 1/sqrt(3);
+      fAxial offcenter = ballAx;
+      float q = offcenter.q() + p->pos.x/255./2;
+      float r = offcenter.r() - p->pos.y/255./2 - kInverseRootThree * p->pos.x/255./2;
+      offcenter.setQR(q,r);
+
+      for (PixelIndex px = 0; px < LED_COUNT; ++px) {
+        Axial ax = axial.axialFromPixelIndex(px);
+        
+        float distance = max(max(abs(offcenter.q() - ax.q()), abs(offcenter.r() - ax.r())), abs(offcenter.s() - ax.s()));
+        uint8_t brightness = constrain(0xFF - 0xFF * distance / (inset), 0, 0xFF);
+        CRGB c = CRGB::White;//this->getMirroredPaletteColor(millis()/100 + distance*15);
+        c = c.scale8(brightness);
+        ctx.leds[px] = c;
+      }
+    }
+  }
+
+  virtual const char *description() {
+    return "LargeBouncyBall";
   }
 };
 

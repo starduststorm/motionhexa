@@ -182,6 +182,8 @@ void buttonUpISR() {
 
 /* ------ Setup ------------------------------------------------------------------------------------------------------------ */
 
+
+
 void setup() {
   init_serial();
 
@@ -269,8 +271,9 @@ void setup() {
   patternManager.registerPattern<PulseHexa>();  
   patternManager.registerPattern<LineTest>();
   patternManager.registerPattern<TriangleSpin>();
+  patternManager.registerPattern<LargeBouncyBall>();
   
-  // patternManager.setTestRunner<TriangleSpin>();
+  // patternManager.setTestRunner<LargeBouncyBall>();
   
 #if HARDWARE_VERSION >= 3
   patternManager.registerPattern<ChargingPattern>(1);

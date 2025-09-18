@@ -94,10 +94,11 @@ vector16 accelerationAtPixelIndex(PixelIndex index, ICM_20948_AGMT_t &agmt) {
   // logf("  => (%i, %i)", vec.x, vec.y);
   return vec;
 }
-
+struct fAxial;
 struct Axial : vector16 {
   Axial() : vector16(0,0,0) {}
   Axial(int16_t q, int16_t r) : vector16(q,r,-q-r) {}
+  Axial(fAxial fax);
   int16_t q() { return x; };
   int16_t r() { return y; };
   int16_t s() { return z; };
@@ -139,6 +140,8 @@ struct fAxial : vectorT<float> {
     return Axial(qi, ri);
   }
 };
+
+Axial::Axial(fAxial fax) : Axial((int16_t)fax.q(), (int16_t)fax.r()) {}
 
 class AxialAccess {
   int meridian;
@@ -197,6 +200,9 @@ public:
     }
     int rectIndex = index(q,r);
     return rectToPixelMap[rectIndex];
+  }
+  std::optional<PixelIndex> indexAtAxial(Axial ax) {
+    return indexAtAxial(ax.q(), ax.r());
   }
   vectorT<PixelIndex> hexToRect(fAxial ax, float size = kMeridian) {
     float x = 3./2 * ax.q();
@@ -371,5 +377,47 @@ void hexline(PixelStorage<LED_COUNT> &ctx, fAxial p0, fAxial p1, CRGB color) {
   });
 }
 
+// insetEdgeNodesBy is here due to dedependency cycle. Axial should have been the base and hexgrid should have been based on that.
+// inset the given hexgrid by inset, maintaining pixel index correctness
+template<typename T>
+void HexGrid<T>::insetEdgeNodesBy(unsigned inset, AxialAccess &axial) {
+  assert(inset < meridian/2, "inset too large");
+  Axial centerAxial = axial.axialFromPixelIndex(kHexaCenterIndex);
+  for (int i = 0; i < nodes.size(); ++i) {
+    HexNode *oldNode = nodes[i];
+    if (oldNode->isDataNode()) {
+      Axial ax = axial.axialFromPixelIndex(i);
+      if (ax.q() == 0 && ax.r() == 0) { continue; }
+      int distance = max(max(abs(centerAxial.q() - ax.q()), abs(centerAxial.r() - ax.r())), abs(centerAxial.s() - ax.s()));
+      if (distance == meridian/2-inset+1) {
+        // found the ring where the new edges will go
+        // we'll traverse outward until we find the appropriate edge node to copy
+        HexNode *edgeNode = NULL;
+        Axial unitDirection(sgn(ax.q()), sgn(ax.r()));
+        // neighbor ordering is 0:ul, 1:ur, 2:r, 3:dr, 4:dl, 5:l
+        // this is grody
+        const int neighborDirections[][3] = {{0/*ul*/, 5/*l*/, 4/*dl*/}, {0/*ul*/, -1, 3/*dr*/}, {1/*ur*/, 2/*r*/, 3/*dr*/}};
+        int nd = neighborDirections[unitDirection.q()+1][unitDirection.r()+1];
+        HexNode *nextNode = oldNode;
+        while (edgeNode == NULL) {
+          nextNode = nextNode->neighbors[nd];
+          if (nextNode->isEdgeNode()) {
+            edgeNode = nextNode;
+          }
+        }
+        // we should now have the appropriate edge node to put in place
+        nodes[i] = new HexNode(*edgeNode);
+        for (int n = 0; n < 6; ++n) {
+          HexNode *neighborNode = oldNode->neighbors[n];
+          if (neighborNode->isDataNode()) {
+            neighborNode->neighbors[(n+3)%6] = edgeNode;
+          }
+        }
+        delete oldNode;
+      }
+    }
+  }
+  meridian -= inset*2;
+}
 
 #endif

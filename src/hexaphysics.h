@@ -16,7 +16,13 @@ using namespace std;
 #define plogf(format, ...)
 #endif
 
+// TODO: tbh this should have just used cube coordinates instead of the connections web with hex nodes - would have been simpler to construct, use, copy, inset, etc.
+// it would have also been better to use cube coordinates for the inner space hexa. might simplify the dual hexa space we have, idk.
+
+// FIXME: replace this with larger width accumulators?
 static const unsigned int kMotionDamper = 3; // dampen motion by right shifting position and velocity updates
+
+class AxialAccess;
 
 typedef uint16_t PixelIndex;
 
@@ -185,8 +191,8 @@ public:
       initNeighbors();
     }
     HexNode(const HexGrid<T>::HexNode& oth) {
-      _value = oth.value;
-      _edgeLine = oth.edgeLine;
+      _value = oth._value;
+      _edgeLine = oth._edgeLine;
       for (int j = 0; j < 6; ++j) {
         neighbors[j] = oth.neighbors[j];
       }
@@ -235,7 +241,7 @@ public:
     bool operator==(const HexNode & oth) const { return _value == oth._value && _edgeLine == oth._edgeLine; }
   };
 private:
-  const T meridian;
+  T meridian;
   T _valueCount, _totalCount;
   const float spacing;
   
@@ -244,11 +250,11 @@ private:
     positions[index] = pt;
   }
 
-  void initConnections(const T kMeridian) {
-    assert(kMeridian%2 == 1, "Meridian must be an odd number");
-    const T kSidelen = (kMeridian+1) >> 1;
-    _valueCount = kMeridian + (kMeridian-kSidelen) * (kSidelen + kMeridian-1); // meridian + 2*(sum of rows from meridian to side)
-    const T kMeridianWithEdges = kMeridian+2;
+  void initConnections(const T meridian) {
+  assert(meridian%2 == 1, "Meridian must be an odd number");
+  const T kSidelen = (meridian+1) >> 1;
+    _valueCount = meridian + (meridian-kSidelen) * (kSidelen + meridian-1); // meridian + 2*(sum of rows from meridian to side)
+    const T kMeridianWithEdges = meridian+2;
     const T kSidelenWithEdges = (kMeridianWithEdges+1) >> 1;
     _totalCount = kMeridianWithEdges + (kMeridianWithEdges-kSidelenWithEdges) * (kSidelenWithEdges + kMeridianWithEdges-1); // meridian + 2*(sum of rows from meridian to side)
 
@@ -265,16 +271,16 @@ private:
     }
 
     int row = 0;
-    int rowCounts[kMeridian] = {0};
-    for (int r = 0; r<kMeridian; ++r) {
-      rowCounts[r] = kSidelen + (r<kMeridian/2 ? r : kMeridian-r-1);
+    int rowCounts[meridian] = {0};
+    for (int r = 0; r<meridian; ++r) {
+      rowCounts[r] = kSidelen + (r<meridian/2 ? r : meridian-r-1);
     }
-    int rowStarts[kMeridian] = {0};
-    for (int r = 0; r<kMeridian; ++r) {
+    int rowStarts[meridian] = {0};
+    for (int r = 0; r<meridian; ++r) {
       rowStarts[r] = (r>0 ? rowStarts[r-1] + rowCounts[r-1] : 0);
     }
     for (int i = 0; i < _valueCount; ++i) {
-      if (row+1 < kMeridian && i >= rowStarts[row+1]) {
+      if (row+1 < meridian && i >= rowStarts[row+1]) {
         row++;
       }
       bool topSide = rowCounts[row] < rowCounts[row+1];
@@ -304,7 +310,7 @@ private:
           nodes[i+1]->named.l = nodes[i];
         }
       }
-      if (row+1 < kMeridian) {
+      if (row+1 < meridian) {
         int indexInRow = i - rowStarts[row];
         bool pastNearHexSide = i > rowStarts[row];
         bool beforeFarHexSide = i < rowStarts[row] + rowCounts[row]-1;
@@ -443,6 +449,7 @@ public:
   HexNode *operator[](uint16_t index) const {
     return nodes[index];
   }
+  void insetEdgeNodesBy(unsigned inset, AxialAccess &axial);
 };
 
 template<unsigned int SIZE>
