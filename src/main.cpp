@@ -447,6 +447,7 @@ void loop() {
 #endif
   ctx.leds[1] = powerState.isRunning() ? CRGB::Green : CRGB::Black;
   ctx.leds[2] = powerState.isCharging() ? CRGB::Blue : CRGB::Black;
+  ctx.leds[4] = powerState.batteryInitialized ? CRGB::Yellow : CRGB::Black;
   
   digitalWrite(LED_LINE_0_PWR_PIN, true);
 #endif
