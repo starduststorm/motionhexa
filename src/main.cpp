@@ -146,9 +146,16 @@ void core1_main() {
   // Motion data reads take upwards of 4.5ms so we're doing them on core1
   init_i2c();
 
-  initializeBattery();
-
   MotionManager::manager().init();
+
+  bool batterySucess = false;
+#if HARDWARE_VERSION >= 4
+  batterySucess = initializeBattery();
+  powerState.batteryInitialized = batterySucess; // should be fine to write this bool from core1?
+  logdf("initializeBattery = %i", batterySucess);
+  digitalWrite(DISABLE_CHARGE_PIN, false);
+#endif
+
   static unsigned long lastBatteryPoll = 0;
   while (1) {
     while (!_gCore1DataGetNext) {
@@ -161,8 +168,10 @@ void core1_main() {
     bool batteryDateUpdated = false;
 #if HARDWARE_VERSION > 2
     if (lastBatteryPoll == 0 || millis() - lastBatteryPoll > 3000) {
-      bd = getBatteryData();
-      bd.print();
+      if (batterySucess) {
+        bd = getBatteryData();
+        bd.print();
+      }
       batteryDateUpdated = true;
       lastBatteryPoll = millis();
     }
@@ -213,6 +222,11 @@ void setup() {
     logf("Wake up, Neo");
     buttonWake = false;
   }
+
+  // disable lipo charging so we can figure out if there is a battery
+  pinMode(DISABLE_CHARGE_PIN, OUTPUT);
+  digitalWrite(DISABLE_CHARGE_PIN, true);
+
 #endif
 
   mutex_init(&core1DataLock);
@@ -238,19 +252,16 @@ void setup() {
   pinMode(GPOUT_PIN, INPUT_PULLUP);
 #endif
 #if HARDWARE_VERSION >= 4
-  pinMode(DISABLE_CHARGE_PIN, OUTPUT);
   pinMode(EN_BOOST_PIN, OUTPUT);
   
   // if we booted this far, maintain our own power.
   gpio_set_function(EN_LDO_PIN, GPIO_FUNC_SIO);
-  gpio_set_pulls(EN_LDO_PIN, true, false); // pull up
-  gpio_set_drive_strength(EN_LDO_PIN, GPIO_DRIVE_STRENGTH_4MA);
   gpio_set_dir(EN_LDO_PIN, true);
   gpio_put(EN_LDO_PIN, true);
 
   int batteryVoltageRead = analogRead(BATTERY_VOLTAGE_PIN);
 #else // HARDWARE_VERSION < 4
-  runState.setRunning(true);
+  powerState.setRunning(true);
 #endif
 
   FastLED.addLeds<SK9822HD, LED_SPI0_TX, LED_SPI0_SCK, BGR, DATA_RATE_MHZ(16)>(ctx.leds, LED_COUNT);//.setCorrection(0xFFB0C0);
@@ -377,9 +388,10 @@ void loop() {
     return;
   }
 
+  bool isVBUSPowered = false;
 #if HARDWARE_VERSION > 2
   bool isButtonPressed = (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE);
-  bool isVBUSPowered = digitalRead(VBUS_SENSOR_PIN);
+  isVBUSPowered = digitalRead(VBUS_SENSOR_PIN);
 #endif
 #if HARDWARE_VERSION >= 4
   static bool didButtonBoot = false;
@@ -430,7 +442,8 @@ void loop() {
   
 #if DEBUG
 #if HARDWARE_VERSION > 2
-  ctx.leds[0] = digitalRead(VBUS_SENSOR_PIN) ? CRGB::Red : CRGB::Black;
+  ctx.leds[0] = isVBUSPowered ? CRGB::Red : CRGB::Black;
+  ctx.leds[3] = isButtonPressed ? CRGB::Magenta : CRGB::Black;
 #endif
   ctx.leds[1] = powerState.isRunning() ? CRGB::Green : CRGB::Black;
   ctx.leds[2] = powerState.isCharging() ? CRGB::Blue : CRGB::Black;

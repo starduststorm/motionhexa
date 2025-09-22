@@ -6,7 +6,9 @@
 
 #include "pinout.h"
 
+#if HARDWARE_VERSION >= 3
 #include <BQ27427.h>
+#endif
 struct BatteryData {
   uint16_t stateOfCharge;   // %
   uint16_t stateOfHealth;   // %
@@ -48,6 +50,7 @@ class PowerManager {
   }
 public:
   const int kFullCharge = 98; // %
+  bool batteryInitialized = false;
   
   // "running" means logical on-state, drawing design patterns, rather than drawing charging ui or powered on but not drawing.
   bool isRunning() {
@@ -70,7 +73,7 @@ public:
     return lastFullChargeChange;
   }
   void update(bool vbusPowered, BatteryData &batteryData) {
-    setCharging(vbusPowered && batteryData.batteryDetected());
+    setCharging(vbusPowered && batteryInitialized && batteryData.batteryDetected());
 
     if (batteryData.stateOfCharge >= kFullCharge && knownChargePercent < kFullCharge) {
       logdf("Reached Full Charge!");
@@ -82,22 +85,28 @@ public:
   }
 };
 
-void initializeBattery() {
+bool initializeBattery() {
+  bool success = false;
 #if HARDWARE_VERSION > 2
-  // logf("device type = %i", lipo.deviceType());
-  // NOTE: I am seeing my BQ27427 say lipo.deviceType is 0x427, though this library expects 0x0421..?
-  lipo.enterConfig(true);
-  lipo.setCapacity(BATTERY_CAPACITY);
-  lipo.setChemID(CHEM_B);
-  lipo.exitConfig(true);
+  // BQ27427 => 0x427
+  // BQ27421 => 0x421
+  logdf("coulomb counter deviceType = %X", lipo.deviceType());
+
+  success = lipo.enterConfig(true);
+  success &= lipo.setCapacity(BATTERY_CAPACITY);
+  delay(5); // Hack: I don't know why a delay is required here but exitConfig fails without this
+  // success &= lipo.setChemID(CHEM_B); // failing here, but hexa v5 has the bq27421YZFR-G1A which defaults to 4.2v lipo chemistry so we're good
+  success &= lipo.exitConfig(true);
+  
 #endif
+  return success;
 }
 
 BatteryData getBatteryData()
 {
   assert(1 == get_core_num(), "getBatteryData not on core1");
   BatteryData data={0};
-#if HARDWARE_VERSION > 2
+#if HARDWARE_VERSION >= 3
   // TODO: fetch only the data items we'll actually use, for perf
   data.stateOfCharge = lipo.soc(FILTERED);
   data.stateOfHealth = lipo.soh(PERCENT);
@@ -175,12 +184,8 @@ uint8_t chargingPatternCheck(PatternRunner &runner, PowerManager &runState) {
 
 #if HARDWARE_VERSION >= 4
 void powerOff() {
-  // FIXME: will confirm all this on v5
-  // gpio_set_pulls(EN_LDO_PIN, false, false); // stop pulling up // FIXME: needed?
-  // FIXME: there seems to be behavior difference between gpio_put here and digitalWrite?
   gpio_put(EN_LDO_PIN, false);
-  // digitalWrite(EN_LDO_PIN, false);
-  // should power off here, but delay a little since sometimes we bounce back on
+  // should power off here, but delay here rather than forever loop, since sometimes we don't.
   delay(500);
 }
 #endif
