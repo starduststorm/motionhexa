@@ -420,17 +420,6 @@ public:
   vector<HexNode *> nodes;
   vector<UMPoint> positions;
 
-  vector<HexNode *> valueNodes() {
-    auto values = vector<HexNode *>(nodes.begin(), nodes.begin()+_valueCount);
-    assert(values.size() == valueCount(), "value count mismatch");
-    return values;
-  }
-  vector<HexNode *> edgeNodes() {
-    auto edges = vector<HexNode *>(nodes.begin()+_valueCount, nodes.end());
-    assert(edges.size() == edgeCount(), "edge count mismatch");
-    return edges;
-  }
-
   T valueCount() {
     return _valueCount;
   }
@@ -449,7 +438,7 @@ public:
   HexNode *operator[](uint16_t index) const {
     return nodes[index];
   }
-  void insetEdgeNodesBy(unsigned inset, AxialAccess &axial);
+  void insetEdgeNodesBy(unsigned inset, AxialAccess &axial); // implemented in ledgraph.h yayyy
 };
 
 template<unsigned int SIZE>

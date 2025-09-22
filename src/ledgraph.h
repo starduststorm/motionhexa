@@ -410,7 +410,7 @@ void HexGrid<T>::insetEdgeNodesBy(unsigned inset, AxialAccess &axial) {
         for (int n = 0; n < 6; ++n) {
           HexNode *neighborNode = oldNode->neighbors[n];
           if (neighborNode->isDataNode()) {
-            neighborNode->neighbors[(n+3)%6] = edgeNode;
+            neighborNode->neighbors[(n+3)%6] = nodes[i];
           }
         }
         delete oldNode;
