@@ -40,6 +40,7 @@ PowerManager powerState;
 
 #include "MotionManager.h"
 
+#define MEASURE_PHOTO_SENSOR_BASELINE false
 PhotoSensorBrightness *autoBrightness;
 
 DrawingContext ctx;
@@ -187,7 +188,7 @@ void buttonUpISR() {
 void setup() {
   init_serial();
 
-#if !DEBUG
+#if !DEBUG && !MEASURE_PHOTO_SENSOR_BASELINE
   // watchdog barks if we hang or hardfault
   watchdog_enable(8388 /* max value is 0xffffffu decremented twice per microsecond, roughly 8.3s */, true);
 #endif
@@ -215,7 +216,9 @@ void setup() {
 #endif
 
   mutex_init(&core1DataLock);
+#if !MEASURE_PHOTO_SENSOR_BASELINE
   multicore_launch_core1(core1_main);
+#endif
 
   pinMode(UNCONNECTED_PIN_1, INPUT);
   auto noise = lsb_noise(UNCONNECTED_PIN_1, 8 * sizeof(uint32_t));
@@ -231,6 +234,7 @@ void setup() {
 #endif
   pinMode(CHRG_PIN, INPUT);
   pinMode(VBUS_SENSOR_PIN, INPUT_PULLDOWN);
+  
   pinMode(GPOUT_PIN, INPUT_PULLUP);
 #endif
 #if HARDWARE_VERSION >= 4
@@ -337,11 +341,24 @@ void setup() {
   initLEDGraph();
   assert(ledgraph.adjList.size() == LED_COUNT, "adjlist size should match LED_COUNT");
 
-  patternManager.setup();
-
   autoBrightness = new PhotoSensorBrightness(PHOTOSENSOR_READ_PIN, PHOTOSENSOR_POWER_PIN);
   autoBrightness->maxBrightness = 0x10; // needs to be lowish on usb bc v2 lipo charger cuts out at 1A draw
   autoBrightness->logChanges = true;
+
+    int photosensorNearbyPixels[] = {
+      10,9,32, // adjacent
+      8,33,11,31,34, // next arc
+      7,12,30,35, /**/ 57,58,59, // only relevant up to px 35 at brightness 0x15
+      60,61,62,63,64,56,36,29,13,6, // higher than 0x15
+      // 90,89,88,87,86,85,65,54,38,27,15,4, // next arc only relevant at even higher brightness
+      // beyond this there is little to no impact even at 0xFF brightness with a front case on
+    };
+
+#if MEASURE_PHOTO_SENSOR_BASELINE
+  autoBrightness->measureBaseline(ctx.leds, 0x15, photosensorNearbyPixels, ARRAY_SIZE(photosensorNearbyPixels));
+#endif
+
+  patternManager.setup();
 
   setupDoneTime = millis();
   logf("setup done");
