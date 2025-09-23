@@ -204,8 +204,6 @@ void stopHexa() {
 
 void startupCompleted() {
   logf("Startup completed");
-  mainButton->seenFirstButtonUp = false; // in case button is still down, don't change patterns on this next button up
-  mainButton->pauseEvents = false;
   powerState.setRunning(true);
   indexedRunner->runPatternAtIndex(0);
 }
@@ -401,9 +399,11 @@ void loop() {
       PowerOnOffAnimation *pattern = (PowerOnOffAnimation *)powerOnOffRunner->pattern;
       assert(pattern, "PowerOnOffAnimation exists but no pattern?");
       if (pattern) {
-        if (!isButtonPressed && pattern->animatingPowerOn && pattern->progress() > 0.9) {
-          // call it good if power-on animation makes it past 90% when button is released
+        if (!isButtonPressed && pattern->animatingPowerOn && pattern->progress() > 0.6) {
+          // call it good if power-on animation is almost finished when button is released
           startupCompleted();
+          // all the first pattern to animate in even before we're done
+          powerOnOffRunner->dimAmount = 0;
         } else {
           // set animation direction
           pattern->setPoweringOn(isButtonPressed);
@@ -425,6 +425,10 @@ void loop() {
           }
         }
         powerOnOffRunner.reset();
+        // in case button is still down, don't change patterns on this next button up
+        mainButton->seenFirstButtonUp = false;
+        // and only unpause events now that the animation is complete, since we may have stopped the animation early
+        mainButton->pauseEvents = false;
       });
     }
   }
