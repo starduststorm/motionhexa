@@ -42,6 +42,7 @@ PowerManager powerState;
 
 #define MEASURE_PHOTO_SENSOR_BASELINE false
 PhotoSensorBrightness *autoBrightness;
+const uint8_t kDefaultBrightness = 15;
 
 DrawingContext ctx;
 HardwareControls controls;
@@ -353,17 +354,8 @@ void setup() {
   assert(ledgraph.adjList.size() == LED_COUNT, "adjlist size should match LED_COUNT");
 
   autoBrightness = new PhotoSensorBrightness(PHOTOSENSOR_READ_PIN, PHOTOSENSOR_POWER_PIN);
-  autoBrightness->maxBrightness = 0x10; // needs to be lowish on usb bc v2 lipo charger cuts out at 1A draw
+  autoBrightness->maxBrightness = 20; // needs to be lowish or we will overheat
   autoBrightness->logChanges = true;
-
-    int photosensorNearbyPixels[] = {
-      10,9,32, // adjacent
-      8,33,11,31,34, // next arc
-      7,12,30,35, /**/ 57,58,59, // only relevant up to px 35 at brightness 0x15
-      60,61,62,63,64,56,36,29,13,6, // higher than 0x15
-      // 90,89,88,87,86,85,65,54,38,27,15,4, // next arc only relevant at even higher brightness
-      // beyond this there is little to no impact even at 0xFF brightness with a front case on
-    };
 
 #if MEASURE_PHOTO_SENSOR_BASELINE
   autoBrightness->measureBaseline(ctx.leds, 0x15, photosensorNearbyPixels, ARRAY_SIZE(photosensorNearbyPixels));
@@ -402,7 +394,7 @@ void loop() {
         if (!isButtonPressed && pattern->animatingPowerOn && pattern->progress() > 0.6) {
           // call it good if power-on animation is almost finished when button is released
           startupCompleted();
-          // all the first pattern to animate in even before we're done
+          // allow the first pattern to animate in even before we're done
           powerOnOffRunner->dimAmount = 0;
         } else {
           // set animation direction
@@ -447,10 +439,6 @@ void loop() {
   indexedRunner->paused = !powerState.isRunning();
   controls.update();
   patternManager.loop();
-
-  // FIXME: we might need to opportunistically grab photo reads when nearby pixels are off, otherwise they are too bright
-  FastLED.setBrightness(15);
-  // autoBrightness->loop();
  
 #if HARDWARE_VERSION > 1
   static bool pixelsHavePower = false;
@@ -477,6 +465,23 @@ void loop() {
   ctx.leds[4] = powerState.batteryInitialized ? CRGB::Yellow : CRGB::Black;
   
   digitalWrite(LED_LINE_0_PWR_PIN, true);
+#endif
+
+#if AUTO_BRIGHTNESS
+  // opportunistically grab photo reads when nearby pixels are off, otherwise they are too bright and impact the sensor
+  // TODO: the effect of this is not great. it would be better to properly calibrate the brightness sensor with my baseline nearby pixel readings so we can adjust it constantly.
+  int nearbyBrightness = 0;
+  for (int i = 0; i < ARRAY_SIZE(photosensorNearbyPixels); ++i) {
+    int b = ctx.leds[i].r + 2*ctx.leds[i].g + 4 * ctx.leds[i].b;
+    if (b > nearbyBrightness) {
+      nearbyBrightness = b;
+    }
+  }
+  if (nearbyBrightness < 10) {
+    autoBrightness->loop();
+  }
+#else
+  FastLED.setBrightness(kDefaultBrightness);
 #endif
 
   if (pixelsNeedPower) {

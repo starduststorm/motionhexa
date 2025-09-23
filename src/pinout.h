@@ -1,6 +1,17 @@
+#ifndef PINOUT_H
+#define PINOUT_H
 
 #define SDA 8
 #define SCL 9
+
+int photosensorNearbyPixels[] = {
+  10,9,32, // adjacent
+  8,33,11,31,34, // next arc
+  7,12,30,35, /**/ 57,58,59, // only relevant up to px 35 at brightness 0x15
+  60,61,62,63,64,56,36,29,13,6, // higher than 0x15
+  // 90,89,88,87,86,85,65,54,38,27,15,4, // next arc only relevant at even higher brightness
+  // beyond this there is little to no impact even at 0xFF brightness with a front case on
+};
 
 #if HARDWARE_VERSION == 5
 
@@ -131,3 +142,5 @@
 #define BUTTON_PRESSED_STATE LOW
 
 #endif // pinout.
+
+#endif
