@@ -45,6 +45,7 @@ PhotoSensorBrightness *autoBrightness;
 
 DrawingContext ctx;
 HardwareControls controls;
+SPSTButton *mainButton = NULL;
 
 FrameCounter fc;
 PatternManager patternManager(ctx);
@@ -52,6 +53,7 @@ PatternManager patternManager(ctx);
 #include "patterns.h"
 
 IndexedPatternRunner *indexedRunner; // main pattern runner
+std::shared_ptr<PatternRunner> powerOnOffRunner;
 
 static bool serialTimeout = false;
 static unsigned long setupDoneTime;
@@ -190,9 +192,25 @@ void buttonUpISR() {
   buttonWake = true;
 }
 
+void stopHexa() {
+  indexedRunner->stop();
+  bool usbPower = digitalRead(VBUS_SENSOR_PIN);
+  if (usbPower) {
+    powerState.setRunning(false);
+  } else {
+    powerOff();
+  }
+}
+
+void startupCompleted() {
+  logf("Startup completed");
+  mainButton->seenFirstButtonUp = false; // in case button is still down, don't change patterns on this next button up
+  mainButton->pauseEvents = false;
+  powerState.setRunning(true);
+  indexedRunner->runPatternAtIndex(0);
+}
+
 /* ------ Setup ------------------------------------------------------------------------------------------------------------ */
-
-
 
 void setup() {
   init_serial();
@@ -294,57 +312,41 @@ void setup() {
   patternManager.registerPattern<ChargingPattern>(1);
   patternManager.setupConditionalRunner<ChargingPattern>([](PatternRunner &runner) -> uint8_t {
     return chargingPatternCheck(runner, powerState);
-  }, 0xFF, 0xFF);
+  }, 0xFD, 0xFF);
 #endif
   
   indexedRunner = patternManager.setupIndexedRunner(0);
   
-  SPSTButton *button = controls.addButton(BUTTON_0, BUTTON_PRESSED_STATE);
-  button->ignoreEventsUntilFirstButtonUp = true;
-  button->onSinglePress([]() {
+  mainButton = controls.addButton(BUTTON_0, BUTTON_PRESSED_STATE);
+  mainButton->ignoreEventsUntilFirstButtonUp = true;
+  mainButton->onSinglePress([]() {
     if (powerState.isRunning()) {
       indexedRunner->nextPattern();
     }
   });
-  button->onDoublePress([]() {
+  mainButton->onDoublePress([]() {
     if (powerState.isRunning()) {
       indexedRunner->previousPattern();
     }
   });
 #if HARDWARE_VERSION >= 4
-  button->longPressInterval = 1000;
-  button->onLongPress([]() {
+  mainButton->longPressInterval = 1000;
+  mainButton->onLongPress([]() {
     logf("Long press! isHexaRunning = %i", powerState.isRunning());
     if (powerState.isRunning()) {
       bool usbPower = digitalRead(VBUS_SENSOR_PIN);
-      if (!usbPower) {
-        // power down
-        if (patternManager.hasTestRunner()) {
-          // special case test runner since the power off animation will not run
-          powerOff();
-        } else {
-          patternManager.runOneShotPattern<PowerOffAnimation>(0xFF, 0xFF, [](PatternRunner&) {
-            indexedRunner->stop();
-            bool usbPower = digitalRead(VBUS_SENSOR_PIN);
-            if (usbPower) {
-              powerState.setRunning(false);
-              indexedRunner->stop();
-            } else {
-              powerOff();
-              while (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE) {
-                // handle the button being left pressed after power off
-                delay(50);
-              }
-            }
-          });
-        }
-      } else { // usb power, so just stop the main runner
-        powerState.setRunning(false);
-        indexedRunner->stop();
+      // turn off
+      if (patternManager.hasTestRunner()) {
+        // special case test runner since the power off animation will not run
+        powerOff();
+      } else {
+        powerOnOffRunner = patternManager.runOneShotPattern([](PatternRunner&) {
+          return new PowerOnOffAnimation(false);
+        }, 0xFF, 0xFF, [](PatternRunner&) {
+          stopHexa();
+          powerOnOffRunner.reset();
+        });
       }
-    } else { // turn on
-      powerState.setRunning(true);
-      indexedRunner->runPatternAtIndex(0);
     }
   });
 #endif
@@ -394,20 +396,41 @@ void loop() {
   isVBUSPowered = digitalRead(VBUS_SENSOR_PIN);
 #endif
 #if HARDWARE_VERSION >= 4
-  static bool didButtonBoot = false;
-  if (!didButtonBoot && millis() > kBootDelay) {
-    didButtonBoot = true;
-    powerState.setRunning(isButtonPressed && !isVBUSPowered); // draw patterns if we weren't powered up by usb
-    if (!isButtonPressed && !isVBUSPowered) {
-      // powered on via button, released prior to threshold
-      logf("Startup interrupted. Powering off...");
-      powerOff();
-      return;
+  if (!powerState.isRunning()) {
+    if (powerOnOffRunner) {
+      PowerOnOffAnimation *pattern = (PowerOnOffAnimation *)powerOnOffRunner->pattern;
+      assert(pattern, "PowerOnOffAnimation exists but no pattern?");
+      if (pattern) {
+        if (!isButtonPressed && pattern->animatingPowerOn && pattern->progress() > 0.9) {
+          // call it good if power-on animation makes it past 90% when button is released
+          startupCompleted();
+        } else {
+          // set animation direction
+          pattern->setPoweringOn(isButtonPressed);
+        }
+      }
+    } else if (isButtonPressed && !patternManager.hasTestRunner()) {
+      // we need to pause button events here since we don't know how many times it will be pressed and released before the animation is done
+      mainButton->pauseEvents = true;
+      powerOnOffRunner = patternManager.runOneShotPattern([](PatternRunner&) {
+        return new PowerOnOffAnimation(true);
+      }, 0xFF, 0xFF, [](PatternRunner&) {
+        if (!powerState.isRunning()) { // we might have called it good early
+          bool isButtonPressed = (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE);
+          if (isButtonPressed) {
+            startupCompleted();
+          } else {
+            logf("Startup aborted. Powering off...");
+            stopHexa();
+          }
+        }
+        powerOnOffRunner.reset();
+      });
     }
   }
 
-  if (!isButtonPressed && !isVBUSPowered && !powerState.isRunning()) {
-    // likely unplugged USB while not drawing patterns
+  if (!isButtonPressed && !isVBUSPowered && !powerState.isRunning() && !powerOnOffRunner) {
+    // unplugged USB while not drawing patterns or released button early during power on
     logf("No USB, no button, and no intent to run. Powering off...");
     powerOff();
     return;

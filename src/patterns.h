@@ -544,36 +544,67 @@ public:
   }
 };
 
-class PowerOffAnimation : public Pattern {
+class PowerOnOffAnimation : public Pattern {
+  const int maxPosition = kMeridian/2;
+  float position; // distance from origin 
 public:
+  bool animatingPowerOn = true;
+  PowerOnOffAnimation(bool poweringOn) : animatingPowerOn(poweringOn), position(poweringOn?0:maxPosition) {
+    setPoweringOn(poweringOn);
+  }
+
+  void setPoweringOn(bool poweringOn) {
+    animatingPowerOn = poweringOn;
+  }
+
+  float progress() {
+    return (animatingPowerOn ? position / maxPosition : (maxPosition - position) / maxPosition);
+  }
+
   void update() {
-    // FIXME: animation is basic - improve
-    const int collapseTime = 600;
-    const int dotTime = 600;
+    uint8_t centerPixelRed = ctx.leds[LED_COUNT/2].red;
     ctx.leds.fill_solid(CRGB::Black);
-    if (runTime() < collapseTime) {
-      auto centerNode = hexGrid.nodes[LED_COUNT/2];
-      
-      float brightspot = kMeridian/2 - kMeridian/2 * runTime() / (float)collapseTime;
-      for (int i = 0; i < 6; ++i) {
-        int distance = 1;
-        HexGrid<PixelIndex>::HexNode *node = centerNode->neighbors[i];
-        do {
-          ctx.leds[node->data()] = CHSV(0, 0xFF, 0xFF - 0xFF * abs(distance-brightspot)/5);
-          node = node->neighbors[i];
-          distance++;
-        } while (node->isDataNode());
+    
+    const int duration = 1000;
+
+    position += (animatingPowerOn ? 1 : -1) * (int)frameTime() * maxPosition / (float)duration;
+    if (position < 0) {
+      const int powerOffDonePos = -5;
+      if (position < powerOffDonePos) {
+        stop();
+      } else {
+        // final dot
+        ctx.leds[LED_COUNT/2] = CHSV(0, 0xFF, 0xFF - 0xFF*(position/powerOffDonePos));
       }
-    } else if (runTime() < collapseTime + dotTime) {
-      ctx.leds[LED_COUNT/2] = CHSV(0, 0xFF, 0xFF - 0xFF*(runTime()-collapseTime)/dotTime);
-    } else {
+    } else if (position > maxPosition) {
       stop();
+    } else {
+      const int waveSize = 5;
+      const float expand = 1.8; // factor to expand the animation from the logical position
+      float animationPosition = position * expand - maxPosition*(expand-1)/2;
+      for (int q = 0; q <= maxPosition; ++q) {
+        float distance = fabs(q - animationPosition);
+        Axial ax(q,0);
+        for (int i = 0; i < 6; ++i) {
+          auto pxOpt = axial.indexAtAxial(ax);
+          if (pxOpt) {
+            PixelIndex px = pxOpt.value();
+            CRGB c = CHSV(0, 0xFF, 0xFF - 0xFF * distance/waveSize);
+            if (px == LED_COUNT/2 && !animatingPowerOn) {
+              // hack to keep the final dot at a consistent brightness at the end
+              c.red = max(c.red, centerPixelRed); 
+            }
+            ctx.leds[px] = c;
+          }
+          // rotate to next spoke
+          ax = Axial(-ax.r(), -ax.s());
+        }
+      }
     }
   }
   const char *description() {
-    return "PowerOff";
+    return (animatingPowerOn ? "PowerOn" : "PowerOff");
   }
-
 };
 
 #endif

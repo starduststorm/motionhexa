@@ -186,6 +186,11 @@ uint8_t chargingPatternCheck(PatternRunner &runner, PowerManager &runState) {
 void powerOff() {
   gpio_put(EN_LDO_PIN, false);
   // should power off here, but delay here rather than forever loop, since sometimes we don't.
+  while (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE) {
+    // handle the button being left pressed after power off
+    delay(50);
+  }
+  // should lose power here, but don't infinite loop in case we don't
   delay(500);
 }
 #endif
