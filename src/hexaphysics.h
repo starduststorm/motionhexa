@@ -17,10 +17,8 @@ using namespace std;
 #endif
 
 // TODO: tbh this should have just used cube coordinates instead of the connections web with hex nodes - would have been simpler to construct, use, copy, inset, etc.
-// it would have also been better to use cube coordinates for the inner space hexa. might simplify the dual hexa space we have, idk.
 
-// FIXME: replace this with larger width accumulators?
-static const unsigned int kMotionDamper = 3; // dampen motion by right shifting position and velocity updates
+static const int kMotionDamper = 8; // drop some low order motion bits
 
 class AxialAccess;
 
@@ -538,8 +536,8 @@ private:
           // collision
           plogf("  particle %i at pixel %i v=(%i,%i) collision with pixel %i v=(%i,%i)", label, srcPixel, p.velocity.x, p.velocity.y, dstPixel, p2.velocity.x, p2.velocity.y);
           // roll back motion because otherwise p1 may have already skipped past p2
-          p.pos -= (p.velocity * elapsed) >> kMotionDamper;
-          p2.pos -= (p2.velocity * elapsed) >> kMotionDamper;
+          p.pos -= (p.velocity * elapsed) / kMotionDamper;
+          p2.pos -= (p2.velocity * elapsed) / kMotionDamper;
           // convert p1 into p2's coordinate space
           const vector16 pos1 = p.pos - unitMotionAcrossBound(checkBound);
           plogf("  pre-collision points in same coordinate space: p1=(%i, %i), p2=(%i, %i)", pos1.x, pos1.y, p2.pos.x, p2.pos.y);
@@ -564,8 +562,8 @@ private:
             plogf("  post-collision velocities p1=(%i, %i), p2=(%i, %i)", p.velocity.x, p.velocity.y, p2.velocity.x, p2.velocity.y);
             
             // roll forward motion?
-            p.pos += (p.velocity * elapsed) >> kMotionDamper;
-            p2.pos += (p2.velocity * elapsed) >> kMotionDamper;
+            p.pos += (p.velocity * elapsed) / kMotionDamper;
+            p2.pos += (p2.velocity * elapsed) / kMotionDamper;
           }
         } else {
           // move
@@ -704,11 +702,11 @@ public:
       
       p.acceleration = remainder;
 
-      p.velocity += (scaledAccel * elapsed) >> kMotionDamper;
+      p.velocity += (scaledAccel * elapsed) / kMotionDamper;
       p.velocity.x = constrain(p.velocity.x, -0xFF, 0xFF);
       p.velocity.y = constrain(p.velocity.y, -0xFF, 0xFF);
 
-      p.pos += (p.velocity * elapsed) >> kMotionDamper;
+      p.pos += (p.velocity * elapsed) / kMotionDamper;
       // plogf("  p%i now has pos (%i, %i), velocity (%i, %i)", p, p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
     }
     for (int i = 0; i < particles.size(); ++i) {
