@@ -335,7 +335,7 @@ public:
 
 class TriBounce : public BouncyPixels {
 public:
-  TriBounce() : BouncyPixels(3, 0x07, 0xFF, 2) {
+  TriBounce() : BouncyPixels(3, 70, 0xFF, 2) {
   }
   void update() {
     BouncyPixels::update();
@@ -352,7 +352,7 @@ public:
 
 class PixelDust : public BouncyPixels {
 public:
-  PixelDust() : BouncyPixels(60, 0x07, 0xF4) {
+  PixelDust() : BouncyPixels(60, 70, 0xF4) {
   }
   const char *description() {
     return "PixelDust";
@@ -361,7 +361,7 @@ public:
 
 class PixelSand : public BouncyPixels {
 public:
-  PixelSand() : BouncyPixels(60, 0x07, 0xC0) {
+  PixelSand() : BouncyPixels(60, 70, 0xC0) {
   }
   const char *description() {
     return "PixelSand";
@@ -384,7 +384,7 @@ class LargeBouncyBall : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
   const int inset = 3;
   PixelPhysics<LED_COUNT> physics;
-  LargeBouncyBall() : insetHexGrid(kMeridian), physics(insetHexGrid, 1, 0x07, 0xF0, 1) {
+  LargeBouncyBall() : insetHexGrid(kMeridian), physics(insetHexGrid, 1, 70, 0xF0, 1) {
     minBrightness = 15;
     insetHexGrid.insetEdgeNodesBy(inset, axial);
     physics.particles[0]->index = kHexaCenterIndex;

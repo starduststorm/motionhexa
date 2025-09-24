@@ -446,10 +446,11 @@ class PixelPhysics {
 public:
   struct Particle {
     PixelIndex index;
-    vector16 pos;      // pos within hexagonal inner-particle dof space
+    vector16 pos;      // pos within hexagonal inner-particle dof space in range (-255, 255)
     vector16 velocity; // velocity in range (-255, 255)
-    Particle() : index(0) {};
-    Particle(PixelIndex index, vector16 pos, vector16 velocity) : index(index), pos(pos), velocity(velocity) {};
+    vector32 acceleration; // remainder of rounded-off accel, unscaled
+    Particle() : index(0), pos(0,0), velocity(0,0), acceleration(0,0) {};
+    Particle(PixelIndex index, vector16 pos, vector16 velocity) : index(index), pos(pos), velocity(velocity), acceleration(0,0) {};
   };
   vector<Particle *> particles;
   Particle *particleMap[SIZE] = {0}; // map from physical led index to particle
@@ -677,13 +678,11 @@ public:
     }
   }
 
-  inline int16_t scaleAccel(int16_t val) {
-    return min((int)0xFF, (int)max((int)-0xFF, (int)(accelScaling * val / 10000)));
-  }
-
   unsigned long lastUpdate = 0;
 
   void update(std::function<vector16(PixelIndex)> accelForIndex) {
+    const int accelPreScale = 100000;
+
     // x across hexa (negative when button side down)
     // y vertical on hexa, (negative lipo usb down)
     // z through hexa, (negative leds up)
@@ -691,28 +690,37 @@ public:
     lastUpdate = millis();
 
     vector<Particle *> lastParticles = particles;
-    for (int p = 0; p < particles.size(); ++p) {
-      vector16 accelVector = accelForIndex(particles[p]->index);
-      accelVector = vector16(scaleAccel(accelVector.x), scaleAccel(accelVector.y));
-      // plogf("PHYSICS UPDATE scaled accel = %i, %i", accelVector.x, accelVector.y);
+    for (int i = 0; i < particles.size(); ++i) {
+      Particle &p = *particles[i];
+      vector32 accelVector = accelForIndex(p.index);
+      plogf("PHYSICS UPDATE px %i saw raw accel = %i, %i", i, accelVector.x, accelVector.y);
       assert(abs(accelVector.x) <= 0xFF, "accelVector.x == %i", accelVector.x);
       assert(abs(accelVector.y) <= 0xFF, "accelVector.y == %i", accelVector.y);
+      
+      vector32 scaledAccel = (accelScaling * accelVector + p.acceleration) / accelPreScale;
+      vector32 remainder = vector32((accelScaling * accelVector.x + p.acceleration.x) % accelPreScale, (accelScaling * accelVector.y + p.acceleration.y) % accelPreScale);
+      plogf("  scaled accel = %i, %i, remainder accel (%i,%i) => %i", scaledAccel.x, scaledAccel.y, p.acceleration, remainder);
+      
+      scaledAccel.x = constrain(scaledAccel.x, -0xFF, 0xFF);
+      scaledAccel.y = constrain(scaledAccel.y, -0xFF, 0xFF);
+      
+      p.acceleration = remainder;
 
-      // plogf("update motion, consider particle %i", p);
-      particles[p]->velocity += (accelVector * elapsed) >> kMotionDamper;
-      particles[p]->velocity.x = constrain(particles[p]->velocity.x, -0xFF, 0xFF);
-      particles[p]->velocity.y = constrain(particles[p]->velocity.y, -0xFF, 0xFF);
+      p.velocity += (scaledAccel * elapsed) >> kMotionDamper;
+      p.velocity.x = constrain(p.velocity.x, -0xFF, 0xFF);
+      p.velocity.y = constrain(p.velocity.y, -0xFF, 0xFF);
 
-      particles[p]->pos += (particles[p]->velocity * elapsed) >> kMotionDamper;
-      // plogf("  p%i now has pos (%i, %i), velocity (%i, %i)", p, particles[p]->pos.x, particles[p]->pos.y, particles[p]->velocity.x, particles[p]->velocity.y);
+      p.pos += (p.velocity * elapsed) >> kMotionDamper;
+      // plogf("  p%i now has pos (%i, %i), velocity (%i, %i)", p, p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
     }
-    for (int p = 0; p < particles.size(); ++p) {
-      updateParticleAtBound(p, *particles[p], elapsed, HexagonBounding::right);
-      updateParticleAtBound(p, *particles[p], elapsed, HexagonBounding::topright);
-      updateParticleAtBound(p, *particles[p], elapsed, HexagonBounding::topleft);
-      updateParticleAtBound(p, *particles[p], elapsed, HexagonBounding::left);
-      updateParticleAtBound(p, *particles[p], elapsed, HexagonBounding::bottomleft);
-      updateParticleAtBound(p, *particles[p], elapsed, HexagonBounding::bottomright);
+    for (int i = 0; i < particles.size(); ++i) {
+      Particle &p = *particles[i];
+      updateParticleAtBound(i, p, elapsed, HexagonBounding::right);
+      updateParticleAtBound(i, p, elapsed, HexagonBounding::topright);
+      updateParticleAtBound(i, p, elapsed, HexagonBounding::topleft);
+      updateParticleAtBound(i, p, elapsed, HexagonBounding::left);
+      updateParticleAtBound(i, p, elapsed, HexagonBounding::bottomleft);
+      updateParticleAtBound(i, p, elapsed, HexagonBounding::bottomright);
     }
   }
 
