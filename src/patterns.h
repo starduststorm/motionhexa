@@ -469,27 +469,75 @@ public:
 
 /* ------------------------------------------------------------------------------- */
 
-class LineTest : public Pattern, PaletteRotation<CRGBPalette256> {
+class PridefulSpinnyThing : public Pattern {
 public:
-  LineTest() {
-    minBrightness = 20;
-    setPalette(Trans_Flag_gp);
-    pauseRotation = true;
+  CRGBPalette256 palettes[6] = {
+    Trans_Flag_gp,
+    Pride_Flag_gp,
+    Genderqueer_Flag_gp,
+    Bi_Flag_gp,
+    Ace_Flag_gp,
+    Lesbian_Flag_gp
+  };
+  PridefulSpinnyThing() {
+    dSpin *= random8(2)?-1:1;
   }
+  float avgZ=0;
+  int lastSeenAtHighAngle = 0;
+  float spinTheta = 0;
+  float dSpin = 1/500.;
   void update() {
-    ctx.leds.fadeToBlackBy(5);
     
-    vectorT<float> pt1 = {kMeridian*cosf(millis()/500.), kMeridian*sinf(millis()/500.)};
-    vectorT<float> pt2 = {kMeridian*-cosf(millis()/500.), kMeridian*-sinf(millis()/500.)};
-    fAxial ax1 = axial.rectToHex(pt1, 1.0);
-    fAxial ax2 = axial.rectToHex(pt2, 1.0);
+    ICM_20948_AGMT_t agmt = MotionManager::motionFrame.agmt;
 
-    hexline(ctx, ax1, ax2, [this] (uint8_t progress) {
-      return this->getPaletteColor(progress);
-    });
+    float theta = M_PI+atan2(agmt.acc.axes.y, agmt.acc.axes.x);
+    int flag = 6*(theta+M_PI/12) / (2*M_PI);
+    flag = mod_wrap(flag,6);
+    
+    const int maxHexRadius = (kMeridian-6);
+    avgZ = (10*avgZ+agmt.acc.axes.z)/11.f;
+    float lineRadius = kMeridian - (kMeridian+3) * abs(avgZ) / 9000.;
+    float hexRadius = maxHexRadius * abs(avgZ) / 9000.;
+
+    if (lineRadius > kMeridian/2) {
+      lastSeenAtHighAngle = flag;
+    }
+
+    ctx.leds.fadeToBlackBy(5 + (hexRadius>0?hexRadius:0));
+
+    float scaledGyr = (agmt.gyr.axes.z / 6666) / 66666.f;
+    spinTheta += frameTime() * dSpin;
+  
+    if (lineRadius > 0) {
+      vectorT<float> pt1 = {lineRadius*cosf(spinTheta), lineRadius*sinf(spinTheta)};
+      vectorT<float> pt2 = {lineRadius*-cosf(spinTheta), lineRadius*-sinf(spinTheta)};
+      fAxial ax1 = axial.rectToHex(pt1, 1.0);
+      fAxial ax2 = axial.rectToHex(pt2, 1.0);
+
+      hexline(ctx, ax1, ax2, [this, flag] (uint8_t progress) {
+        return ColorFromPalette(palettes[flag], progress);
+      });
+    }
+
+    if (hexRadius > 0) {
+      dSpin += frameTime()*(scaledGyr * (hexRadius/maxHexRadius));
+      dSpin = constrain(dSpin, -0.1, 0.1);
+      for (int i = 0; i < 6; ++i) {
+        float ptTheta = i * 2*+M_PI/6;
+        float ptTheta2 = (i+1) * 2*+M_PI/6;
+        vectorT<float> pt1 = {hexRadius*cosf(ptTheta+spinTheta), hexRadius*sinf(ptTheta+spinTheta)};
+        vectorT<float> pt2 = {hexRadius*cosf(ptTheta2+spinTheta), hexRadius*sinf(ptTheta2+spinTheta)};
+        fAxial ax1 = axial.rectToHex(pt1, 1.0);
+        fAxial ax2 = axial.rectToHex(pt2, 1.0);
+        
+        hexline(ctx, ax1, ax2, [this, i] (uint8_t progress) {
+          return PaletteRotation<CRGBPalette256>::getMirroredPaletteColor(palettes[lastSeenAtHighAngle], progress/3 + 0xFF*i/3);
+        });
+      }
+    }
   }
   const char *description() {
-    return "LineTest";
+    return "PridefulSpinnyThing";
   }
 };
 

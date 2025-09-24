@@ -299,13 +299,11 @@ void setup() {
   patternManager.registerPattern<TriBounce>();
   patternManager.registerPattern<PixelDust>();
   patternManager.registerPattern<PixelSand>();
+  patternManager.registerPattern<LargeBouncyBall>();
   patternManager.registerPattern<PulseHexaSmooth>();
   patternManager.registerPattern<PulseHexa>();  
-  patternManager.registerPattern<LineTest>();
+  patternManager.registerPattern<PridefulSpinnyThing>();
   patternManager.registerPattern<TriangleSpin>();
-  patternManager.registerPattern<LargeBouncyBall>();
-  
-  // patternManager.setTestRunner<LargeBouncyBall>();
   
 #if HARDWARE_VERSION >= 3
   patternManager.registerPattern<ChargingPattern>(1);
