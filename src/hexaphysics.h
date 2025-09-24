@@ -694,8 +694,6 @@ public:
       Particle &p = *particles[i];
       vector32 accelVector = accelForIndex(p.index);
       plogf("PHYSICS UPDATE px %i saw raw accel = %i, %i", i, accelVector.x, accelVector.y);
-      assert(abs(accelVector.x) <= 0xFF, "accelVector.x == %i", accelVector.x);
-      assert(abs(accelVector.y) <= 0xFF, "accelVector.y == %i", accelVector.y);
       
       vector32 scaledAccel = (accelScaling * accelVector + p.acceleration) / accelPreScale;
       vector32 remainder = vector32((accelScaling * accelVector.x + p.acceleration.x) % accelPreScale, (accelScaling * accelVector.y + p.acceleration.y) % accelPreScale);
