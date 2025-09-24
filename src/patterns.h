@@ -561,7 +561,7 @@ public:
     const int minHue = 0;
     const int maxHue = 0x66;
     const PixelIndex firstIdx = 14; // start near usb port
-    int SOC = batteryData.stateOfCharge;
+    int SOC = min(100, 100 * batteryData.stateOfCharge / kFullCharge);
 
     // animate any jumps in reported battery value
     if (SOC != lastStateOfCharge) {

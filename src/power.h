@@ -6,6 +6,8 @@
 
 #include "pinout.h"
 
+const int kFullCharge = 95; // %, limit for charging ui
+
 #if HARDWARE_VERSION >= 3
 #include <BQ27427.h>
 #endif
@@ -49,7 +51,6 @@ class PowerManager {
     }
   }
 public:
-  const int kFullCharge = 98; // %
   bool batteryInitialized = false;
   
   // "running" means logical on-state, drawing design patterns, rather than drawing charging ui or powered on but not drawing.
