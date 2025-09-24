@@ -382,7 +382,7 @@ public:
 class LargeBouncyBall : public Pattern, PaletteRotation<CRGBPalette256> {
   HexGrid<PixelIndex> insetHexGrid;
 public:
-  const int inset = 3;
+  const int inset = 2;
   PixelPhysics<LED_COUNT> physics;
   LargeBouncyBall() : insetHexGrid(kMeridian), physics(insetHexGrid, 1, 70, 0xF0, 1) {
     minBrightness = 15;
@@ -416,8 +416,8 @@ public:
         Axial ax = axial.axialFromPixelIndex(px);
         
         float distance = max(max(abs(offcenter.q() - ax.q()), abs(offcenter.r() - ax.r())), abs(offcenter.s() - ax.s()));
-        uint8_t brightness = constrain(0xFF - 0xFF * distance / (inset), 0, 0xFF);
-        CRGB c = CRGB::White;//this->getMirroredPaletteColor(millis()/100 + distance*15);
+        uint8_t brightness = constrain(0xFF - 0xFF * distance / (inset+1), 0, 0xFF);
+        CRGB c = CHSV(constrain((abs(p->velocity.x) + abs(p->velocity.y))/2, 0, 0xFF), 0xFF, 0xFF);
         c = c.scale8(brightness);
         ctx.leds[px] = c;
       }
