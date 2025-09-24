@@ -412,12 +412,14 @@ public:
       float r = offcenter.r() - p->pos.y/255./2 - kInverseRootThree * p->pos.x/255./2;
       offcenter.setQR(q,r);
 
+      uint8_t hue = constrain((abs(p->velocity.x) + abs(p->velocity.y))/2 + (abs(p->velocity.x) + abs(p->velocity.y))/50, 0, 224);
       for (PixelIndex px = 0; px < LED_COUNT; ++px) {
         Axial ax = axial.axialFromPixelIndex(px);
         
         float distance = max(max(abs(offcenter.q() - ax.q()), abs(offcenter.r() - ax.r())), abs(offcenter.s() - ax.s()));
         uint8_t brightness = constrain(0xFF - 0xFF * distance / (inset+1), 0, 0xFF);
-        CRGB c = CHSV(constrain((abs(p->velocity.x) + abs(p->velocity.y))/2, 0, 0xFF), 0xFF, 0xFF);
+        
+        CRGB c = CHSV(max(0,hue-6*(int)distance), 0xFF, 0xFF);
         c = c.scale8(brightness);
         ctx.leds[px] = c;
       }
