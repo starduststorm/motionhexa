@@ -341,7 +341,7 @@ void setup() {
       if (patternManager.hasTestRunner()) {
         // special case test runner since the power off animation will not run
         powerOff();
-      } else {
+      } else if (!powerOnOffRunner) {
         powerOnOffRunner = patternManager.runOneShotPattern([](PatternRunner&) {
           return new PowerOnOffAnimation(false);
         }, 0xFF, 0xFF, [](PatternRunner&) {
