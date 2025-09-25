@@ -138,6 +138,10 @@ uint8_t chargingPatternCheck(PatternRunner &runner, PowerManager &runState) {
 
   uint8_t chargeAlpha = 0;
 
+  if (runState.isRunning() && runState.lastRunStateChange() > runState.lastChargingStateChange()) {
+    // do not show the charging ui if we powered on right after plugging in
+    return 0;
+  }
   if (runState.isCharging()) {
     unsigned long lastReachedFullCharge = runState.lastReachedFullCharge();
     if (runner.pattern) {
