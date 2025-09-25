@@ -441,13 +441,13 @@ void loop() {
 #if HARDWARE_VERSION > 1
   static bool pixelsHavePower = false;
   static unsigned long lastPixelsNeedPower = 0;
-  bool pixelsNeedPower = ctx.leds(0, LED_COUNT-1);
+  bool pixelsNeedPower = ctx.leds;
   if (pixelsNeedPower) {
     lastPixelsNeedPower = millis();
   }
   if (pixelsNeedPower != pixelsHavePower 
-    && (pixelsNeedPower || millis() - lastPixelsNeedPower > 300)) { // don't turn off panel for very brief periods
-    logdf("Turn %s pixels", pixelsNeedPower?"on":"off");
+    && (pixelsNeedPower || millis() - lastPixelsNeedPower > 500)) { // don't turn off papixelsNeedPower || millis() - lastPixelsNeedPowerel for very brief periods
+    logf("Turn %s pixels", pixelsNeedPower?"on":"off");
     pixelsHavePower = pixelsNeedPower;
     digitalWrite(LED_LINE_0_PWR_PIN, pixelsNeedPower);
   }

@@ -204,19 +204,24 @@ public:
   std::optional<PixelIndex> indexAtAxial(Axial ax) {
     return indexAtAxial(ax.q(), ax.r());
   }
+
+  // FIXME: wow this rect<->hex conversions are wrong but in a consistent way (rotated)
   vectorT<PixelIndex> hexToRect(fAxial ax, float size = kMeridian) {
-    float x = 3./2 * ax.q();
-    float y = sqrt(3)/2 * ax.q() + sqrt(3) * ax.r();
+    constexpr float sqrtThreeOverTwo = sqrtf(3)/2;
+    constexpr float sqrtThree = sqrtf(3);
+    float x = ax.q() * 3/2;
+    float y = sqrtThreeOverTwo * ax.q() + sqrtThree * ax.r();
     x = x * size;
     y = y * size;
     return vectorT<float>(x, y);
   }
 
   fAxial rectToHex(vectorT<float> point, float size = kMeridian) {
+    constexpr float sqrtThreeOverThree = sqrtf(3)/3;
     float x = point.x / size;
     float y = point.y / size;
-    float q = 2./3 * x;
-    float r = -1./3 * x  +  sqrt(3)/3 * y;
+    float q = x * 2/3;
+    float r = x * -1/3 + y * sqrtThreeOverThree;
     return fAxial(q, r);
   }
 };

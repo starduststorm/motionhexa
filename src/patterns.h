@@ -496,10 +496,11 @@ public:
     int flag = 6*(theta+M_PI/12) / (2*M_PI);
     flag = mod_wrap(flag,6);
     
-    const int maxHexRadius = (kMeridian-6);
+    const int maxHexRadius = (kMeridian-3);
+    const int minHexRadius = -3;
     avgZ = (10*avgZ+agmt.acc.axes.z)/11.f;
     float lineRadius = kMeridian - (kMeridian+3) * abs(avgZ) / 9000.;
-    float hexRadius = maxHexRadius * abs(avgZ) / 9000.;
+    float hexRadius = maxHexRadius * abs(avgZ) / 9000. + minHexRadius;
 
     if (lineRadius > kMeridian/2) {
       lastSeenAtHighAngle = flag;
