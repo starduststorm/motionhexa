@@ -10,8 +10,10 @@
 using namespace std;
 
 #define DEBUG_PHYSICS 0
+
 #if DEBUG_PHYSICS
-#define plogf(format, ...) logf(format, ## __VA_ARGS__)
+bool physicsDebugFlag = false;
+#define plogf(format, ...) if (physicsDebugFlag) logf(format, ## __VA_ARGS__)
 #else
 #define plogf(format, ...)
 #endif
@@ -622,20 +624,28 @@ private:
             p.pos.x = x_int + p.velocity.x * (t_q-t_p)/t_q;
             p.pos.y = y_int + p.velocity.y * (t_q-t_p)/t_q;
         } else {
-          plogf("No ricochet, is velocity 0?");
-          // roll motion forward again so we don't get stuck
+          plogf("No ricochet, stuck behind wall? fixing.");
+          // hack: there is a significant wall collision issue where we get stuck behind a wall
+          // but we're stuck at max speed running parallel to the wall, so there is no ricochet.
+          // here's a bandaid until i can redo all this.
+          vector16 ogPos = p.pos;
           p.pos += p.velocity;
+          p.pos.x = constrain(p.pos.x, -0xFF, 0xFF);
+          p.pos.y = constrain(p.pos.y, -0xFF, 0xFF);
+          if (p.pos == ogPos) {
+            p.pos = vector16(0,0);
+          }
         }
         plogf("  post-wall pos (%i, %i), velocity (%i, %i)", p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
       }
+      // sanity constraints
+      p.pos.x = constrain(p.pos.x, -0xFF, 0xFF);
+      p.pos.y = constrain(p.pos.y, -0xFF, 0xFF);
+      p.velocity.x = constrain(p.velocity.x, -0xFF, 0xFF);
+      p.velocity.y = constrain(p.velocity.y, -0xFF, 0xFF);
     } else {
       // plogf("particle did not cross checkBound %i", checkBound);
     }
-    // sanity constraints
-    p.pos.x = constrain(p.pos.x, -0xFF, 0xFF);
-    p.pos.y = constrain(p.pos.y, -0xFF, 0xFF);
-    p.velocity.x = constrain(p.velocity.x, -0xFF, 0xFF);
-    p.velocity.y = constrain(p.velocity.y, -0xFF, 0xFF);
   }
 public:
   void setPosition(int particleIndex, PixelIndex position) {
@@ -706,8 +716,9 @@ public:
       p.velocity.x = constrain(p.velocity.x, -0xFF, 0xFF);
       p.velocity.y = constrain(p.velocity.y, -0xFF, 0xFF);
 
-      p.pos += (p.velocity * elapsed) / kMotionDamper;
-      // plogf("  p%i now has pos (%i, %i), velocity (%i, %i)", p, p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
+      vector16 newPos = p.pos + (p.velocity * elapsed) / kMotionDamper;
+      plogf("  p%i at px %i move from pos (%i, %i) to pos (%i, %i) with velocity (%i, %i)", i, p.index, p.pos.x, p.pos.y, newPos.x, newPos.y, p.velocity.x, p.velocity.y);
+      p.pos = newPos;
     }
     for (int i = 0; i < particles.size(); ++i) {
       Particle &p = *particles[i];

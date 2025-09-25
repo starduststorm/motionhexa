@@ -326,6 +326,11 @@ void setup() {
       indexedRunner->previousPattern();
     }
   });
+#if DEBUG_PHYSICS
+  mainButton->onDoubleLongPress([]() {    
+    physicsDebugFlag = !physicsDebugFlag;
+  });
+#endif
 #if HARDWARE_VERSION >= 4
   mainButton->longPressInterval = 1000;
   mainButton->onLongPress([]() {
@@ -420,6 +425,8 @@ void loop() {
         // and only unpause events now that the animation is complete, since we may have stopped the animation early
         mainButton->pauseEvents = false;
       });
+    } else if (patternManager.hasTestRunner()) {
+      powerState.setRunning(true);
     }
   }
 
