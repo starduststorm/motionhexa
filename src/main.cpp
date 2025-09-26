@@ -195,12 +195,10 @@ void buttonUpISR() {
 
 void stopHexa() {
   indexedRunner->stop();
-  bool usbPower = digitalRead(VBUS_SENSOR_PIN);
-  if (usbPower) {
-    powerState.setRunning(false);
-  } else {
-    powerOff();
-  }
+  powerState.setRunning(false);
+  // v5 units sometimes get stuck with vbus remaining powered here even if we are unplugged
+  // so always power off in this case to reset state, rather than checking vbus.
+  powerOff();
 }
 
 void startupCompleted() {
