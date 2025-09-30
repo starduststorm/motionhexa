@@ -1,3 +1,6 @@
 [submodule "lib/dustlib"]
 	path = lib/dustlib
 	url = git@github.com:starduststorm/dustlib.git
+[submodule "lib/BQ27427_Arduino_Library"]
+	path = lib/BQ27427_Arduino_Library
+	url = git@github.com:starduststorm/BQ27427_Arduino_Library
