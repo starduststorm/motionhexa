@@ -38,7 +38,7 @@ There is a button on that back of an assembled hexa that you can press by squeez
 # Project layout
 
 * hexacontroller/ contains the pcb for the logic, power, and motion circuitry.
-* hexa/ contains the pcb for the hexagonal lattice of 271 *SK9822-EC20* pixels
+* hexa/ contains the pcb for the hexagonal lattice of 271 *SK9822-EC20* pixels wired in zig-zag order
 * src/ all project-specific source
 * lib/ submodule dependencies *dustlib* and *BQ27427 Battery Fuel Gauge*
 
@@ -48,13 +48,18 @@ The project is built using [PlatformIO] in Visual Studio Code.
 
 Build the v5 environment in the [PlatformIO] project, which corresponds to the MakerFaire2025 hardware.
 
+You will likely need to run
+```
+git submodule update --init
+```
+in the source after ```git clone``` in order to fetch the submodules for building.
+
 ### Libraries & Dependencies
 PlatformIO should fetch the apprpriate version of each dependency on first build.
 
 * [FastLED] - A library for fast 8-bit math and rendering colors onto pixels
 * [SparkFun_ICM-20948] - A library for interfacing with the ICM-20948 Motion sensor
-* [edrean/BQ27427 Battery Fuel Gauge] - A library for interfacing with the BQ27421 (very similar to BQ27427) battery monitor
-** PlatformIO should build against my *BQ27427 Battery Fuel Gauge* fork 
+* [edrean/BQ27427 Battery Fuel Gauge] - A library for interfacing with the BQ27421 (very similar to BQ27427) battery monitor (PlatformIO should build against my *BQ27427 Battery Fuel Gauge* fork)
 * [dustlib], my work-in-progress pixel library
 
 ## How to write patterns
@@ -93,7 +98,7 @@ public:
     // get the acceleometer reading for this frame, scale it down, then convert it into axial coordinates
     auto acceleration = MotionManager::motionFrame.agmt.acc.axes;
     float accScale = 1000;
-    fAxial accOffset = axial.rectToHex(vectorT<float>(acceleration.y/accScale, -acceleration.x/accScale), 1);\
+    fAxial accOffset = axial.rectToHex(vectorT<float>(acceleration.y/accScale, -acceleration.x/accScale), 1);
     // then get the center pixel axial and offset it by the acceleration axial
     fAxial centerAx = axial.axialFromPixelIndex(ctx.leds.size()/2);
     fAxial circleAx(centerAx.q() + accOffset.q(), centerAx.r() + accOffset.r());
@@ -134,7 +139,7 @@ If your hexagon stops doing hexagon things while you are hacking on it, does not
 * There is a button on the hexacontroller here:
 * <img src="doc/assets/usb_boot.jpg" alt="location of USBBOOT button" height=200>
 
-* Press and hold the button while plugging into a computer-attached usb port. You should see the a drive (USB Mass Storage Device) appear called "RPI-RP2". 
+* Press and hold the button while plugging into a computer-attached usb port. You should see a drive (USB Mass Storage Device) appear called "RPI-RP2". 
 * You can now either re-flash the hexa yourself using PlatformIO or another tool
 OR
 * Copy the stable binary hexa image from [here](bin/hexa-v5-firmware@ed502d04.uf2) onto the drive, and after the copy it should automatically reboot.
