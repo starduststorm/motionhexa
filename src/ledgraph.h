@@ -205,12 +205,11 @@ public:
     return indexAtAxial(ax.q(), ax.r());
   }
 
-  // FIXME: wow this rect<->hex conversions are wrong but in a consistent way (rotated)
   vectorT<PixelIndex> hexToRect(fAxial ax, float size = kMeridian) {
     constexpr float sqrtThreeOverTwo = sqrtf(3)/2;
     constexpr float sqrtThree = sqrtf(3);
-    float x = ax.q() * 3/2;
-    float y = sqrtThreeOverTwo * ax.q() + sqrtThree * ax.r();
+    float x = sqrtThree * ax.q() + sqrtThreeOverTwo * ax.r();
+    float y = 3/2.f * ax.r();
     x = x * size;
     y = y * size;
     return vectorT<float>(x, y);
@@ -220,8 +219,8 @@ public:
     constexpr float sqrtThreeOverThree = sqrtf(3)/3;
     float x = point.x / size;
     float y = point.y / size;
-    float q = x * 2/3;
-    float r = x * -1/3 + y * sqrtThreeOverThree;
+    float q = sqrtThreeOverThree * x - 1/3.f * y;
+    float r = 2/3.f * y;
     return fAxial(q, r);
   }
 };
