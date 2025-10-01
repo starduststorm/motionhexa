@@ -137,7 +137,7 @@ If your hexagon stops doing hexagon things while you are hacking on it, does not
 * Press and hold the button while plugging into a computer-attached usb port. You should see the a drive (USB Mass Storage Device) appear called "RPI-RP2". 
 * You can now either re-flash the hexa yourself using PlatformIO or another tool
 OR
-* Copy the stable binary hexa image from [here](bin/hexa_v5_firmware@955b7a94.uf2) onto the drive, and after the copy it should automatically reboot.
+* Copy the stable binary hexa image from [here](bin/hexa-v5-firmware@ed502d04.uf2) onto the drive, and after the copy it should automatically reboot.
 
 ## Document is a work in progress
 (More details to come!)
