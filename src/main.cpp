@@ -193,6 +193,7 @@ void buttonUpISR() {
   buttonWake = true;
 }
 
+#if HARDWARE_VERSION >= 4
 void stopHexa() {
   indexedRunner->stop();
   powerState.setRunning(false);
@@ -200,6 +201,7 @@ void stopHexa() {
   // so always power off in this case to reset state, rather than checking vbus.
   powerOff();
 }
+#endif
 
 void startupCompleted() {
   logf("Startup completed");
