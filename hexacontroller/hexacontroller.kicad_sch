@@ -10774,7 +10774,7 @@
 	)
 	(wire
 		(pts
-			(xy 283.21 48.26) (xy 283.21 46.99)
+			(xy 281.94 48.26) (xy 281.94 46.99)
 		)
 		(stroke
 			(width 0)
@@ -11464,7 +11464,7 @@
 	)
 	(wire
 		(pts
-			(xy 261.62 48.26) (xy 283.21 48.26)
+			(xy 261.62 48.26) (xy 281.94 48.26)
 		)
 		(stroke
 			(width 0)
@@ -12658,7 +12658,7 @@
 	)
 	(symbol
 		(lib_id "Device:R_Small")
-		(at 283.21 44.45 0)
+		(at 281.94 44.45 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -12667,7 +12667,7 @@
 		(fields_autoplaced yes)
 		(uuid "011d8699-cc0c-4a9d-ba7f-b3d5a1d9cf72")
 		(property "Reference" "R16"
-			(at 284.7086 43.2378 0)
+			(at 283.4386 43.2378 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12676,7 +12676,7 @@
 			)
 		)
 		(property "Value" "10k"
-			(at 284.7086 45.6621 0)
+			(at 283.4386 45.6621 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12685,7 +12685,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 283.21 44.45 0)
+			(at 281.94 44.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12694,7 +12694,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 283.21 44.45 0)
+			(at 281.94 44.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12703,7 +12703,7 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
-			(at 283.21 44.45 0)
+			(at 281.94 44.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12712,7 +12712,7 @@
 			)
 		)
 		(property "Designation" "RC0402FR-0710KL"
-			(at 283.21 44.45 0)
+			(at 281.94 44.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12721,7 +12721,7 @@
 			)
 		)
 		(property "LCSC" "C60490"
-			(at 283.21 44.45 0)
+			(at 281.94 44.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13468,7 +13468,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 283.21 41.91 0)
+		(at 281.94 41.91 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -13476,7 +13476,7 @@
 		(dnp no)
 		(uuid "0e5e5ba7-5012-4680-8615-8e8db4127943")
 		(property "Reference" "#PWR075"
-			(at 283.21 45.72 0)
+			(at 281.94 45.72 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13485,7 +13485,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 283.591 37.5158 0)
+			(at 282.321 37.5158 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13493,7 +13493,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 283.21 41.91 0)
+			(at 281.94 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13502,7 +13502,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 283.21 41.91 0)
+			(at 281.94 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13511,7 +13511,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 283.21 41.91 0)
+			(at 281.94 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22865,81 +22865,6 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "#PWR020")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Connector:TestPoint")
-		(at 160.02 120.65 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(dnp no)
-		(uuid "b1f9a85d-9026-4682-a152-7fe75d0ca76b")
-		(property "Reference" "TP3"
-			(at 164.719 119.4378 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "TestPoint"
-			(at 163.068 117.602 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
-			(at 160.02 125.73 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 160.02 125.73 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "test point"
-			(at 160.02 120.65 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" ""
-			(at 160.02 120.65 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "f17f7ccd-9854-471e-915b-c00fdc4962c0")
-		)
-		(instances
-			(project "hexacontroller"
-				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
-					(reference "TP3")
 					(unit 1)
 				)
 			)
