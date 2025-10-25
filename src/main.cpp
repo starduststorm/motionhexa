@@ -477,12 +477,13 @@ void loop() {
   // TODO: the effect of this is not great. it would be better to properly calibrate the brightness sensor with my baseline nearby pixel readings so we can adjust it constantly.
   int nearbyBrightness = 0;
   for (int i = 0; i < ARRAY_SIZE(photosensorNearbyPixels); ++i) {
-    int b = ctx.leds[i].r + 2*ctx.leds[i].g + 4 * ctx.leds[i].b;
+    int px = photosensorNearbyPixels[i];
+    int b = ctx.leds[px].r + 2*ctx.leds[px].g + 4 * ctx.leds[px].b;
     if (b > nearbyBrightness) {
       nearbyBrightness = b;
     }
   }
-  if (nearbyBrightness < 10) {
+  if (nearbyBrightness < 6) {
     autoBrightness->loop();
   }
 #else
