@@ -3429,7 +3429,7 @@
 		(path "/4b44b119-d8ef-4dde-8cba-7db8596698f8")
 		(sheetname "Root")
 		(sheetfile "hexacontroller.kicad_sch")
-		(attr through_hole exclude_from_pos_files)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(fp_line
 			(start -1.1938 1.15)
 			(end -1.1938 -1.15)
