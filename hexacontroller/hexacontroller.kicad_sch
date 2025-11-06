@@ -8263,6 +8263,12 @@
 		(uuid "062f0102-21ac-4cfd-8a50-4453dd365b97")
 	)
 	(junction
+		(at 52.07 149.86)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "06b15716-6d05-4f6b-83af-534a82bc02e3")
+	)
+	(junction
 		(at 160.02 120.65)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -18589,6 +18595,72 @@
 			(project "hexacontroller"
 				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
 					(reference "R4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 52.07 149.86 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "5e050242-d168-4462-935f-45ab04c422c2")
+		(property "Reference" "#FLG03"
+			(at 52.07 147.955 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 52.07 146.05 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 52.07 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 52.07 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Special symbol for telling ERC where power comes from"
+			(at 52.07 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "f9fd89c6-e1e3-44cc-a45f-9b257349d033")
+		)
+		(instances
+			(project "hexacontroller"
+				(path "/e1fa9f3b-1d52-40a9-892a-1751c1c7dde4"
+					(reference "#FLG03")
 					(unit 1)
 				)
 			)
