@@ -11601,6 +11601,16 @@
 		)
 		(uuid "2d001d26-9a0a-44b9-a73b-f04ab2a98f26")
 	)
+	(text "C552829 (D3,D9,D10) replaced with C22358693 for v6"
+		(exclude_from_sim no)
+		(at 74.676 126.238 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "2fa363f1-12e6-4f5f-94fa-8554d34f192c")
+	)
 	(text "power button"
 		(exclude_from_sim no)
 		(at 66.802 210.82 0)
