@@ -20,14 +20,14 @@ There is a button on that back of an assembled hexa that you can press by squeez
 ## Hardware
 
 * RP2040 dual-core ARM processor
-* SparkFun_ICM-20948 motion sensor
+* ICM-20948 motion sensor
+* LMD4030 PDM microphone
 * BQ27421 battery monitor
 * SK9822-EC20 pixels
 * LP28013HQVF lipo charger
 
 ### Disabled Hardware
 
-* A LMD4030T261-OA1 digital PDM microphone that is disabled because it does not work with the framework-arduinopico PDM library. It might work with a different PDM library.
 * An ALS-PT19-315 ambient light sensor for use in autobrightness that is disabled since its response time is too slow (likely load capacitance too high) to be able to subtract out the the light from nearby pixels during patterns. It may be able to do one-shot autobrigthness during the startup animation.
 * An MT3608-based 5V boost circuit. The hexa is running with no color-loss issues directly on lipo voltage, so the boost circuit is disabled.
 
