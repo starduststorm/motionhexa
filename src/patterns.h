@@ -864,8 +864,8 @@ public:
           if (pxOpt) {
             PixelIndex px = pxOpt.value();
             CRGB c = CHSV(0, 0xFF, 0xFF - 0xFF * distance/waveSize);
-            if (px == LED_COUNT/2 && !animatingPowerOn) {
-              // hack to keep the final dot at a consistent brightness at the end
+            if (px == LED_COUNT/2 && (!animatingPowerOn || progress() < 0.2)) {
+              // hack to keep the final dot at a consistent brightness at the end, as well as after resuming a canceled power-on animation
               c.red = max(c.red, centerPixelRed); 
             }
             ctx.leds[px] = c;
