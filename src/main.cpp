@@ -489,7 +489,7 @@ void loop() {
   FastLED.setBrightness(kDefaultBrightness);
 #endif
 
-  if (pixelsNeedPower) {
+  if (pixelsNeedPower || fc.hasFPSAssertion()) {
     FastLED.show();
   }
 
