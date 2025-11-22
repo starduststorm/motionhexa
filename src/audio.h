@@ -186,8 +186,8 @@ public:
 struct FFTFrame {
   size_t size;
   FFTFrame(size_t size) : size(size) {}
-  int32_t *spectrum = NULL;
-  int32_t *smoothSpectrum = NULL;
+  int16_t *spectrum = NULL;
+  int16_t *smoothSpectrum = NULL;
   int peak = 0;
 };
 
@@ -195,8 +195,9 @@ class FFTProcessing {
   int windowSize;
   int numBins; // spectrumSize
   int *fftBinSizes;
-  int32_t *spectrum;
-  int32_t *spectrumAccum;
+  int16_t *spectrum;
+  int16_t *spectrumAccum;
+  int spectrumAccumSamples{30};
   int16_t *samples;
   AudioProcessing &audio;
   FFTFrame dataFrame{0};
@@ -210,8 +211,8 @@ public:
   void initialize() {
     assert(fftBinSizes == NULL, "fft double initialize");
     fftBinSizes = new int[numBins];
-    spectrum = new int32_t[numBins];
-    spectrumAccum = new int32_t[numBins];
+    spectrum = new int16_t[numBins];
+    spectrumAccum = new int16_t[numBins];
     samples = new int16_t[windowSize];
     getFFTBins(numBins, windowSize/2, fftBinSizes);
     initialized = true;
@@ -243,7 +244,7 @@ public:
     }
   }
 
-  FFTFrame getDataFrame(int smoothSamples=0) {
+  FFTFrame getDataFrame() {
     if (!initialized) {
       initialize();
     }
@@ -253,10 +254,7 @@ public:
 
     kiss_fft_scalar fft_in[windowSize];
     kiss_fft_cpx fft_out[windowSize];
-    // TIMEIT(kissalloc,
-    // TODO: this is taking almost 4ms to alloc on every frame (with window size 128). would be nice to figure out if the structures can be reused.
     kiss_fftr_cfg cfg = kiss_fftr_alloc(windowSize,false,0,0);
-// );
   
     bzero(samples, windowSize * sizeof(samples[0]));
     
@@ -285,15 +283,15 @@ public:
       powerSum /= 16384.;
 
       spectrum[b] = powerSum;
-      if (smoothSamples) {
-        spectrumAccum[b] = (spectrumAccum[b] * smoothSamples + spectrum[b]) / (float)(smoothSamples + 1);
+      if (spectrumAccumSamples) {
+        spectrumAccum[b] = 1000 * (spectrumAccum[b] * spectrumAccumSamples + spectrum[b]) / (spectrumAccumSamples + 1) / 1000;
       }
     }
     kiss_fft_free(cfg);
     
     FFTFrame frame(numBins - ignoreBins);
     frame.spectrum = spectrum;
-    if (smoothSamples) {
+    if (spectrumAccumSamples) {
       frame.smoothSpectrum = spectrumAccum;
     }
     frame.peak = peak;
@@ -303,7 +301,7 @@ public:
 
   void logFrame(FFTFrame frame) {
     for (int x = 0; x < frame.size; ++x) {
-      int32_t level = frame.spectrum[x];
+      int16_t level = frame.spectrum[x];
       if (level > 0) {
         Serial.printf("%4i ", level);
       } else {
