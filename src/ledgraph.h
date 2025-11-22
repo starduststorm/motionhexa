@@ -269,6 +269,7 @@ void initLEDGraph() {
 /* ---------------------------------------------- */
 
 // hex adaptation of Wu's
+// FIXME: line endpoints are draw half-lit, so e.g. a polygon will have its vertexes be half lit, which is not great.
 static float fpart(float x) {
   return x - floor(x);
 }

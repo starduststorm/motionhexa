@@ -529,8 +529,13 @@ public:
       for (int i = 0; i < 6; ++i) {
         float ptTheta = i * 2*+M_PI/6;
         float ptTheta2 = (i+1) * 2*+M_PI/6;
-        vectorT<float> pt1 = {hexRadius*cosf(ptTheta+spinTheta), hexRadius*sinf(ptTheta+spinTheta)};
-        vectorT<float> pt2 = {hexRadius*cosf(ptTheta2+spinTheta), hexRadius*sinf(ptTheta2+spinTheta)};
+        
+        // When we rotate the drawn hexagon at correct angles, there is an aliasing effect where all 6 lines move to the next pixel at the same time
+        // causing a visible flicker. shifting each vertex slightly spreads out the next-pixel jumps across different frames and reduces the flicker.
+        float vertexBump = 0.01*i;
+
+        vectorT<float> pt1 = {hexRadius*cosf(ptTheta+spinTheta+vertexBump), hexRadius*sinf(ptTheta+spinTheta+vertexBump)};
+        vectorT<float> pt2 = {hexRadius*cosf(ptTheta2+spinTheta+vertexBump), hexRadius*sinf(ptTheta2+spinTheta+vertexBump)};
         fAxial ax1 = axial.rectToHex(pt1, 1.0);
         fAxial ax2 = axial.rectToHex(pt2, 1.0);
         
