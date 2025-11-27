@@ -26,6 +26,9 @@ parser.add_argument('--delete-all-drawings', action='store_true', help='Delete a
 parser.add_argument('--hide-pixel-labels', action='store_true', help="For all footprints like D*, set reference text to hidden")
 parser.add_argument('--hide-all-labels', action='store_true', help="Set reference text hidden for all footprints")
 
+parser.add_argument('--rotate-each', action='store', nargs=2, help="Rotate each footprint with reference matching Regex by the given Angle in degrees. ex: --rotate-each 'D.+' 90")
+parser.add_argument('--draw-vias', action='store', type=str, default=False, help='Replace vias with a drawn circle on the given layer')
+
 # options
 parser.add_argument('--skip-traces', action='store_true', help='Don\'t add traces')
 parser.add_argument('--lock', action='store_true', default=False, help='Lock pcb elements')
@@ -33,7 +36,6 @@ parser.add_argument('--lock', action='store_true', default=False, help='Lock pcb
 # info
 parser.add_argument('--dump-objects', action='store', nargs='?', const=True, default=None)
 parser.add_argument('--stats', action='store_true', default=False)
-parser.add_argument('--draw-vias', action='store', type=str, default=False, help='replace vias with a drawn circle on the given layer')
 
 
 args = parser.parse_args()
@@ -268,7 +270,6 @@ class HashableItem:
   def __init__(self, item):
     if type(item) is HashableItem:
       item = item.item
-    assert type(item) == pcbnew.PAD or type(item) == pcbnew.PCB_TRACK or type(item) == pcbnew.PCB_VIA, "HashableItem supports pcbnew PAD, PCB_TRACK, and PCB_VIA, not {}".format(type(item))
     self.item = item
   
   def __hash__(self):
@@ -276,8 +277,12 @@ class HashableItem:
       return hash((tuple(self.item.GetPosition()), self.item.GetNetname(), self.item.GetParentFootprint().GetReference(), self.item.GetName(), int(self.item.this)))
     elif type(self.item) == pcbnew.PCB_TRACK:
       return hash((tuple(self.item.GetStart()), tuple(self.item.GetEnd()), self.item.GetNetname(), self.item.GetLayerName(), int(self.item.this)))
+    elif type(self.item) == pcbnew.PCB_ARC:
+      return hash((tuple(self.item.GetStart()), self.item.GetLength(), tuple(self.item.GetEnd()), self.item.GetNetname(), self.item.GetLayerName(), int(self.item.this)))
     elif type(self.item) == pcbnew.PCB_VIA:
       return hash((tuple(self.item.GetPosition()), self.item.GetNetname(), tuple(self.item.GetLayerSet().CuStack()), int(self.item.this)))
+    else:
+      raise TypeError("HashableItem supports pcbnew PAD, PCB_TRACK, PCB_ARC, and PCB_VIA, not {}".format(type(self.item)))
   
   def __eq__(self, other):
     if isinstance(other, HashableItem):
@@ -1241,6 +1246,20 @@ class PCBLayout(object):
         hid+=1
     print("Hid %i reference labels" % hid)
 
+  def rotateEach(self, pattern, angle):
+    changed=False
+    import re
+    pat = re.compile(pattern)
+    for fp in self.board.GetFootprints():
+      if pat.match(fp.GetReference()):
+        orientation = fp.GetOrientation().AsDegrees()
+        print("Rotating %s from %f° to %f°" % (fp.GetReference(), orientation, orientation+angle))
+        fp.SetOrientation(pcbnew.EDA_ANGLE(orientation+angle, pcbnew.DEGREES_T))
+        changed = True
+    if not changed:
+      print("rotateEach: No matches")
+    return changed
+
   def doLayout(self, args):
     needSave = False
 
@@ -1269,6 +1288,9 @@ class PCBLayout(object):
     if args.hide_all_labels:
       self.hideAllLabels()
       needSave = True
+
+    if args.rotate_each:
+      needSave = self.rotateEach(args.rotate_each[0],float(args.rotate_each[1])) or needSave
 
     if args.draw_poly:
       self.drawPoly(args.draw_poly)
