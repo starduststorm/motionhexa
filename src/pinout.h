@@ -13,7 +13,7 @@ int photosensorNearbyPixels[] = {
   // beyond this there is little to no impact even at 0xFF brightness with a front case on
 };
 
-#if HARDWARE_VERSION == 5
+#if HARDWARE_VERSION >= 5
 
 #define PDM_CLK 20
 #define PDM_LRCLK (PDM_CLK+1)
@@ -40,7 +40,11 @@ int photosensorNearbyPixels[] = {
 #define GPOUT_PIN 1
 
 #define EN_LDO_PIN 22
+#if HARDWARE_VERSION == 5
 #define EN_BOOST_PIN 0
+#else
+#define V6_DETECTOR_PIN 0
+#endif
 #define DISABLE_CHARGE_PIN 17
 
 
