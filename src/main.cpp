@@ -148,7 +148,7 @@ void core1_main() {
 #if HARDWARE_VERSION >= 4
   batterySucess = initializeBattery();
   powerState.batteryInitialized = batterySucess; // should be fine to write this bool from core1?
-  logdf("initializeBattery = %i", batterySucess);
+  logf("initializeBattery = %i", batterySucess);
   digitalWrite(DISABLE_CHARGE_PIN, false);
 #endif
 
@@ -272,6 +272,11 @@ void setup() {
   int batteryVoltageRead = analogRead(BATTERY_VOLTAGE_PIN);
 #else // HARDWARE_VERSION < 4
   powerState.setRunning(true);
+#endif
+#if HARDWARE_VERSION >= 5
+  pinMode(V6_DETECTOR_PIN, INPUT);
+  bool v6Hardware = (digitalRead(V6_DETECTOR_PIN) != 0);
+  logdf("v6Hardware = %i", v6Hardware);
 #endif
 
   FastLED.addLeds<SK9822HD, LED_SPI0_TX, LED_SPI0_SCK, BGR, DATA_RATE_MHZ(16)>(ctx.leds, LED_COUNT);//.setCorrection(0xFFB0C0);
@@ -458,7 +463,7 @@ void loop() {
     digitalWrite(LED_LINE_0_PWR_PIN, pixelsNeedPower);
   }
 #endif
-  
+
 #if DEBUG
 #if HARDWARE_VERSION > 2
   ctx.leds[0] = isVBUSPowered ? CRGB::Red : CRGB::Black;

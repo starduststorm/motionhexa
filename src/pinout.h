@@ -40,11 +40,12 @@ int photosensorNearbyPixels[] = {
 #define GPOUT_PIN 1
 
 #define EN_LDO_PIN 22
+
 #if HARDWARE_VERSION == 5
 #define EN_BOOST_PIN 0
-#else
-#define V6_DETECTOR_PIN 0
 #endif
+#define V6_DETECTOR_PIN 0
+
 #define DISABLE_CHARGE_PIN 17
 
 
