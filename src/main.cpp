@@ -47,7 +47,7 @@ SPSTButton *mainButton = NULL;
 FrameCounter fc;
 PatternManager patternManager(ctx);
 
-#include "audio.h"
+#include <audio.h>
 AudioInputPDM audioInput(PDM_DATA, PDM_CLK, (HARDWARE_VERSION >= 4));
 // TODO: fft numBins should be pattern-determined. how to rationalize this with a shared fft?
 FFTProcessing fftProcessing(audioInput, 10, 128);
@@ -295,7 +295,6 @@ void setup() {
   patternManager.registerPattern<PixelSand>();
   patternManager.registerPattern<LargeBouncyBall>();
   patternManager.registerPattern<PulseHexaSmooth>();
-  patternManager.registerPattern<PulseHexa>();  
   patternManager.registerPattern<PridefulSpinnyThing>();
   patternManager.registerPattern<TriangleSpin>();
   patternManager.registerPattern<SparkleDroplets>();

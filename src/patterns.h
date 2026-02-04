@@ -106,12 +106,12 @@ public:
   }
 };
 
-class PulseHexaSmooth : public Pattern, PaletteRotation<CRGBPalette256> {
+class PulseHexaSmooth : public Pattern, AmplitudeReceiver, PaletteRotation<CRGBPalette256> {
 public:
-  Axial center;
-  PulseHexaSmooth() {
+  AxialT<int32_t> center;
+  PulseHexaSmooth() : AmplitudeReceiver(audioInput) {
     maxColorJump = 30;
-    secondsPerPalette = 15;
+    secondsPerPalette = 9;
   }
 
   vector32 smoothAcc;
@@ -119,23 +119,33 @@ public:
   void update() {
     constexpr int mult = 1000; // smooth everything with integer math
     auto agmt = MotionManager::motionFrame.agmt;
-    vector32 acc = vector32(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
+
+    vector32 acc = vector32(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z) * 5;
     smoothAcc = (9 * smoothAcc + acc) / 10;
 
     constexpr int kInverseRootThree = mult*1/sqrt(3);
-    Axial offcenter = center;
+    AxialT<int32_t> offcenter = center;
     int q = offcenter.q() + smoothAcc.y + kInverseRootThree * smoothAcc.x / mult;
     int r = offcenter.r() - smoothAcc.x;
     offcenter.setQR(q,r);
 
+    int amplitude = amplitudeFrame();
+
     for (PixelIndex px = 0; px < LED_COUNT; ++px) {
-      Axial ax = axial.axialFromPixelIndex(px);
+      AxialT<int32_t> ax(axial.axialFromPixelIndex(px));
       ax *= mult;
       
-      int distance = max(max(abs(offcenter.q() - ax.q()), abs(offcenter.r() - ax.r())), abs(offcenter.s() - ax.s()));
+      const int kAccScale = 10000;
+      const int kAmpScale = 600;
+      const int kLocScale = 2000000;
+      // full static glitch with no fade
+      // int glitchIt = (smoothAcc.z>0 ? (ax.q()*ax.r()*ax.s()) * smoothAcc.z/500000. : 0);
+      // smooth-transition glitch that also reacts to sound
+      int glitchIt = (smoothAcc.z>0 ? (ax.q()*ax.r()*ax.s())/kLocScale * (1 + amplitude/kAmpScale) * smoothAcc.z/kAccScale: 0);
+      int distance = max(max(abs(offcenter.q() - ax.q()), abs(offcenter.r() - ax.r())), abs(offcenter.s() - ax.s())) + glitchIt;
       
       uint8_t brightness = beatsin8(60, 0, 255, 0, -beatsin16(2, 250, 350)*distance/(kMeridian/2)/mult);
-      CRGB c = this->getMirroredPaletteColor(millis()/100 + distance*15/mult);
+      CRGB c = this->getMirroredPaletteColor(millis()/100 + distance*15/mult + beatsin8(3, 0, kMeridian));
       c = c.scale8(brightness);
       ctx.leds[px] = c;
     }

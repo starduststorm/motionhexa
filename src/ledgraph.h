@@ -94,21 +94,26 @@ vector16 accelerationAtPixelIndex(PixelIndex index, ICM_20948_AGMT_t &agmt) {
   // logf("  => (%i, %i)", vec.x, vec.y);
   return vec;
 }
+
 struct fAxial;
-struct Axial : vector16 {
-  Axial() : vector16(0,0,0) {}
-  Axial(int16_t q, int16_t r) : vector16(q,r,-q-r) {}
-  Axial(vector16 v) : Axial(v.x,v.y) {}
-  Axial(fAxial fax);
-  int16_t q() { return x; };
-  int16_t r() { return y; };
-  int16_t s() { return z; };
-  void setQR(int16_t q, int16_t r) {
-    x = q;
-    y = r;
-    z = -q - r;
+template<typename T>
+struct AxialT : vectorT<T> {
+  AxialT() : vectorT<T>(0,0,0) {}
+  AxialT(T q, T r) : vectorT<T>(q,r,-q-r) {}
+template<typename T2>
+  AxialT(vectorT<T2> v) : AxialT((T)v.x,(T)v.y) {}
+  AxialT(fAxial fax);
+  T q() { return this->x; };
+  T r() { return this->y; };
+  T s() { return this->z; };
+  void setQR(T q, T r) {
+    this->x = q;
+    this->y = r;
+    this->z = -q - r;
   }
 };
+
+using Axial = AxialT<int16_t>;
 
 struct fAxial : vectorT<float> {
   fAxial() : vectorT<float>(0,0,0) {}
@@ -142,7 +147,8 @@ struct fAxial : vectorT<float> {
   }
 };
 
-Axial::Axial(fAxial fax) : Axial((int16_t)fax.q(), (int16_t)fax.r()) {}
+template<typename T>
+AxialT<T>::AxialT(fAxial fax) : AxialT((T)fax.q(), (T)fax.r()) {}
 
 class AxialAccess {
   int meridian;
