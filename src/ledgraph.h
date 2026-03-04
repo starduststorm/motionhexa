@@ -30,7 +30,7 @@ typedef enum : uint8_t {
 
 Graph ledgraph;
 constexpr uint16_t kHexaCenterIndex = LED_COUNT/2;
-constexpr uint8_t kMeridian = (3 + sqrt(12*LED_COUNT-3))/6 * 2 - 1;
+constexpr uint8_t kMeridian = (3 + sqrt(12*LED_COUNT-3))/6 * 2 - 1; // 19
 const float pixelSpacing = 3.9;
 
 HexGrid<PixelIndex> hexGrid(kMeridian, pixelSpacing);
@@ -39,11 +39,11 @@ HexGrid<PixelIndex> hexGrid(kMeridian, pixelSpacing);
 static int angleForDirection(HexagonBounding dir) {
   switch (dir) {
   case HexagonBounding::right:     return 0; break;
-  case HexagonBounding::bottomright: return 1*360/6; break;
-  case HexagonBounding::bottomleft:  return 2*360/6; break;
+  case HexagonBounding::downright: return 1*360/6; break;
+  case HexagonBounding::downleft:  return 2*360/6; break;
   case HexagonBounding::left:    return 3*360/6; break;
-  case HexagonBounding::topleft:   return 4*360/6; break;
-  case HexagonBounding::topright:  return 5*360/6; break;
+  case HexagonBounding::upleft:   return 4*360/6; break;
+  case HexagonBounding::upright:  return 5*360/6; break;
   default:
     assert(false, "angleForDirection");
     return 0; break;
@@ -54,11 +54,11 @@ static HexagonBounding directionForAngle(int angle) {
   angle = mod_wrap(angle, 360);
   switch (angle) {
     case 0:     return HexagonBounding::right; break;
-    case 1*360/6: return HexagonBounding::bottomright; break;
-    case 2*360/6: return HexagonBounding::bottomleft; break;
+    case 1*360/6: return HexagonBounding::downright; break;
+    case 2*360/6: return HexagonBounding::downleft; break;
     case 3*360/6: return HexagonBounding::left; break;
-    case 4*360/6: return HexagonBounding::topleft; break;
-    case 5*360/6: return HexagonBounding::topright; break;
+    case 4*360/6: return HexagonBounding::upleft; break;
+    case 5*360/6: return HexagonBounding::upright; break;
   default:
     assert(false, "directionForAngle(%i)", angle);
     return HexagonBounding::interior; break;
@@ -202,6 +202,12 @@ public:
     int r = rectIndex / meridian - meridian/2;
     return Axial(q,r);
   }
+
+  vectorf rectFromPixelIndex(PixelIndex pxIndex) {
+    Axial ax = axialFromPixelIndex(pxIndex);
+    vectorf rect = hexToRect(ax, 1);
+    return rect;
+  }
   
   std::optional<PixelIndex> indexAtAxial(int q, int r) {
     if (abs(r) > meridian/2 || abs(q) > meridian/2) {
@@ -213,21 +219,25 @@ public:
   std::optional<PixelIndex> indexAtAxial(Axial ax) {
     return indexAtAxial(ax.q(), ax.r());
   }
+  std::optional<PixelIndex> indexAtRect(vectorf point) {
+    fAxial ax = rectToHex(point);
+    return indexAtAxial(ax);
+  }
 
-  vectorT<float> hexToRect(fAxial ax, float size = kMeridian) {
-    constexpr float sqrtThreeOverTwo = 0.86602540378f;
-    constexpr float sqrtThree = 1.73205080757f;
-    float x = 3/2.f * ax.q() * size;
-    float y = (sqrtThreeOverTwo * ax.q() + sqrtThree * ax.r()) * size;
-    return vectorT<float>(x, y);
+  vectorf hexToRect(fAxial ax, float size = kMeridian) {
+    float x =  size * (ax.q() + 0.5 * ax.r());
+    float y = -size * kSqrtThreeOverThree * 3/2.f * ax.r();
+    return vectorf(x, y);
   }
 
   fAxial rectToHex(vectorT<float> point, float size = kMeridian) {
-    constexpr float sqrtThreeOverThree = 0.57735026919f;
-    float x = point.x / size;
-    float y = point.y / size;
-    float q = 2/3.f * x;
-    float r = -1/3.f * x + sqrtThreeOverThree * y;
+    float x =  point.x / size;
+    float y = -point.y / size;
+    // var q = (sqrt(3)/3 * x  -  1./3 * y)
+    // var r = (                  2./3 * y)
+
+    float q = 1 * x - kSqrtThreeOverThree * y;
+    float r = 2 * kSqrtThreeOverThree * y;
     return fAxial(q, r);
   }
 };

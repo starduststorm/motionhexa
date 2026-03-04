@@ -18,6 +18,10 @@ bool physicsDebugFlag = false;
 #define plogf(format, ...)
 #endif
 
+constexpr float kSqrtThree = 1.73205080757f;
+constexpr float kSqrtThreeOverThree = 0.57735026919f;
+constexpr float kSqrtThreeOverTwo = 0.86602540378f;
+
 // TODO: tbh this should have just used cube coordinates instead of the connections web with hex nodes - would have been simpler to construct, use, copy, inset, etc.
 
 static const int kMotionDamper = 8; // drop some low order motion bits
@@ -36,6 +40,11 @@ struct vectorT {
   template<typename T2>
   vectorT(const vectorT<T2> &other) : x(other.x), y(other.y), z(other.z) {}
   
+  float dot(const vectorT<float> &other) {
+    return x*other.x + y*other.y + z*other.z;
+  }
+
+  // vector16 dot should be int32
   template<typename T2>
   int32_t dot(const vectorT<T2> &other) {
     return x*other.x + y*other.y + z*other.z;
@@ -86,15 +95,24 @@ struct vectorT {
     z *= multiplier;
     return *this;
   }
+  vectorT<T> &operator/=(const T divisor) {
+    x /= divisor;
+    y /= divisor;
+    z /= divisor;
+    return *this;
+  }
   vectorT<T> operator>>(const unsigned int shift) const {
     return vectorT<T>(x >> shift, y >> shift, z >> shift);
   }
   bool operator==(const vectorT<T> & oth) const { return x == oth.x && y == oth.y && z == oth.z; }
   vectorT<T> scale8(uint8_t scaleBy) {
-    int16_t sx = scale16by8(abs(x), scaleBy) * (x < 0 ? -1 : 1);
-    int16_t sy = scale16by8(abs(y), scaleBy) * (y < 0 ? -1 : 1);
-    int16_t sz = scale16by8(abs(z), scaleBy) * (z < 0 ? -1 : 1);
+    T sx = (x * scaleBy) / 255;
+    T sy = (y * scaleBy) / 255;
+    T sz = (z * scaleBy) / 255;
     return vectorT<T>(sx, sy, sz);
+  }
+  float length() {
+    return sqrt((float)(x*x + y*y + z*z));
   }
 };
 
@@ -107,30 +125,30 @@ vectorT<T> operator*(int multiplier, const vectorT<T>& vec) {
 typedef vectorT<int8_t> vector8;
 typedef vectorT<int16_t> vector16;
 typedef vectorT<int32_t> vector32;
+typedef vectorT<float> vectorf;
 
-struct line16 {
-  int16_t x1, y1, x2, y2;
-  line16(int16_t x1, int16_t y1, int16_t x2, int16_t y2) : x1(x1), y1(y1), x2(x2), y2(y2) { }
-  vector16 normal(bool clockwise=true) {
-    // this vector is not unit length
-    int16_t dy = y2-y1, dx = x2-x1;
-    return clockwise ? vector16(-dy, dx) : vector16(dy, -dx);
+template<typename T>
+struct lineT {
+  T A, B, C;
+  
+  lineT(T x1, T y1, T x2, T y2) {
+    A = y2-y1;
+    B = x1-x2;
+    C = y1 * x2 - x1*y2;
   }
-  line16 mergeMidpoints(line16 &oth) {
-    return line16((x1+oth.x1)/2, (y1+oth.y1)/2, (x2+oth.x2)/2, (y2+oth.y2)/2);
+  lineT(T A, T B, T C) : A(A), B(B), C(C) { }
+  vectorf normal(bool clockwise=true) {
+    return vectorf(A,B) / sqrt(A*A+B*B);
   }
-  // coefficients of line equation Ax + By + C = 0
-  int32_t A() {
-    return y2-y1;
+  vectorT<T> longnormal(bool clockwise=true) {
+    return vectorT(A,B);
   }
-  int32_t B() {
-    return x1-x2;
-  }
-  int32_t C() {
-    return y1 * (x2 - x1) - (y2 - y1) * x1;
-  }
-  bool operator==(const line16 & oth) const { return x1 == oth.x1 && y1 == oth.y1 && x2 == oth.x2 && y2 == oth.y2; }
-};
+  bool operator==(const lineT<T> & oth) const { return A == oth.A && B == oth.B && C == oth.C; }
+ };
+
+typedef lineT<int32_t> line32;
+typedef lineT<float> linef;
+
 struct UMPoint : vector32 {
   // point operating on integral micrometers
   UMPoint() : vector32() {};
@@ -146,11 +164,13 @@ struct UMPoint : vector32 {
 enum class HexagonBounding : uint8_t {
   interior     = 0,
   right        = 1 << 0, // 1
-  topright     = 1 << 1, // 2
-  topleft      = 1 << 2, // 4
+  upright      = 1 << 1, // 2
+  upleft       = 1 << 2, // 4
   left         = 1 << 3, // 8
-  bottomleft   = 1 << 4, // 16
-  bottomright  = 1 << 5, // 32
+  downleft     = 1 << 4, // 16
+  downright    = 1 << 5, // 32
+  top          = 1 << 6, // 64
+  bottom       = 1 << 7, // 128
 };
 inline HexagonBounding operator|(HexagonBounding lhs, HexagonBounding rhs) {
   using T = std::underlying_type_t <HexagonBounding>;
@@ -175,7 +195,7 @@ public:
       }
     }
     optional<T> _value = nullopt;
-    optional<line16> _edgeLine = nullopt;
+    optional<line32> _edgeLine = nullopt;
     public:
     union {
       struct {
@@ -187,7 +207,7 @@ public:
     HexNode(T val) : _value(val) { 
       initNeighbors();
     }
-    HexNode(line16 edgeLine) : _edgeLine(edgeLine) {
+    HexNode(line32 edgeLine) : _edgeLine(edgeLine) {
       initNeighbors();
     }
     HexNode(const HexGrid<T>::HexNode& oth) {
@@ -209,7 +229,7 @@ public:
     T data() {
       return _value.value();
     }
-    line16 edgeLine(){
+    line32 edgeLine(){
       return _edgeLine.value();
     }
     bool isDataNode() {
@@ -228,11 +248,11 @@ public:
     HexNode *dstForMotion(HexagonBounding bounding) {
       switch (bounding) {
         case HexagonBounding::right:       return named.r;
-        case HexagonBounding::topright:    return named.ur;
-        case HexagonBounding::topleft:     return named.ul;
+        case HexagonBounding::upright:    return named.ur;
+        case HexagonBounding::upleft:     return named.ul;
         case HexagonBounding::left:        return named.l;
-        case HexagonBounding::bottomleft:  return named.dl;
-        case HexagonBounding::bottomright: return named.dr;
+        case HexagonBounding::downleft:  return named.dl;
+        case HexagonBounding::downright: return named.dr;
         case HexagonBounding::interior:
         default:
           return nullptr;
@@ -336,18 +356,21 @@ private:
 
     int16_t vertexDistance=222, sideDistance=192, yintercept=384, x1=111; // center-to-point 222
     // clockwise for correct normal orientation
-    line16 urLine(vertexDistance,   0,              x1,              sideDistance);
-    line16 uLine ( x1,              sideDistance,  -x1,              sideDistance);
-    line16 ulLine(-x1,              sideDistance,  -vertexDistance,  0);
-    line16 dlLine(-vertexDistance,  0,             -x1,             -sideDistance);
-    line16 dLine (-x1,             -sideDistance,   x1,             -sideDistance);
-    line16 drLine( x1,             -sideDistance,   vertexDistance,  0);
-    line16 urCornerLine = uLine .mergeMidpoints(urLine);
-    line16 rCornerLine  = urLine.mergeMidpoints(drLine);
-    line16 drCornerLine = drLine.mergeMidpoints(dLine);
-    line16 dlCornerLine = dLine .mergeMidpoints(dlLine);
-    line16 lCornerLine  = dlLine.mergeMidpoints(ulLine);
-    line16 ulCornerLine = ulLine.mergeMidpoints(uLine);
+    line32 urLine(vertexDistance,   0,              x1,              sideDistance);
+    line32 uLine ( x1,              sideDistance,  -x1,              sideDistance);
+    line32 ulLine(-x1,              sideDistance,  -vertexDistance,  0);
+    line32 dlLine(-vertexDistance,  0,             -x1,             -sideDistance);
+    line32 dLine (-x1,             -sideDistance,   x1,             -sideDistance);
+    line32 drLine( x1,             -sideDistance,   vertexDistance,  0);
+    
+    // -C for correct normal?
+    // FIXME: I don't see any difference when flipping the normals, so something may be off about corner line collision
+    line32 lCornerLine (-1,    0,   -294);
+    line32 rCornerLine ( 1,    0,   -294);
+    line32 urCornerLine( 128,  222, -75426);
+    line32 drCornerLine( 128, -222, -75426);
+    line32 dlCornerLine(-128, -222, -75426);
+    line32 ulCornerLine(-128,  222, -75426);
 
     vector<HexNode *> edges;
     edges.reserve(edgeCount());
@@ -485,11 +508,11 @@ private:
     // point-down bound
     switch (bound) {
       case HexagonBounding::right:       return vector16( 222,  0)*2;
-      case HexagonBounding::topright:    return vector16( 111,  192)*2; // 256*sqrt(3)/2 * (cos(pi/3), sin(pi/3))
-      case HexagonBounding::topleft:     return vector16(-111,  192)*2;
+      case HexagonBounding::upright:    return vector16( 111,  192)*2; // 256*sqrt(3)/2 * (cos(pi/3), sin(pi/3))
+      case HexagonBounding::upleft:     return vector16(-111,  192)*2;
       case HexagonBounding::left:        return vector16(-222,  0)*2;
-      case HexagonBounding::bottomleft:  return vector16(-111, -192)*2;
-      case HexagonBounding::bottomright: return vector16( 111, -192)*2;
+      case HexagonBounding::downleft:  return vector16(-111, -192)*2;
+      case HexagonBounding::downright: return vector16( 111, -192)*2;
       case HexagonBounding::interior:
       default:
         return vector16(0, 0);
@@ -511,10 +534,10 @@ private:
 
     if (p.x < -222/* && abovePosDivider && !aboveNegDivider*/) bounds |= HexagonBounding::left;
     if (p.x >  222/* && aboveNegDivider && !abovePosDivider*/) bounds |= HexagonBounding::right;
-    if ( point_above_line(p, -128,222,  255)/* && p.x>=0 &&  abovePosDivider*/) bounds |= HexagonBounding::topright;
-    if (!point_above_line(p,  128,222, -255)/* && p.x>=0 && !aboveNegDivider*/) bounds |= HexagonBounding::bottomright;
-    if (!point_above_line(p, -128,222, -255)/* && p.x<=0 && !abovePosDivider*/) bounds |= HexagonBounding::bottomleft;
-    if ( point_above_line(p,  128,222,  255)/* && p.x<=0 &&  aboveNegDivider*/) bounds |= HexagonBounding::topleft;
+    if ( point_above_line(p, -128,222,  255)/* && p.x>=0 &&  abovePosDivider*/) bounds |= HexagonBounding::upright;
+    if (!point_above_line(p,  128,222, -255)/* && p.x>=0 && !aboveNegDivider*/) bounds |= HexagonBounding::downright;
+    if (!point_above_line(p, -128,222, -255)/* && p.x<=0 && !abovePosDivider*/) bounds |= HexagonBounding::downleft;
+    if ( point_above_line(p,  128,222,  255)/* && p.x<=0 &&  aboveNegDivider*/) bounds |= HexagonBounding::upleft;
     return bounds;
   }
 
@@ -577,7 +600,7 @@ private:
         }
       } else {
         plogf("  Particle %i intersected with wall via checkBound %i", label, checkBound);
-        line16 line = dst->edgeLine();
+        line32 line = dst->edgeLine();
         plogf("    wall line points (%i,%i), (%i,%i)", line.x1, line.y1, line.x2, line.y2);
 
         // roll back the particle movement since it crossed a line
@@ -586,14 +609,14 @@ private:
         plogf("    rolled back to (%i, %i)", p.pos.x, p.pos.y);
 
         // v` = v−2*(v⋅n)/(n⋅n)⋅n
-        auto normal = line.normal();
+        auto normal = line.longnormal();
         int32_t VDotN = p.velocity.dot(normal);
         int32_t NDotN = normal.dot(normal);
 
         // get line as Ax + By + C = 0
-        int32_t A = line.A();
-        int32_t B = line.B();
-        int32_t C = line.C();
+        int32_t A = line.A;
+        int32_t B = line.B;
+        int32_t C = line.C;
 
         plogf("    normal = (%i,%i), VDotN = %i, NDotN = %i", normal.x, normal.y, VDotN, NDotN);
         plogf("      %i*x+%i*y+%i=0", A, B, C);
@@ -723,11 +746,11 @@ public:
     for (int i = 0; i < particles.size(); ++i) {
       Particle &p = *particles[i];
       updateParticleAtBound(i, p, elapsed, HexagonBounding::right);
-      updateParticleAtBound(i, p, elapsed, HexagonBounding::topright);
-      updateParticleAtBound(i, p, elapsed, HexagonBounding::topleft);
+      updateParticleAtBound(i, p, elapsed, HexagonBounding::upright);
+      updateParticleAtBound(i, p, elapsed, HexagonBounding::upleft);
       updateParticleAtBound(i, p, elapsed, HexagonBounding::left);
-      updateParticleAtBound(i, p, elapsed, HexagonBounding::bottomleft);
-      updateParticleAtBound(i, p, elapsed, HexagonBounding::bottomright);
+      updateParticleAtBound(i, p, elapsed, HexagonBounding::downleft);
+      updateParticleAtBound(i, p, elapsed, HexagonBounding::downright);
     }
   }
 
