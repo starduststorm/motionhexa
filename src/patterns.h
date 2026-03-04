@@ -121,7 +121,8 @@ public:
     auto agmt = MotionManager::motionFrame.agmt;
 
     vector32 acc = vector32(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z) * 5;
-    smoothAcc = (9 * smoothAcc + acc) / 10;
+    const int smoooooth = 10;
+    smoothAcc = (smoooooth * smoothAcc + acc) / (smoooooth+1);
 
     constexpr int kInverseRootThree = mult*1/sqrt(3);
     AxialT<int32_t> offcenter = center;
@@ -193,9 +194,9 @@ public:
     for (int s = 0 ; s < hexaShells.shells.size(); ++s) {
       uint8_t shellSize = hexaShells.shells[s].size();
       
-      const int16_t bandIndex = gyrAccum.y<<1; // TODO: tune this so it's roughly one half index change every complete flip
+      const int16_t bandIndex = gyrAccum.y*2; // TODO: tune this so it's roughly one half index change every complete flip
       const int16_t bandRotate = accAccum.y;
-      const int16_t bandTwist = accAccum.x;//gyrAccum.z<<1;
+      const int16_t bandTwist = accAccum.x;//gyrAccum.z*2;
       const int16_t bandThing = 0;//accAccum.x;
       const int bandCounts[] = {0, 1, 2, 3, 6, 9}; // i like this somewhat better than arbitrary band counts
       int bands = bandCounts[((uint16_t)(bandIndex+INT16_MAX) / (1<<12)) % ARRAY_SIZE(bandCounts)];
@@ -221,7 +222,7 @@ public:
         uint8_t brightness = lerp8by8(sin8(-bandRotate/4 + bands*(0xFF*si - bandTwist) / shellSize - 0xFF * (s-bandThing)/shellCount), 0xFF, bandFadeIn);
 
         brightness = scale8(brightness, brightness);
-        uint16_t gyrRotate = gyrAccum.z>>1 % 0x200;
+        uint16_t gyrRotate = (gyrAccum.z/2) % 0x200;
         uint16_t radialH =  0x200 * si / shellSize;
         uint16_t twistFactor = s * gyrAccum.x/6 % 0x200 + s*millis()/500;
         uint16_t shellH = 0x200 * s/shellCount * beatsin16(3, 0, 0x200, 0, gyrAccum.y) / 0x200;
@@ -454,7 +455,7 @@ public:
     float yaw = MotionManager::motionFrame.euler.yaw*PI/180;
     uint16_t yawBytes = max(0, min(0x1FF, (MotionManager::motionFrame.euler.yaw+180) * 0x1FF/360));
 
-    float r = kMeridian-6;
+    float r = kMeridian/2-2;
     unsigned timeOffset = millis() / 50;
 
     vectorT<float> pt1 = {r * cosf(yaw + 0),      r * sinf(yaw + 0)};
@@ -507,11 +508,12 @@ public:
     int flag = 6*(theta+M_PI/12) / (2*M_PI);
     flag = mod_wrap(flag,6);
     
-    const int maxHexRadius = (kMeridian-3);
+    const int maxHexRadius = (kMeridian/2-2);
     const int minHexRadius = -3;
-    avgZ = (10*avgZ+agmt.acc.axes.z)/11.f;
-    float lineRadius = kMeridian - (kMeridian+3) * abs(avgZ) / 9000.;
-    float hexRadius = maxHexRadius * abs(avgZ) / 9000. + minHexRadius;
+    const float maxZ = 9000.;
+    avgZ = min(maxZ, (10*avgZ+agmt.acc.axes.z)/11.f);
+    float lineRadius = kMeridian/2 - (kMeridian/2+3) * abs(avgZ) / maxZ;
+    float hexRadius = minHexRadius + (maxHexRadius-minHexRadius) * abs(avgZ) / maxZ;
 
     if (lineRadius > kMeridian/2) {
       lastSeenAtHighAngle = flag;
