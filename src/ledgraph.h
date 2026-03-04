@@ -146,50 +146,52 @@ Axial::Axial(fAxial fax) : Axial((int16_t)fax.q(), (int16_t)fax.r()) {}
 
 class AxialAccess {
   int meridian;
-  std::optional<PixelIndex> *rectToPixelMap; // rect index -> pixel index
-  int16_t *pixelToRectMap; // pixel index -> rect index
-  unsigned int index(int q, int r) { // q,r -> rect index
+  // axial coordinates are stored in a meridian*meridian 2d array
+  std::optional<PixelIndex> *storageToPixelMap; // storage index -> pixel index
+  int16_t *pixelToStorageMap; // pixel index -> storage index
+  unsigned int index(int q, int r) { // q,r -> storage index
     return (q+meridian/2) + meridian*(r+meridian/2);
   }
 public:
-  AxialAccess(HexGrid<PixelIndex> &hexGrid) {
-    assert(hexGrid.nodes.size() > 0, "hexGrid uninitialized");
-    int size = hexGrid.valueCount();
-    meridian = (3 + sqrt(12*size-3))/6 * 2 - 1;
-    rectToPixelMap = (std::optional<PixelIndex> *)malloc(meridian * meridian * sizeof(std::optional<PixelIndex>)); // rectangular storage
-    memset(rectToPixelMap, 0, meridian*meridian*sizeof(std::optional<PixelIndex>));
-    pixelToRectMap = (int16_t*)malloc(size * sizeof(int16_t)); // mapping from pixel index back to Axial
-    memset(pixelToRectMap, 0xFF, size*sizeof(int16_t));
+  AxialAccess(int meridian) : meridian(meridian) {
+    int n = meridian / 2;
+    int count = 3*n*n + 3*n + 1;
+    storageToPixelMap = (std::optional<PixelIndex> *)malloc(meridian * meridian * sizeof(std::optional<PixelIndex>));
+    memset(storageToPixelMap, 0, meridian*meridian*sizeof(std::optional<PixelIndex>));
+    pixelToStorageMap = (int16_t*)malloc(count * sizeof(int16_t));
+    memset(pixelToStorageMap, 0xFF, count*sizeof(int16_t));
 
-    HexGrid<PixelIndex>::HexNode *leftNode = hexGrid.nodes[0]; // starts at top-left node
-    int q = 0, r = -meridian/2;
-    int rowStartQ = q;
-    for (int row = 0; row < meridian; ++row) {
-      auto rowNode = leftNode;
-      while (!rowNode->isEdgeNode()) {
-        int idx = index(q,r);
-        rectToPixelMap[idx] = rowNode->data();
-        pixelToRectMap[rowNode->data()] = idx;
-        q++;
-        rowNode = rowNode->named.r;
+    // hexa wiring is zig-zag starting from left-to-right
+    PixelIndex px = 0;
+    for (int r = -n; r <= n; ++r) {
+      int q_start = max(-n, -n - r);
+      int q_end   = min( n,  n - r);
+      int row = r + n;
+      bool rightToLeft = row % 2;
+      if (rightToLeft) {
+        for (int q = q_end; q >= q_start; --q) {
+          int idx = index(q, r);
+          storageToPixelMap[idx] = px;
+          pixelToStorageMap[px] = idx;
+          px++;
+        }
+      } else {
+        for (int q = q_start; q <= q_end; ++q) {
+          int idx = index(q, r);
+          storageToPixelMap[idx] = px;
+          pixelToStorageMap[px] = idx;
+          px++;
+        }
       }
-      if (leftNode->named.dl->isDataNode()) { // top half of hexa
-        leftNode = leftNode->named.dl;
-        rowStartQ--;
-      } else { // bottom half
-        leftNode = leftNode->named.dr;
-      }
-      r++;
-      q = rowStartQ;
     }
   }
   ~AxialAccess() {
-    free(rectToPixelMap);
-    free(pixelToRectMap);
+    free(storageToPixelMap);
+    free(pixelToStorageMap);
   }
 
   Axial axialFromPixelIndex(PixelIndex pxIndex) {
-    int rectIndex = pixelToRectMap[pxIndex];
+    int rectIndex = pixelToStorageMap[pxIndex];
     int q = rectIndex % meridian - meridian/2;
     int r = rectIndex / meridian - meridian/2;
     return Axial(q,r);
@@ -200,33 +202,31 @@ public:
       return nullopt;
     }
     int rectIndex = index(q,r);
-    return rectToPixelMap[rectIndex];
+    return storageToPixelMap[rectIndex];
   }
   std::optional<PixelIndex> indexAtAxial(Axial ax) {
     return indexAtAxial(ax.q(), ax.r());
   }
 
-  vectorT<PixelIndex> hexToRect(fAxial ax, float size = kMeridian) {
-    constexpr float sqrtThreeOverTwo = sqrtf(3)/2;
-    constexpr float sqrtThree = sqrtf(3);
-    float x = sqrtThree * ax.q() + sqrtThreeOverTwo * ax.r();
-    float y = 3/2.f * ax.r();
-    x = x * size;
-    y = y * size;
+  vectorT<float> hexToRect(fAxial ax, float size = kMeridian) {
+    constexpr float sqrtThreeOverTwo = 0.86602540378f;
+    constexpr float sqrtThree = 1.73205080757f;
+    float x = 3/2.f * ax.q() * size;
+    float y = (sqrtThreeOverTwo * ax.q() + sqrtThree * ax.r()) * size;
     return vectorT<float>(x, y);
   }
 
   fAxial rectToHex(vectorT<float> point, float size = kMeridian) {
-    constexpr float sqrtThreeOverThree = sqrtf(3)/3;
+    constexpr float sqrtThreeOverThree = 0.57735026919f;
     float x = point.x / size;
     float y = point.y / size;
-    float q = sqrtThreeOverThree * x - 1/3.f * y;
-    float r = 2/3.f * y;
+    float q = 2/3.f * x;
+    float r = -1/3.f * x + sqrtThreeOverThree * y;
     return fAxial(q, r);
   }
 };
 
-AxialAccess axial(hexGrid);
+AxialAccess axial(kMeridian);
 
 void initLEDGraph() {
   assert(hexGrid.valueCount() == LED_COUNT, "led count issue");
