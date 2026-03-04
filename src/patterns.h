@@ -390,51 +390,96 @@ public:
   }
 };
 
-// Note: for this and any other "smooth motion" physics patterns, i could just do cartesian floating point physics on a single particle with walls and it'd probably be fine and even smoother.
+// special case the single ball physics since we can do floating point math for a single particle
 class LargeBouncyBall : public Pattern, PaletteRotation<CRGBPalette256> {
-  HexGrid<PixelIndex> insetHexGrid;
+  struct Ball {
+    vectorf pos;
+    vectorf velocity;
+    Ball() : pos(0,0), velocity(0,0) {};
+    Ball(vectorf pos, vectorf velocity) : pos(pos), velocity(velocity) {};
+  };
 public:
-  const int inset = 2;
-  PixelPhysics<LED_COUNT> physics;
-  LargeBouncyBall() : insetHexGrid(kMeridian), physics(insetHexGrid, 1, 70, 0xF0, 1) {
+  Ball p;
+  LargeBouncyBall() {
     minBrightness = 15;
-    insetHexGrid.insetEdgeNodesBy(inset, axial);
-    physics.particles[0]->index = kHexaCenterIndex;
   }
 
-  vector32 gyrAccum32;
+  void wallCollision(Ball &p) {
+    static const float wallR = kMeridian/2.f - 2;
+    const linef urLine(kSqrtThree,   1, -wallR*kSqrtThree);
+    const linef uLine (0,            1, -wallR*kSqrtThree/2);
+    const linef ulLine(-kSqrtThree,  1, -wallR*kSqrtThree);
+    const linef dlLine(-kSqrtThree, -1, -wallR*kSqrtThree);
+    const linef dLine (0,           -1, -wallR*kSqrtThree/2);
+    const linef drLine(kSqrtThree,  -1, -wallR*kSqrtThree);
+
+    const linef walls[] = {urLine, uLine, ulLine, dlLine, dLine, drLine};
+    const float elasticity = 0.92f;
+
+    // Iterate to handle corner collision
+    for (int it = 0; it < 3; ++it) {
+      bool collided = false;
+      for (const auto &wall : walls) {
+        float dist = wall.A * p.pos.x + wall.B * p.pos.y + wall.C;
+        if (dist > 0) {
+          float nLenSq = wall.A * wall.A + wall.B * wall.B;
+
+          // Reflect position back inside (mirror across wall)
+          p.pos.x -= 2 * wall.A * dist / nLenSq;
+          p.pos.y -= 2 * wall.B * dist / nLenSq;
+
+          // Reflect velocity only if moving outward
+          float vDotN = p.velocity.x * wall.A + p.velocity.y * wall.B;
+          if (vDotN > 0) {
+            p.velocity.x -= 2 * wall.A * vDotN / nLenSq * elasticity;
+            p.velocity.y -= 2 * wall.B * vDotN / nLenSq * elasticity;
+          }
+          collided = true;
+          break; // handle one wall per iteration, then re-check all
+        }
+      }
+      if (!collided) {
+        break;
+      }
+    }
+  }
+
+  unsigned long lastUpdate = 0;
   virtual void update() {
     ctx.leds.fill_solid(CRGB::Black);
 
-    const int gyrScale = (MotionManager::manager().enableDMP ? 200 : 2000); // coolcoolcool
     auto agmt = MotionManager::motionFrame.agmt;
-    gyrAccum32 += vector16(agmt.gyr.axes.x, agmt.gyr.axes.y, agmt.gyr.axes.z);
-    vector16 gyrAccum = gyrAccum32 / gyrScale;
-
-    physics.update([](PixelIndex index) {
-      return accelerationAtPixelIndex(index, MotionManager::motionFrame.agmt);
-    });
     int i = 0;
-    for (PixelPhysics<LED_COUNT>::Particle *p : physics.particles) {
-      Axial ballAx = axial.axialFromPixelIndex(p->index);
+    unsigned long elapsed = (lastUpdate > 0 ? millis() - lastUpdate : 1);
+    lastUpdate = millis();
 
-      constexpr int kInverseRootThree = 1/sqrt(3);
-      fAxial offcenter = ballAx;
-      float q = offcenter.q() + p->pos.x/255./2;
-      float r = offcenter.r() - p->pos.y/255./2 - kInverseRootThree * p->pos.x/255./2;
-      offcenter.setQR(q,r);
+    // update ball position from velocity and elapsed time
+    const float accelPreScale = 50000000;
+    std::optional<PixelIndex> pxopt = axial.indexAtRect(p.pos);
+    if (!pxopt.has_value()) {
+      logf("Ball at pos (%f, %f) is out of bounds!", p.pos.x, p.pos.y);
+      p.pos.x = 0;
+      p.pos.y = 0;
+    }
+    PixelIndex px = pxopt.value();
+    vectorf accelVector = accelerationAtPixelIndex(px, agmt);
+    vectorf scaledAccel = accelVector * elapsed / accelPreScale;
 
-      uint8_t hue = constrain((abs(p->velocity.x) + abs(p->velocity.y))/2 + (abs(p->velocity.x) + abs(p->velocity.y))/50, 0, 224);
-      for (PixelIndex px = 0; px < LED_COUNT; ++px) {
-        Axial ax = axial.axialFromPixelIndex(px);
-        
-        float distance = max(max(abs(offcenter.q() - ax.q()), abs(offcenter.r() - ax.r())), abs(offcenter.s() - ax.s()));
-        uint8_t brightness = constrain(0xFF - 0xFF * distance / (inset+1), 0, 0xFF);
-        
-        CRGB c = CHSV(max(0,hue-6*(int)distance), 0xFF, 0xFF);
-        c = c.scale8(brightness);
-        ctx.leds[px] = c;
-      }
+    p.velocity.x += scaledAccel.x;
+    p.velocity.y += scaledAccel.y;
+    p.pos += p.velocity * elapsed;
+    wallCollision(p);
+
+    uint8_t hue = constrain(1500 * (abs(p.velocity.x) + abs(p.velocity.y)), 0, 224);
+    for (PixelIndex px = 0; px < LED_COUNT; ++px) {
+      
+      const float ballRadius = 2.5;
+      float distance = sqrt(pow(p.pos.x - axial.rectFromPixelIndex(px).x, 2) + pow(p.pos.y - axial.rectFromPixelIndex(px).y, 2));
+      uint8_t brightness = constrain(0xFF - 0xFF * distance / ballRadius, 0, 0xFF);
+      
+      CRGB c = CHSV(max(0,hue-6*(int)distance), 0xFF, 0xFF);
+      c = c.scale8(brightness);
+      ctx.leds[px] = c;
     }
   }
 
