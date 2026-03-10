@@ -580,7 +580,7 @@ public:
   };
   void update() {
     ctx.leds.fill_solid(CRGB::Black);
-    float yaw = MotionManager::motionFrame.euler.yaw*PI/180;
+    float yaw = -MotionManager::motionFrame.euler.yaw*PI/180;
     uint16_t yawBytes = max(0, min(0x1FF, (MotionManager::motionFrame.euler.yaw+180) * 0x1FF/360));
 
     float r = kMeridian/2-2;
