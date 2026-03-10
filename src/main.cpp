@@ -1,13 +1,6 @@
 #define DEBUG 0
 #define WAIT_FOR_SERIAL 0
 
-// for memory logging
-#ifdef __arm__
-extern "C" char* sbrk(int incr);
-#else
-extern char *__brkval;
-#endif
-
 #include <Arduino.h>
 #include <SPI.h>
 #include "pico/multicore.h"
