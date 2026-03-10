@@ -32,16 +32,21 @@ struct MotionFrame {
 
 class MotionManager {
 protected:
-    static MotionManager *_singleton;
-    MotionManager() {}
+  static MotionManager *_singleton;
+  MotionManager() {}
 public:
-    const bool enableDMP = true;
-    MotionManager(MotionManager &other) = delete;
-    void operator=(const MotionManager &) = delete;
-    static MotionManager &manager();
+  const bool enableDMP = true;
+  MotionManager(MotionManager &other) = delete;
+  void operator=(const MotionManager &) = delete;
+  static MotionManager &manager();
 
-    // for external access, currently using this from core0 and the rest of the class from core1
-    static MotionFrame motionFrame;
+  // for external access, currently using this from core0 and the rest of the class from core1
+  static MotionFrame motionFrame;
+  
+  // 939.7 LSB/(rad/s) from datasheet when GYRO_FS_SEL=3, which is set in initializeDMP()
+  constexpr static float gyrToRadScale = 16.4 * 180.0 / M_PI;
+  // 8192 LSB/g from datasheet when ACCEL_FS_SEL=1, which is set in initializeDMP()
+  constexpr static float accelToGScale = 8192.0;
 
 private:
   bool hasSensor = false;

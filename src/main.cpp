@@ -303,9 +303,10 @@ void setup() {
   
 #if HARDWARE_VERSION >= 3
   patternManager.registerPattern<ChargingPattern>(1);
-  patternManager.setupConditionalRunner<ChargingPattern>([](PatternRunner &runner) -> uint8_t {
+  auto chargingRunner = patternManager.setupConditionalRunner<ChargingPattern>([](PatternRunner &runner) -> uint8_t {
     return chargingPatternCheck(runner, powerState);
   }, 0xFD, 0xFF);
+  chargingRunner->animateDim = true;
 #endif
   
   indexedRunner = patternManager.setupIndexedRunner(0);
@@ -344,6 +345,7 @@ void setup() {
           stopHexa();
           powerOnOffRunner.reset();
         });
+        powerOnOffRunner->animateDim = true;
       }
     }
   });
@@ -425,6 +427,7 @@ void loop() {
         // and only unpause events now that the animation is complete, since we may have stopped the animation early
         mainButton->pauseEvents = false;
       });
+      powerOnOffRunner->animateDim = true;
     } else if (patternManager.hasTestRunner()) {
       powerState.setRunning(true);
     }

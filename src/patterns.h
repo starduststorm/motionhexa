@@ -1,10 +1,11 @@
 #ifndef PATTERN_H
 #define PATTERN_H
 
-#include <FastLED.h>
 #include <vector>
 #include <functional>
 #include <optional>
+
+#include <FastLED.h>
 
 #include <util.h>
 #include <paletting.h>
@@ -15,6 +16,7 @@
 #include "MotionManager.h"
 #include "hexaphysics.h"
 #include "particles.h"
+#include <phaser.h>
 
 struct HexaShells {
   vector<vector<std::optional<PixelIndex> > > shells;
@@ -390,8 +392,8 @@ public:
   }
 };
 
-// special case the single ball physics since we can do floating point math for a single particle
-class LargeBouncyBall : public Pattern, PaletteRotation<CRGBPalette256> {
+// special case the single ball physics since we can do nice floating point math for a single particle
+class LargeBouncyBall : public Pattern {
   struct Ball {
     vectorf pos;
     vectorf velocity;
@@ -400,86 +402,167 @@ class LargeBouncyBall : public Pattern, PaletteRotation<CRGBPalette256> {
   };
 public:
   Ball p;
-  LargeBouncyBall() {
-    minBrightness = 15;
+  unsigned long boomStart = 0;
+
+  void stellate(float radius, float bright) {
+    for (PixelIndex px = 0; px < LED_COUNT; ++px) {
+      Axial ax = axial.axialFromPixelIndex(px);
+      int aq = abs(ax.q()), ar = abs(ax.r()), as = abs(ax.s());
+      float stellatedDist = (max(max(aq, ar), as) + min(min(aq, ar), as) * 2) / 2;
+      if (stellatedDist <= radius) {
+        uint8_t b = bright * (1.0f - stellatedDist / max(radius, 0.01f)) * 255;
+        ctx.leds[px] = CRGB(b, b, b);
+      }
+    }
   }
 
-  void wallCollision(Ball &p) {
-    static const float wallR = kMeridian/2.f - 2;
-    const linef urLine(kSqrtThree,   1, -wallR*kSqrtThree);
-    const linef uLine (0,            1, -wallR*kSqrtThree/2);
-    const linef ulLine(-kSqrtThree,  1, -wallR*kSqrtThree);
-    const linef dlLine(-kSqrtThree, -1, -wallR*kSqrtThree);
-    const linef dLine (0,           -1, -wallR*kSqrtThree/2);
-    const linef drLine(kSqrtThree,  -1, -wallR*kSqrtThree);
+  void sideHit(Ball &p, int w, uint8_t hue, unsigned long elapsed) {
+    assert(hexaSide(w).size() == 10,"hexa side size");
+    uint8_t hitSpeed = constrain(2000 * p.velocity.length()*elapsed - 100, 0, 0xFF);
+    for (PixelIndex px : hexaSide(w)) {
+      ctx.leds[px] = CHSV(hue+0xFF/2, 0xFF, hitSpeed);
+    }
+  }
 
-    const linef walls[] = {urLine, uLine, ulLine, dlLine, dLine, drLine};
-    const float elasticity = 0.92f;
+  uint8_t sideCollision(Ball &p, unsigned long elapsed) {
+    static const float sideR = kMeridian/2.f - 2;
+    const linef urLine(kSqrtThree,   1, -sideR*kSqrtThree);
+    const linef uLine (0,            1, -sideR*kSqrtThree/2);
+    const linef ulLine(-kSqrtThree,  1, -sideR*kSqrtThree);
+    const linef dlLine(-kSqrtThree, -1, -sideR*kSqrtThree);
+    const linef dLine (0,           -1, -sideR*kSqrtThree/2);
+    const linef drLine(kSqrtThree,  -1, -sideR*kSqrtThree);
 
+    // u,ur,dr,d,dl,ul order, matches clockwise from px 0 hexaSide order
+    const linef lines[] = {uLine, urLine, drLine, dLine, dlLine, ulLine};
+    const float elasticity = 0.95f + constrain(p.velocity.length()*elapsed/6 - 0.019, 0, 0.09f);
+
+    uint8_t sidesHit = 0;
     // Iterate to handle corner collision
     for (int it = 0; it < 3; ++it) {
       bool collided = false;
-      for (const auto &wall : walls) {
-        float dist = wall.A * p.pos.x + wall.B * p.pos.y + wall.C;
+      for (int w = 0; w < 6; ++w) {
+        const auto &wallLine = lines[w];
+        float dist = wallLine.A * p.pos.x + wallLine.B * p.pos.y + wallLine.C;
         if (dist > 0) {
-          float nLenSq = wall.A * wall.A + wall.B * wall.B;
+          float nLenSq = wallLine.A * wallLine.A + wallLine.B * wallLine.B;
 
           // Reflect position back inside (mirror across wall)
-          p.pos.x -= 2 * wall.A * dist / nLenSq;
-          p.pos.y -= 2 * wall.B * dist / nLenSq;
+          p.pos.x -= 2 * wallLine.A * dist / nLenSq;
+          p.pos.y -= 2 * wallLine.B * dist / nLenSq;
 
           // Reflect velocity only if moving outward
-          float vDotN = p.velocity.x * wall.A + p.velocity.y * wall.B;
+          float vDotN = p.velocity.x * wallLine.A + p.velocity.y * wallLine.B;
           if (vDotN > 0) {
-            p.velocity.x -= 2 * wall.A * vDotN / nLenSq * elasticity;
-            p.velocity.y -= 2 * wall.B * vDotN / nLenSq * elasticity;
+            p.velocity.x -= 2 * wallLine.A * vDotN / nLenSq * elasticity;
+            p.velocity.y -= 2 * wallLine.B * vDotN / nLenSq * elasticity;
           }
           collided = true;
-          break; // handle one wall per iteration, then re-check all
+          sidesHit |= 1 << w;
+          break; // re-check all
         }
       }
       if (!collided) {
         break;
       }
     }
+    return sidesHit;
   }
 
   unsigned long lastUpdate = 0;
   virtual void update() {
-    ctx.leds.fill_solid(CRGB::Black);
+    ctx.leds.fadeToBlackBy(12);
 
-    auto agmt = MotionManager::motionFrame.agmt;
-    int i = 0;
-    unsigned long elapsed = (lastUpdate > 0 ? millis() - lastUpdate : 1);
+    int32_t elapsed = (lastUpdate > 0 ? millis() - lastUpdate : 1);
     lastUpdate = millis();
 
+    if (boomStart != 0) {
+      unsigned long boomRuntime = millis() - boomStart;
+      auto p = Phaser()
+        .anim(250, [this](Phase ph) {
+          ctx.leds.fill_solid(CRGB::Black);
+        })
+        .anim(300, [this](Phase ph) {
+          float p = ph.progress();
+          float expand = (1.0f - p) * (1.0f - p);
+          stellate(24.0f * expand, 1.0f);
+        })
+        .complete([this](Phase) {
+          boomStart = 0;
+        });
+      p.run(min(boomRuntime, p.duration()));
+
+      if (boomRuntime < p.duration()) {
+        return;
+      };
+    }
+
     // update ball position from velocity and elapsed time
-    const float accelPreScale = 50000000;
     std::optional<PixelIndex> pxopt = axial.indexAtRect(p.pos);
     if (!pxopt.has_value()) {
-      logf("Ball at pos (%f, %f) is out of bounds!", p.pos.x, p.pos.y);
+      logf("You win! Ball at pos (%f, %f) is out of bounds!", p.pos.x, p.pos.y);
+      ctx.leds.fill_solid(CRGB::Black);
+      boomStart = millis();
+
       p.pos.x = 0;
       p.pos.y = 0;
+      p.velocity.x = 0;
+      p.velocity.y = 0;
+      return;
     }
+    
     PixelIndex px = pxopt.value();
+    auto agmt = MotionManager::motionFrame.agmt;
     vectorf accelVector = accelerationAtPixelIndex(px, agmt);
-    vectorf scaledAccel = accelVector * elapsed / accelPreScale;
 
+    const float accelPreScale = 3600; // tuned
+    vectorf scaledAccel = accelVector * elapsed / accelPreScale / MotionManager::accelToGScale;
     p.velocity.x += scaledAccel.x;
     p.velocity.y += scaledAccel.y;
-    p.pos += p.velocity * elapsed;
-    wallCollision(p);
 
-    uint8_t hue = constrain(1500 * (abs(p.velocity.x) + abs(p.velocity.y)), 0, 224);
+    // Coriolis: deflects ball path during rotation
+    const float coriolisScale = 1.0f;
+    const float coriolisK = coriolisScale / (MotionManager::gyrToRadScale * 1000.0f);
+    float coriolisF = agmt.gyr.axes.z * elapsed * coriolisK;
+    p.velocity.x +=  coriolisF * p.velocity.y;
+    p.velocity.y += -coriolisF * p.velocity.x;
+
+    // Friction: linear approximation of exp(-k*dt)
+    const float frictionCoeff = 0.9f;
+    const float frictionK = frictionCoeff / 1000.0f;
+    float dampFactor = max(0.0f, 1.0f - elapsed * frictionK);
+    p.velocity.x *= dampFactor;
+    p.velocity.y *= dampFactor;
+
+    p.pos += p.velocity * elapsed;
+    uint8_t sidesHit = sideCollision(p, elapsed);
+
+    uint8_t hue = constrain(3000 * p.velocity.length() - 30, 0, 224);
+    
+    // 16-mult integer optimizations
+    int16_t bx16 = (int16_t)(p.pos.x * 16);
+    int16_t by16 = (int16_t)(p.pos.y * 16);
     for (PixelIndex px = 0; px < LED_COUNT; ++px) {
-      
-      const float ballRadius = 2.5;
-      float distance = sqrt(pow(p.pos.x - axial.rectFromPixelIndex(px).x, 2) + pow(p.pos.y - axial.rectFromPixelIndex(px).y, 2));
-      uint8_t brightness = constrain(0xFF - 0xFF * distance / ballRadius, 0, 0xFF);
-      
-      CRGB c = CHSV(max(0,hue-6*(int)distance), 0xFF, 0xFF);
+      vectorf r = axial.rectFromPixelIndex(px);
+      // Hex-shaped integer distance, pulling out the sqrt(3) ~= 111/64
+      uint16_t adx = abs(bx16 - (int16_t)(r.x * 16));
+      uint16_t ady = abs(by16 - (int16_t)(r.y * 16));
+      uint32_t hexD = max(ady * 2, (adx * 111 >> 6) + ady);
+      uint16_t size = 50; // diameter 2*sqrt(3)*16 ~= 55
+      if (hexD >= size) { 
+        continue;
+      }
+      uint8_t brightness = 255 - (uint8_t)(hexD * 255/size);
+      int hueShift = hexD * size >> 8;
+
+      CRGB c = CHSV(max(0, hue - hueShift), 0xFF, 0xFF);
       c = c.scale8(brightness);
-      ctx.leds[px] = c;
+      ctx.point(px, c, blendBrighten);
+    }
+    for (int i = 0; i < 6; ++i) {
+      if (sidesHit & (1 << i)) {
+        sideHit(p, i, hue, elapsed);
+      }
     }
   }
 
@@ -557,7 +640,8 @@ public:
     const int minHexRadius = -3;
     const float maxZ = 9000.;
     avgZ = min(maxZ, (10*avgZ+agmt.acc.axes.z)/11.f);
-    float lineRadius = kMeridian/2 - (kMeridian/2+3) * abs(avgZ) / maxZ;
+    const float maxLineRadius = kMeridian/2+2;
+    float lineRadius = maxLineRadius - (maxLineRadius+2) * abs(avgZ) / maxZ;
     float hexRadius = minHexRadius + (maxHexRadius-minHexRadius) * abs(avgZ) / maxZ;
 
     if (lineRadius > kMeridian/2) {
@@ -566,7 +650,7 @@ public:
 
     ctx.leds.fadeToBlackBy(5 + (hexRadius>0?hexRadius:0));
 
-    float scaledGyr = (agmt.gyr.axes.z / 6666) / 66666.f;
+    float scaledGyr = (-agmt.gyr.axes.z / 6666) / 66666.f;
     spinTheta += frameTime() * dSpin;
   
     if (lineRadius > 0) {

@@ -65,34 +65,30 @@ static HexagonBounding directionForAngle(int angle) {
   }
 }
 
-vector16 accelerationAtPixelIndex(PixelIndex index, ICM_20948_AGMT_t &agmt) {
+vector32 accelerationAtPixelIndex(PixelIndex index, ICM_20948_AGMT_t &agmt) {
   // imu_pos = 8.0506, 22.9692 # 108.0506, 77.0308 relative to 100,100 center
 
-  UMPoint Q = hexGrid.position(index); // in um
+  UMPoint Q = hexGrid.position(index); // in micrometers, 0,0 at center
 
-  #if HARDWARE_VERSION > 1
+  // P is the position of the IMU in micrometers relative to the center of the hexa.
+#if HARDWARE_VERSION > 1
   static const UMPoint P = UMPoint::fromMM(100-83.125922, 100-92.920152);
   vector32 accel(agmt.acc.axes.y, agmt.acc.axes.x);
-  #else
+#else
   static const UMPoint P = UMPoint::fromMM(8.0506, -22.9692);
-  vector16 accel(-agmt.acc.axes.x, agmt.acc.axes.y);
-  #endif
-  // vector16 gyro(agmt.gyr.axes.x, agmt.gyr.axes.y);
-  // gyro = gyro / 1000;
-  // gyro = gyro.scale8(0x02);
-  // logf("accelerationAtPixelIndex(%03i), Q=(%i,%i), accel=(%i,%i), gryo=(%i, %i)", index, Q.x, Q.y, accel.x, accel.y, gyro.x, gyro.y);
+  vector32 accel(-agmt.acc.axes.x, agmt.acc.axes.y);
+#endif
 
-  // FIXME: doesn't work, oversimplified
 
   UMPoint P2Q = Q - P;
-  if (index == 0 || index == 270) {
-    // logf("index %i P2Q = (%i, %i)", index, P2Q.x, P2Q.y);
-  }
-  // FIXME: this never worked right
-  auto ω_z = 0;//agmt.gyr.axes.z / 15000;
-  auto vec = vector16(accel.x + ω_z*ω_z * P2Q.x, accel.y + ω_z*ω_z * P2Q.y);
-  // logf("  => (%i, %i)", vec.x, vec.y);
-  return vec;
+  // centrifugal: ω²×r in accel LSB = gyroZ² × P2Q_um × accelToGScale / (gyrToRadScale² × 1e6 × 9.81)
+  static constexpr int32_t centrifugalDiv = (int32_t)(MotionManager::gyrToRadScale * MotionManager::gyrToRadScale * 1e6 * 9.81 / MotionManager::accelToGScale);
+  int32_t gyroZ = agmt.gyr.axes.z;
+  int32_t gyroZ_sq = gyroZ * gyroZ;
+  accel.x += (int32_t)((int64_t)gyroZ_sq * P2Q.x / centrifugalDiv);
+  accel.y += (int32_t)((int64_t)gyroZ_sq * P2Q.y / centrifugalDiv);
+
+  return accel;
 }
 
 struct fAxial;
@@ -220,7 +216,7 @@ public:
     return indexAtAxial(ax.q(), ax.r());
   }
   std::optional<PixelIndex> indexAtRect(vectorf point) {
-    fAxial ax = rectToHex(point);
+    fAxial ax = rectToHex(point, 1.0);
     return indexAtAxial(ax);
   }
 
@@ -233,9 +229,6 @@ public:
   fAxial rectToHex(vectorT<float> point, float size = kMeridian) {
     float x =  point.x / size;
     float y = -point.y / size;
-    // var q = (sqrt(3)/3 * x  -  1./3 * y)
-    // var r = (                  2./3 * y)
-
     float q = 1 * x - kSqrtThreeOverThree * y;
     float r = 2 * kSqrtThreeOverThree * y;
     return fAxial(q, r);
@@ -281,6 +274,21 @@ void initLEDGraph() {
     }
   }
 };
+
+std::vector<PixelIndex> hexaSide(int side) {
+  // u,ur,dr,d,dl,ul order
+  constexpr int n = kMeridian / 2; // 9
+  static std::vector<PixelIndex> sides[6];
+  if (sides[0].empty()) {
+    auto perim = ledgraph.bfr(0, EdgeType::clockwise, true);
+    for (int s = 0; s < 6; s++) {
+      for (int i = 0; i <= n; i++) {
+        sides[s].push_back(perim[(s * n + i) % (6 * n)]);
+      }
+    }
+  }
+  return sides[side];
+}
 
 /* ---------------------------------------------- */
 

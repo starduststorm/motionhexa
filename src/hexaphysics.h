@@ -169,8 +169,8 @@ enum class HexagonBounding : uint8_t {
   left         = 1 << 3, // 8
   downleft     = 1 << 4, // 16
   downright    = 1 << 5, // 32
-  top          = 1 << 6, // 64
-  bottom       = 1 << 7, // 128
+  up           = 1 << 6, // 64
+  down         = 1 << 7, // 128
 };
 inline HexagonBounding operator|(HexagonBounding lhs, HexagonBounding rhs) {
   using T = std::underlying_type_t <HexagonBounding>;
@@ -263,7 +263,7 @@ public:
 private:
   T meridian;
   T _valueCount, _totalCount;
-  const float spacing;
+  const float spacing=0;
   
   inline void setPosition(T index, UMPoint pt) {
     // logf("setPosition %i = (%i, %i)", index, pt.x, pt.y);
@@ -312,7 +312,7 @@ private:
       if (spacing != 0) {
         const float colSpacing = sin(2*PI/6)*spacing; // 3.3774990747593105 when spacing == 3.9
         int centerRow = kSidelen-1;
-        float y = colSpacing * (row - centerRow);
+        float y = -colSpacing * (row - centerRow);
         float x = (rightToLeft ? -1 : 1) * spacing * (indexInRow - rowCounts[row]/2) + (rightToLeft ? 0 : spacing/2);
         // logf("spacing: i=%i, row=%i, indexInRow=%i, rowCounts[row]=%i, rightToLeft=%i, x,y=(%f,%f)", i, row, indexInRow, rowCounts[row], rightToLeft, x, y);
         setPosition(i, UMPoint::fromMM(x,y));
@@ -711,7 +711,7 @@ public:
 
   unsigned long lastUpdate = 0;
 
-  void update(std::function<vector16(PixelIndex)> accelForIndex) {
+  void update(std::function<vector32(PixelIndex)> accelForIndex) {
     const int accelPreScale = 100000;
 
     // x across hexa (negative when button side down)
