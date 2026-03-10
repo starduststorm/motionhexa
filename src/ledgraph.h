@@ -65,23 +65,37 @@ static HexagonBounding directionForAngle(int angle) {
   }
 }
 
-vector32 accelerationAtPixelIndex(PixelIndex index, ICM_20948_AGMT_t &agmt) {
-  UMPoint Q = hexGrid.position(index); // in micrometers, 0,0 at center
-
-  // P is the position of the IMU in micrometers relative to the center of the hexa.
+void localizeMotionFrame(MotionFrame &frame) {
+  // fix MotionFrame for our specific IMU orientation and handedness
 #if HARDWARE_VERSION > 1
   // native imu orientation:
   // assume hexa placed on flat edge with usb port up to the right, such that the first row of LEDs goes left-to-right, and the last row right-to-left.
   // x across cartesian y axis of front face, crossing over rows of zigzag wiring, -x on first row, +x on last
   // y across cartesian x axis of front face, +y leftmost hexa along zigzags, -y on right
   // z through hexa, (negative leds up)
+  // we'll swap x,y and set +z=up for convention
+  std::swap(frame.agmt.acc.axes.x, frame.agmt.acc.axes.y);
+  frame.agmt.acc.axes.z = -frame.agmt.acc.axes.z;
+  std::swap(frame.agmt.gyr.axes.x, frame.agmt.gyr.axes.y);
+  frame.agmt.gyr.axes.z = -frame.agmt.gyr.axes.z;
+  std::swap(frame.quat.x, frame.quat.y);
+  frame.quat.z = -frame.quat.z;
+#else
+  frame.agmt.acc.axes.x = -frame.agmt.acc.axes.x;
+  frame.agmt.gyr.axes.x = -frame.agmt.gyr.axes.x;
+#endif
+}
+
+vector32 accelerationAtPixelIndex(PixelIndex index, ICM_20948_AGMT_t &agmt) {
+  UMPoint Q = hexGrid.position(index); // in micrometers, 0,0 at center
+
+  // P is the position of the IMU in micrometers relative to the center of the hexa.
+#if HARDWARE_VERSION > 1
   static const UMPoint P = UMPoint::fromMM(100-83.125922, 100-92.920152);
-  vector32 accel(agmt.acc.axes.y, agmt.acc.axes.x);
 #else
   static const UMPoint P = UMPoint::fromMM(8.0506, -22.9692);
-  vector32 accel(-agmt.acc.axes.x, agmt.acc.axes.y);
 #endif
-
+  vector32 accel(agmt.acc.axes.x, agmt.acc.axes.y);
 
   UMPoint P2Q = Q - P;
   // centrifugal: ω²×r in accel LSB = gyroZ² × P2Q_um × accelToGScale / (gyrToRadScale² × 1e6 × 9.81)

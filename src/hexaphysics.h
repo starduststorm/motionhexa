@@ -714,9 +714,6 @@ public:
   void update(std::function<vector32(PixelIndex)> accelForIndex) {
     const int accelPreScale = 100000;
 
-    // x across hexa (negative when button side down)
-    // y vertical on hexa, (negative lipo usb down)
-    // z through hexa, (negative leds up)
     unsigned long elapsed = (lastUpdate > 0 ? millis() - lastUpdate : 1);
     lastUpdate = millis();
 

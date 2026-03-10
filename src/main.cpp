@@ -160,6 +160,7 @@ void core1_main() {
     }
     hard_reset_check_core1();
     MotionFrame motionFrame = MotionManager::manager().loop();
+    localizeMotionFrame(motionFrame);
     BatteryData bd = {0};
     bool batteryDateUpdated = false;
 #if HARDWARE_VERSION > 2

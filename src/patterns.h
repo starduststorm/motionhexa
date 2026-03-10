@@ -128,8 +128,8 @@ public:
 
     constexpr int kInverseRootThree = mult*1/sqrt(3);
     AxialT<int32_t> offcenter = center;
-    int q = offcenter.q() + smoothAcc.y + kInverseRootThree * smoothAcc.x / mult;
-    int r = offcenter.r() - smoothAcc.x;
+    int q = offcenter.q() + smoothAcc.x + kInverseRootThree * smoothAcc.y / mult;
+    int r = offcenter.r() - smoothAcc.y;
     offcenter.setQR(q,r);
 
     int amplitude = amplitudeFrame();
@@ -138,13 +138,13 @@ public:
       AxialT<int32_t> ax(axial.axialFromPixelIndex(px));
       ax *= mult;
       
-      const int kAccScale = 10000;
+      const int kAccScale = 20000;
       const int kAmpScale = 600;
       const int kLocScale = 2000000;
       // full static glitch with no fade
       // int glitchIt = (smoothAcc.z>0 ? (ax.q()*ax.r()*ax.s()) * smoothAcc.z/500000. : 0);
       // smooth-transition glitch that also reacts to sound
-      int glitchIt = (smoothAcc.z>0 ? (ax.q()*ax.r()*ax.s())/kLocScale * (1 + amplitude/kAmpScale) * smoothAcc.z/kAccScale: 0);
+      int glitchIt = (smoothAcc.z<0 ? (ax.q()*ax.r()*ax.s())/kLocScale * (1 + amplitude/kAmpScale) * smoothAcc.z/kAccScale: 0);
       int distance = max(max(abs(offcenter.q() - ax.q()), abs(offcenter.r() - ax.r())), abs(offcenter.s() - ax.s())) + glitchIt;
       
       uint8_t brightness = beatsin8(60, 0, 255, 0, -beatsin16(2, 250, 350)*distance/(kMeridian/2)/mult);
@@ -196,9 +196,9 @@ public:
     for (int s = 0 ; s < hexaShells.shells.size(); ++s) {
       uint8_t shellSize = hexaShells.shells[s].size();
       
-      const int16_t bandIndex = gyrAccum.y*2; // TODO: tune this so it's roughly one half index change every complete flip
-      const int16_t bandRotate = accAccum.y;
-      const int16_t bandTwist = accAccum.x;//gyrAccum.z*2;
+      const int16_t bandIndex = gyrAccum.x*2; // TODO: tune this so it's roughly one half index change every complete flip
+      const int16_t bandRotate = accAccum.x;
+      const int16_t bandTwist = accAccum.y;//gyrAccum.z*2;
       const int16_t bandThing = 0;//accAccum.x;
       const int bandCounts[] = {0, 1, 2, 3, 6, 9}; // i like this somewhat better than arbitrary band counts
       int bands = bandCounts[((uint16_t)(bandIndex+INT16_MAX) / (1<<12)) % ARRAY_SIZE(bandCounts)];
@@ -226,8 +226,8 @@ public:
         brightness = scale8(brightness, brightness);
         uint16_t gyrRotate = (gyrAccum.z/2) % 0x200;
         uint16_t radialH =  0x200 * si / shellSize;
-        uint16_t twistFactor = s * gyrAccum.x/6 % 0x200 + s*millis()/500;
-        uint16_t shellH = 0x200 * s/shellCount * beatsin16(3, 0, 0x200, 0, gyrAccum.y) / 0x200;
+        uint16_t twistFactor = s * gyrAccum.y/6 % 0x200 + s*millis()/500;
+        uint16_t shellH = 0x200 * s/shellCount * beatsin16(3, 0, 0x200, 0, gyrAccum.x) / 0x200;
         uint16_t evolve = millis()/100;
         CRGB c = this->getMirroredPaletteColor(gyrRotate + radialH + twistFactor + shellH + evolve);
         
@@ -603,17 +603,15 @@ public:
     float r = kMeridian/2-1;
     unsigned timeOffset = millis() / 50;
 
-    // Regular tetrahedron with v0 pointing up (+z) when sitting flat
-    // v0 = apex at (0, 0, 1)
-    // v1,v2,v3 = base triangle at z = -1/3, radius 2√2/3 from z-axis
+    // Regular tetrahedron with vertex pointing 'up' when flat
     constexpr float sq2_3 = 0.9428090f;  // 2*sqrt(2)/3
     constexpr float sq6_3 = 0.8164966f;  // sqrt(6)/3
     constexpr float third = 1.0f / 3.0f;
     const vectorf baseVerts[4] = {
-      {0,          0,       1},      // v0: top
-      {sq2_3,      0,      -third},  // v1: base front
-      {-sq2_3/2,   sq6_3,  -third},  // v2: base left
-      {-sq2_3/2,  -sq6_3,  -third},  // v3: base right
+      {0,          0,      -1},      // v0: apex
+      {sq2_3,      0,       third},  // v1: base front
+      {-sq2_3/2,   sq6_3,   third},  // v2: base left
+      {-sq2_3/2,  -sq6_3,   third},  // v3: base right
     };
 
     // Rotate and scale vertices
@@ -696,7 +694,7 @@ public:
 
     ctx.leds.fadeToBlackBy(5 + (hexRadius>0?hexRadius:0));
 
-    float scaledGyr = (-agmt.gyr.axes.z / 6666) / 66666.f;
+    float scaledGyr = (agmt.gyr.axes.z / 6666) / 66666.f;
     spinTheta += frameTime() * dSpin;
   
     if (lineRadius > 0) {

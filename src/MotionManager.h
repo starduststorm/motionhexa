@@ -224,8 +224,7 @@ public:
         frame.euler.roll = roll;
         frame.euler.yaw = yaw;
 
-        // Map IMU axes to rect coords: IMU y→rect x, IMU x→rect y, negate z for display convention
-        frame.quat = {(float)q0, (float)q2, (float)q1, -(float)q3};
+        frame.quat = {(float)q0, (float)q1, (float)q2, (float)q3};
 
         // logf("Pitch: %0.3f, roll: %0.3f, yaw: %0.3f", pitch, roll, yaw);
       } else {
