@@ -24,10 +24,15 @@ struct Euler {
   float pitch, roll,yaw;
 };
 
+struct Quaternion {
+  float w, x, y, z;
+};
+
 struct MotionFrame {
   ICM_20948_AGMT_t agmt;
   icm_20948_DMP_data_t dmpData;
   Euler euler;
+  Quaternion quat;
 };
 
 class MotionManager {
@@ -193,7 +198,9 @@ public:
         // Convert the quaternions to Euler angles (roll, pitch, yaw)
         // https://en.wikipedia.org/w/index.php?title=Conversion_between_quaternions_and_Euler_angles&section=8#Source_code_2
 
-        double q0 = sqrt(1.0 - ((q1 * q1) + (q2 * q2) + (q3 * q3)));
+        double q0sq = 1.0 - ((q1 * q1) + (q2 * q2) + (q3 * q3));
+        if (q0sq < 0.0) q0sq = 0.0;
+        double q0 = sqrt(q0sq);
 
         double q2sqr = q2 * q2;
 
@@ -217,16 +224,8 @@ public:
         frame.euler.roll = roll;
         frame.euler.yaw = yaw;
 
-        // Output the Quaternion data in the format expected by ZaneL's Node.js Quaternion animation tool
-        // Serial.print(F("{\"quat_w\":"));
-        // Serial.print(q0, 3);
-        // Serial.print(F(", \"quat_x\":"));
-        // Serial.print(q1, 3);
-        // Serial.print(F(", \"quat_y\":"));
-        // Serial.print(q2, 3);
-        // Serial.print(F(", \"quat_z\":"));
-        // Serial.print(q3, 3);
-        // Serial.println(F("}"));
+        // Map IMU axes to rect coords: IMU y→rect x, IMU x→rect y, negate z for display convention
+        frame.quat = {(float)q0, (float)q2, (float)q1, -(float)q3};
 
         // logf("Pitch: %0.3f, roll: %0.3f, yaw: %0.3f", pitch, roll, yaw);
       } else {

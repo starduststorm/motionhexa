@@ -66,12 +66,15 @@ static HexagonBounding directionForAngle(int angle) {
 }
 
 vector32 accelerationAtPixelIndex(PixelIndex index, ICM_20948_AGMT_t &agmt) {
-  // imu_pos = 8.0506, 22.9692 # 108.0506, 77.0308 relative to 100,100 center
-
   UMPoint Q = hexGrid.position(index); // in micrometers, 0,0 at center
 
   // P is the position of the IMU in micrometers relative to the center of the hexa.
 #if HARDWARE_VERSION > 1
+  // native imu orientation:
+  // assume hexa placed on flat edge with usb port up to the right, such that the first row of LEDs goes left-to-right, and the last row right-to-left.
+  // x across cartesian y axis of front face, crossing over rows of zigzag wiring, -x on first row, +x on last
+  // y across cartesian x axis of front face, +y leftmost hexa along zigzags, -y on right
+  // z through hexa, (negative leds up)
   static const UMPoint P = UMPoint::fromMM(100-83.125922, 100-92.920152);
   vector32 accel(agmt.acc.axes.y, agmt.acc.axes.x);
 #else

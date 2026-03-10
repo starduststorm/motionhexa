@@ -578,30 +578,76 @@ public:
   TriangleSpin() {
     secondsPerPalette = 20;
   };
+
+  // Rotate vector v by quaternion q: v' = v + 2w*(q×v) + 2*(q×(q×v))
+  vectorf quatRotate(const Quaternion &q, vectorf v) {
+    // t = 2 * cross(q.xyz, v)
+    float tx = 2.0f * (q.y * v.z - q.z * v.y);
+    float ty = 2.0f * (q.z * v.x - q.x * v.z);
+    float tz = 2.0f * (q.x * v.y - q.y * v.x);
+    // v' = v + w*t + cross(q.xyz, t)
+    return vectorf(
+      v.x + q.w * tx + (q.y * tz - q.z * ty),
+      v.y + q.w * ty + (q.z * tx - q.x * tz),
+      v.z + q.w * tz + (q.x * ty - q.y * tx)
+    );
+  }
+
   void update() {
     ctx.leds.fill_solid(CRGB::Black);
-    float yaw = -MotionManager::motionFrame.euler.yaw*PI/180;
-    uint16_t yawBytes = max(0, min(0x1FF, (MotionManager::motionFrame.euler.yaw+180) * 0x1FF/360));
 
-    float r = kMeridian/2-2;
+    // we're actually counterrotating a tetrahedron mmkay
+    Quaternion q = MotionManager::motionFrame.quat;
+    q.x = -q.x; q.y = -q.y; q.z = -q.z;
+
+    float r = kMeridian/2-1;
     unsigned timeOffset = millis() / 50;
 
-    vectorT<float> pt1 = {r * cosf(yaw + 0),      r * sinf(yaw + 0)};
-    vectorT<float> pt2 = {r * cosf(yaw + 2*PI/3), r * sinf(yaw + 2*PI/3)};
-    vectorT<float> pt3 = {r * cosf(yaw + 4*PI/3), r * sinf(yaw + 4*PI/3)};
-    fAxial ax1 = axial.rectToHex(pt1, 1.0);
-    fAxial ax2 = axial.rectToHex(pt2, 1.0);
-    fAxial ax3 = axial.rectToHex(pt3, 1.0);
+    // Regular tetrahedron with v0 pointing up (+z) when sitting flat
+    // v0 = apex at (0, 0, 1)
+    // v1,v2,v3 = base triangle at z = -1/3, radius 2√2/3 from z-axis
+    constexpr float sq2_3 = 0.9428090f;  // 2*sqrt(2)/3
+    constexpr float sq6_3 = 0.8164966f;  // sqrt(6)/3
+    constexpr float third = 1.0f / 3.0f;
+    const vectorf baseVerts[4] = {
+      {0,          0,       1},      // v0: top
+      {sq2_3,      0,      -third},  // v1: base front
+      {-sq2_3/2,   sq6_3,  -third},  // v2: base left
+      {-sq2_3/2,  -sq6_3,  -third},  // v3: base right
+    };
 
-    hexline(ctx, ax1, ax2, [this, yawBytes, timeOffset] (uint8_t progress) {
-      return getMirroredPaletteColor(timeOffset + yawBytes + 0 + progress);
-    });
-    hexline(ctx, ax2, ax3, [this, yawBytes, timeOffset] (uint8_t progress) {
-      return getMirroredPaletteColor(timeOffset + yawBytes + 1*0x1FF/3 + progress);
-    });
-    hexline(ctx, ax3, ax1, [this, yawBytes, timeOffset] (uint8_t progress) {
-      return getMirroredPaletteColor(timeOffset + yawBytes + 2*0x1FF/3 + progress);
-    });
+    // Rotate and scale vertices
+    vectorf verts[4];
+    for (int i = 0; i < 4; i++) {
+      verts[i] = quatRotate(q, baseVerts[i]) * r;
+    }
+
+    constexpr uint8_t edges[6][2] = {
+      {0,1}, {0,2}, {0,3}, {1,2}, {1,3}, {2,3}
+    };
+
+    uint16_t yawBytes = max(0, min(0x1FF, (int)((MotionManager::motionFrame.euler.yaw+180) * 0x1FF/360)));
+
+    for (int e = 0; e < 6; e++) {
+      vectorf &a = verts[edges[e][0]];
+      vectorf &b = verts[edges[e][1]];
+
+      // tweak brightness based on average z of endpoints
+      float avgZ = (a.z + b.z) / (2.0f * r);  // normalized to [-1, 1]
+      uint8_t brightness = 100 + (uint8_t)(155 * (avgZ + 1.0f) / 2.0f); // 100..255
+
+      vectorf pa(a.x, a.y, 0);
+      vectorf pb(b.x, b.y, 0);
+      fAxial ax1 = axial.rectToHex(pa, 1.0);
+      fAxial ax2 = axial.rectToHex(pb, 1.0);
+
+      uint16_t edgeOffset = e * 0x1FF / 6;
+      hexline(ctx, ax1, ax2, [this, yawBytes, timeOffset, edgeOffset, brightness] (uint8_t progress) {
+        CRGB c = getMirroredPaletteColor(timeOffset + yawBytes + edgeOffset + progress);
+        c.nscale8(brightness);
+        return c;
+      });
+    }
   }
 
   const char *description() {
