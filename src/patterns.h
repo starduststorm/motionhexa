@@ -183,8 +183,8 @@ public:
     ICM_20948_AGMT_t agmt = MotionManager::motionFrame.agmt;
     gyrAccum32 += vector16(agmt.gyr.axes.x, agmt.gyr.axes.y, agmt.gyr.axes.z);
     accAccum32 += vector16(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
-    vector16 gyrAccum = gyrAccum32 / gyrScale;
-    vector16 accAccum = accAccum32 / accScale;
+    vector32 gyrAccum = gyrAccum32 / gyrScale;
+    vector32 accAccum = accAccum32 / accScale;
     // logf("gyr = (%i, %i, %i), gyrAccum = (%i, %i, %i), accel = (%i, %i, %i), accelAccum = (%i, %i, %i)", 
     //         agmt.gyr.axes.x/gyrScale, agmt.gyr.axes.y/gyrScale, agmt.gyr.axes.z/gyrScale,
     //         gyrAccum.x, gyrAccum.y, gyrAccum.z,
@@ -196,13 +196,13 @@ public:
     for (int s = 0 ; s < hexaShells.shells.size(); ++s) {
       uint8_t shellSize = hexaShells.shells[s].size();
       
-      const int16_t bandIndex = gyrAccum.x*2; // TODO: tune this so it's roughly one half index change every complete flip
-      const int16_t bandRotate = accAccum.x;
-      const int16_t bandTwist = accAccum.y;//gyrAccum.z*2;
-      const int16_t bandThing = 0;//accAccum.x;
+      const int32_t bandIndex = gyrAccum.x*2; // TODO: tune this so it's roughly one half index change every complete flip
+      const int32_t bandRotate = accAccum.x;
+      const int32_t bandTwist = accAccum.y;//gyrAccum.z*2;
+      const int32_t bandThing = 0;//accAccum.x;
       const int bandCounts[] = {0, 1, 2, 3, 6, 9}; // i like this somewhat better than arbitrary band counts
-      int bands = bandCounts[((uint16_t)(bandIndex+INT16_MAX) / (1<<12)) % ARRAY_SIZE(bandCounts)];
-      int withinBand = (uint16_t)(bandIndex+INT16_MAX-(1<<11)) % (1<<12);
+      int32_t bands = bandCounts[((int32_t)(bandIndex+INT16_MAX) / (1<<12)) % ARRAY_SIZE(bandCounts)];
+      int32_t withinBand = (int32_t)(bandIndex+INT16_MAX-(1<<11)) % (1<<12);
       uint8_t bandFadeIn = 0xFF - cos8(0xFF*withinBand / (1<<12));
       
       // fade in at start
@@ -224,11 +224,11 @@ public:
         uint8_t brightness = lerp8by8(sin8(-bandRotate/4 + bands*(0xFF*si - bandTwist) / shellSize - 0xFF * (s-bandThing)/shellCount), 0xFF, bandFadeIn);
 
         brightness = scale8(brightness, brightness);
-        uint16_t gyrRotate = (gyrAccum.z/2) % 0x200;
-        uint16_t radialH =  0x200 * si / shellSize;
-        uint16_t twistFactor = s * gyrAccum.y/6 % 0x200 + s*millis()/500;
-        uint16_t shellH = 0x200 * s/shellCount * beatsin16(3, 0, 0x200, 0, gyrAccum.x) / 0x200;
-        uint16_t evolve = millis()/100;
+        int32_t gyrRotate = (gyrAccum.z/2) % 0x200;
+        int32_t radialH =  0x200 * si / shellSize;
+        int32_t twistFactor = (s * gyrAccum.y/8 + s * millis()/500) % 0x200;
+        int32_t shellH = 0x200 * s/shellCount * beatsin16(3, 0, 0x200, 0, gyrAccum.x) / 0x200;
+        int32_t evolve = (millis()/100)%0x200;
         CRGB c = this->getMirroredPaletteColor(gyrRotate + radialH + twistFactor + shellH + evolve);
         
         // improvement: do this in certain accelerometer conditions
