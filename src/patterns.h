@@ -598,7 +598,7 @@ public:
 
     // we're actually counterrotating a tetrahedron mmkay
     Quaternion q = MotionManager::motionFrame.quat;
-    q.x = -q.x; q.y = -q.y; q.z = -q.z;
+    q.z = -q.z;
 
     float r = kMeridian/2-1;
     unsigned timeOffset = millis() / 50;
@@ -624,7 +624,7 @@ public:
       {0,1}, {0,2}, {0,3}, {1,2}, {1,3}, {2,3}
     };
 
-    uint16_t yawBytes = max(0, min(0x1FF, (int)((MotionManager::motionFrame.euler.yaw+180) * 0x1FF/360)));
+    uint16_t yawBytes = max(0, min(0x1FF, (int)((fabsf(q.w) + fabsf(q.x) + fabsf(q.y) + fabsf(q.z)) * 0x1FF/4)));
 
     for (int e = 0; e < 6; e++) {
       vectorf &a = verts[edges[e][0]];
