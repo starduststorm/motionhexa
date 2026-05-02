@@ -1092,4 +1092,24 @@ public:
   }
 };
 
+class BlinkIdentifyPattern : public Pattern {
+  const int blinkTime = 900;
+  HexaShells hexaShells;
+  void update() {
+    unsigned long rt = runTime();
+    ctx.leds.fadeToBlackBy(20);
+    int shell = hexaShells.shells.size() * triwave8(0xFF * rt / (blinkTime/3)) / 0xFF;
+    shell = min(hexaShells.shells.size(), shell);
+    for (int i = 0; i < hexaShells.shells[shell].size(); ++i) {
+      ctx.leds[hexaShells.shells[shell][i].value()] = CRGB::Blue;
+    }
+    if (rt >= blinkTime) {
+      stop();
+    }
+  }
+  const char *description() {
+    return "BlinkIdentifyPattern";
+  }
+};
+
 #endif

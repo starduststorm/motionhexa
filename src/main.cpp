@@ -1,6 +1,9 @@
 #define DEBUG 0
 #define WAIT_FOR_SERIAL 0
 
+// manually-bumped versioning
+#define SOFTWARE_VERSION "1.1"
+
 #include <Arduino.h>
 #include <SPI.h>
 #include "pico/multicore.h"
@@ -22,6 +25,7 @@
 #include <patterning.h>
 #include <controls.h>
 #include <drawing.h>
+#include <updating.h>
 
 #include "power.h"
 
@@ -49,6 +53,8 @@ FFTProcessing fftProcessing(audioInput, 10, 128);
 
 IndexedPatternRunner *indexedRunner; // main pattern runner
 std::shared_ptr<PatternRunner> powerOnOffRunner;
+
+RP2040Updater *updater;
 
 static bool serialTimeout = false;
 static unsigned long setupDoneTime;
@@ -362,6 +368,10 @@ void setup() {
   // TODO: stop audio device when not in use by a pattern, but don't toggle twice between two audio patterns?
   audioInput.subscribe();
 
+  updater = new RP2040Updater("motionhexa", SOFTWARE_VERSION, xstr(HARDWARE_VERSION), [](void) {
+    patternManager.runOneShotPattern<BlinkIdentifyPattern>(0xFE, 0xFF);
+  });
+
   setupDoneTime = millis();
   logf("setup done");
 } 
@@ -440,6 +450,9 @@ void loop() {
 
   // shared fft cache reset
   fftProcessing.frameReset();
+
+  char *serialLine = readSerialLine();
+  updater->loop(serialLine);
 
   indexedRunner->paused = !powerState.isRunning();
   controls.update();
