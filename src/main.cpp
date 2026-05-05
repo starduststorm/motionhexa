@@ -273,9 +273,10 @@ void setup() {
 #else // HARDWARE_VERSION < 4
   powerState.setRunning(true);
 #endif
+  bool v6Hardware = false;
 #if HARDWARE_VERSION >= 5
   pinMode(V6_DETECTOR_PIN, INPUT);
-  bool v6Hardware = (digitalRead(V6_DETECTOR_PIN) != 0);
+  v6Hardware = (digitalRead(V6_DETECTOR_PIN) != 0);
   logdf("v6Hardware = %i", v6Hardware);
 #endif
 
@@ -368,7 +369,8 @@ void setup() {
   // TODO: stop audio device when not in use by a pattern, but don't toggle twice between two audio patterns?
   audioInput.subscribe();
 
-  updater = new RP2040Updater("motionhexa", SOFTWARE_VERSION, xstr(HARDWARE_VERSION), [](void) {
+  const char* hardwareVersionString = (v6Hardware ? "6" : xstr(HARDWARE_VERSION));
+  updater = new RP2040Updater("motionhexa", SOFTWARE_VERSION, hardwareVersionString, [](void) {
     patternManager.runOneShotPattern<BlinkIdentifyPattern>(0xFE, 0xFF);
   });
 
