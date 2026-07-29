@@ -1,0 +1,72 @@
+(footprint "SMD_Pad_01x03_2.54mm"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(property "Reference" "REF**"
+		(at 0.508 -2.54 0)
+		(layer "F.SilkS")
+		(uuid "642b3493-74cf-44c1-aa48-4c06c2586b1b")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "SMD_Pad_01x03_2.54mm"
+		(at 0.508 2.54 0)
+		(layer "F.Fab")
+		(uuid "1972f49b-2383-4e83-96ef-8f958059f5e5")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "7b326492-a360-4362-8b4e-5624840c5908")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "422e6ac9-104f-476c-8824-8ba0ba362249")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole)
+	(pad "1" smd oval
+		(at -2.54 0)
+		(size 1.524 2.54)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "5ed9af6a-6b01-41a8-b92e-7020647c235f")
+	)
+	(pad "2" smd oval
+		(at 0 0)
+		(size 1.524 2.54)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "139efb7d-29b7-4cae-9baa-fe81eaf623ed")
+	)
+	(pad "3" smd oval
+		(at 2.54 0)
+		(size 1.524 2.54)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "9e1aa688-bd5c-4eec-9c74-edc1b88b0f71")
+	)
+	(embedded_fonts no)
+)
