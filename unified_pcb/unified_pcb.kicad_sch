@@ -16755,7 +16755,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "1uF"
+		(property "Value" "470nF"
 			(at 347.345 160.02 90)
 			(effects
 				(font
@@ -16791,7 +16791,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C14445"
+		(property "LCSC" "C47339"
 			(at 341.63 161.29 0)
 			(effects
 				(font
@@ -16800,7 +16800,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "CL05A105KP5NNNC"
+		(property "Designation" "CL05A474KP5NNNC"
 			(at 341.63 161.29 0)
 			(effects
 				(font
@@ -22976,7 +22976,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "1uF"
+		(property "Value" "470nF"
 			(at 367.665 160.02 90)
 			(effects
 				(font
@@ -23012,7 +23012,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C14445"
+		(property "LCSC" "C47339"
 			(at 361.95 161.29 0)
 			(effects
 				(font
@@ -23021,7 +23021,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "CL05A105KP5NNNC"
+		(property "Designation" "CL05A474KP5NNNC"
 			(at 361.95 161.29 0)
 			(effects
 				(font
@@ -24966,7 +24966,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "1uF"
+		(property "Value" "470nF"
 			(at 324.485 160.02 90)
 			(effects
 				(font
@@ -25002,7 +25002,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C14445"
+		(property "LCSC" "C47339"
 			(at 318.77 161.29 0)
 			(effects
 				(font
@@ -25011,7 +25011,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "CL05A105KP5NNNC"
+		(property "Designation" "CL05A474KP5NNNC"
 			(at 318.77 161.29 0)
 			(effects
 				(font
