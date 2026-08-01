@@ -8060,17 +8060,6 @@
 		)
 		(uuid "45f39284-67a4-4a1b-a921-7890bd1548c0")
 	)
-	(text "FIXME: can this go back to BQ27427?"
-		(exclude_from_sim no)
-		(at 81.026 50.038 0)
-		(effects
-			(font
-				(size 2.5 2.5)
-			)
-			(justify left bottom)
-		)
-		(uuid "4f2ca35f-805d-4651-aba8-5b99aa55825a")
-	)
 	(text "battery gauge"
 		(exclude_from_sim no)
 		(at 99.06 54.102 0)
@@ -15713,6 +15702,122 @@
 		)
 	)
 	(symbol
+		(lib_id "motionhexa:BQ27427YZFR")
+		(at 113.03 71.12 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "39c2bfa6-11a8-4c0d-afd3-854c99ffcc91")
+		(property "Reference" "U1"
+			(at 113.03 59.4825 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "BQ27427YZFR"
+			(at 113.03 61.9068 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:DSBGA-9_L1.6-W1.6-R3-C3-P0.50-TL"
+			(at 113.03 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/bq27427.pdf"
+			(at 113.03 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 113.03 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C6075475"
+			(at 113.03 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "BQ27427YZFR"
+			(at 113.03 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC Part" "C6075475"
+			(at 113.03 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "A1"
+			(uuid "5918890d-2672-4b1c-974e-8024f52eda7d")
+		)
+		(pin "A2"
+			(uuid "cef809ed-5a87-4ca6-886a-2323f03ba85b")
+		)
+		(pin "C3"
+			(uuid "066cb5ea-bcdd-49b7-83d6-f7c900ece32d")
+		)
+		(pin "B3"
+			(uuid "124b51f3-95ff-4d36-9e8e-8c02485fd87b")
+		)
+		(pin "B1"
+			(uuid "c728785d-ffe7-4779-a15b-5b8574663aaa")
+		)
+		(pin "C1"
+			(uuid "d0e59277-a48d-45b1-ae53-72ecfba77ba8")
+		)
+		(pin "C2"
+			(uuid "7cfc423e-0462-4d03-9e51-89c7e1b5025e")
+		)
+		(pin "A3"
+			(uuid "a4bd6931-10f6-4af6-9943-a157451ce562")
+		)
+		(pin "B2"
+			(uuid "cc7eb4e6-10ff-4e97-b04a-f211037b7859")
+		)
+		(instances
+			(project "unified_pcb"
+				(path "/5ec870f3-18d6-4ff4-bc31-ac41fb778ddb"
+					(reference "U1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 252.73 154.94 0)
 		(unit 1)
@@ -21704,113 +21809,6 @@
 		)
 	)
 	(symbol
-		(lib_id "motionhexa:BQ27427YZFR")
-		(at 113.03 71.12 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "9966c3cd-26bb-4c6a-a77a-f1aa81a370e6")
-		(property "Reference" "U1"
-			(at 113.03 59.4825 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "BQ27421YZFR-G1A"
-			(at 113.03 61.9068 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Package_BGA:Texas_DSBGA-9_1.62x1.58mm_Layout3x3_P0.5mm"
-			(at 113.03 83.82 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/bq27427.pdf?ts=1750013674781"
-			(at 113.03 71.12 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 113.03 71.12 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C139621"
-			(at 113.03 86.36 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "BQ27421YZFR-G1A"
-			(at 113.03 71.12 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "A1"
-			(uuid "8d43c2e2-8f8a-44ef-acd6-16ecb01d76ba")
-		)
-		(pin "A2"
-			(uuid "b56f299d-6659-4750-97de-3bceb54bedad")
-		)
-		(pin "C3"
-			(uuid "d3e251de-06b7-4bd9-93c3-2ccf5d28785d")
-		)
-		(pin "B3"
-			(uuid "32042fcc-c18a-4710-b920-7f7cea3b3051")
-		)
-		(pin "B1"
-			(uuid "ca736ef2-6ebd-4177-bb2c-201270f07437")
-		)
-		(pin "C1"
-			(uuid "fdc52792-d7de-432b-a36b-cc29e7b302f0")
-		)
-		(pin "C2"
-			(uuid "560292a4-e99e-4a69-81f4-dad3b055a4ac")
-		)
-		(pin "A3"
-			(uuid "dd10896a-d97d-429b-8217-09b4e036d7bd")
-		)
-		(pin "B2"
-			(uuid "9c9c5666-2fdd-4410-b33b-9acc1458ba40")
-		)
-		(instances
-			(project "unified_pcb"
-				(path "/5ec870f3-18d6-4ff4-bc31-ac41fb778ddb"
-					(reference "U1")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:C_Small")
 		(at 213.36 50.8 180)
 		(unit 1)
@@ -22402,93 +22400,6 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 139.7 77.47 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "ad27580a-e3b5-4614-b557-13246ac92988")
-		(property "Reference" "C36"
-			(at 136.906 79.248 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "470nF"
-			(at 142.748 80.264 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 139.7 77.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 139.7 77.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Unpolarized capacitor, small symbol"
-			(at 139.7 77.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Designation" "GRM155R61A474KE15D"
-			(at 139.7 77.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C77003"
-			(at 139.7 77.47 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "69214735-5d27-40a5-8eef-da7e6a0aa5fd")
-		)
-		(pin "2"
-			(uuid "ce13c5c4-4ce4-4be4-9bfc-057e8e750146")
-		)
-		(instances
-			(project "unified_pcb"
-				(path "/5ec870f3-18d6-4ff4-bc31-ac41fb778ddb"
-					(reference "C36")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C_Small")
 		(at 304.8 38.1 180)
 		(unit 1)
 		(exclude_from_sim no)
@@ -22656,6 +22567,93 @@
 			(project "unified_pcb"
 				(path "/5ec870f3-18d6-4ff4-bc31-ac41fb778ddb"
 					(reference "R37")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 139.7 77.47 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "b004dd1a-f22e-4706-a065-7df8fd223fe7")
+		(property "Reference" "C36"
+			(at 136.906 79.248 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "2.2uF"
+			(at 142.748 79.502 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
+			(at 139.7 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 139.7 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 139.7 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CC0402KRX5R6BB225"
+			(at 139.7 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C326606"
+			(at 139.7 77.47 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "88ffe589-b080-4a26-8ae0-38e65d17857c")
+		)
+		(pin "2"
+			(uuid "be1e471d-e0c1-42a6-94a5-436dc9d052c4")
+		)
+		(instances
+			(project "unified_pcb"
+				(path "/5ec870f3-18d6-4ff4-bc31-ac41fb778ddb"
+					(reference "C36")
 					(unit 1)
 				)
 			)
