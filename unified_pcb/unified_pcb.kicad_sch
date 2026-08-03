@@ -3271,131 +3271,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "R_Small_1"
-			(pin_numbers
-				(hide yes)
-			)
-			(pin_names
-				(offset 0.254)
-				(hide yes)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "R"
-				(at 0 0 90)
-				(effects
-					(font
-						(size 1.016 1.016)
-					)
-				)
-			)
-			(property "Value" "R_Small"
-				(at 1.778 0 90)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "~"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Resistor, small symbol"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "R resistor"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "R_*"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "R_Small_1_0_1"
-				(rectangle
-					(start -0.762 1.778)
-					(end 0.762 -1.778)
-					(stroke
-						(width 0.2032)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "R_Small_1_1_1"
-				(pin passive line
-					(at 0 2.54 270)
-					(length 0.762)
-					(name "~"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 0 -2.54 90)
-					(length 0.762)
-					(name "~"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "Switch:SW_Push"
 			(pin_numbers
 				(hide yes)
@@ -8678,6 +8553,12 @@
 		(uuid "c759180e-c24c-4ce6-8f3a-023898d4c7f4")
 	)
 	(junction
+		(at 64.77 158.75)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c759e836-c99f-4dd1-8884-f777027f2557")
+	)
+	(junction
 		(at 130.81 77.47)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -8842,6 +8723,10 @@
 		(uuid "11626a0f-748e-493c-bbac-ba4cac2c119b")
 	)
 	(no_connect
+		(at 284.48 101.6)
+		(uuid "116821fb-de7b-4e26-a089-5faf587aaac5")
+	)
+	(no_connect
 		(at 55.88 93.98)
 		(uuid "1dcb8ee6-d37d-4f18-bf77-b64601251fd1")
 	)
@@ -8912,6 +8797,10 @@
 	(no_connect
 		(at 55.88 78.74)
 		(uuid "e91077bf-37c8-4bfd-bc45-ecdeced9266a")
+	)
+	(no_connect
+		(at 284.48 104.14)
+		(uuid "ed820269-bdf4-4e35-b4a6-cfc8b5e0e52b")
 	)
 	(no_connect
 		(at 220.98 121.92)
@@ -10889,16 +10778,6 @@
 	)
 	(wire
 		(pts
-			(xy 284.48 101.6) (xy 297.18 101.6)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "92275e7f-5627-45d9-90a6-98bd8c913048")
-	)
-	(wire
-		(pts
 			(xy 209.55 29.21) (xy 220.98 29.21)
 		)
 		(stroke
@@ -10946,16 +10825,6 @@
 			(type default)
 		)
 		(uuid "97b41ece-c2f2-4997-a7c1-e4b06a1a4688")
-	)
-	(wire
-		(pts
-			(xy 284.48 104.14) (xy 297.18 104.14)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "989a481e-3db5-4cca-8110-bf77abd51e01")
 	)
 	(wire
 		(pts
@@ -12896,16 +12765,6 @@
 			(justify right bottom)
 		)
 		(uuid "e38e6cf9-5da6-464d-9976-7eddee04886a")
-	)
-	(label "GPIO14"
-		(at 284.48 104.14 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "e5ad439b-0e8f-47c6-b414-856f6429f4ba")
 	)
 	(label "USB_D-"
 		(at 311.15 60.96 180)
@@ -19209,75 +19068,6 @@
 			(project "unified_pcb"
 				(path "/5ec870f3-18d6-4ff4-bc31-ac41fb778ddb"
 					(reference "#PWR013")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_name "R_Small_1")
-		(lib_id "Device:R_Small")
-		(at 308.61 121.92 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "6b7eb826-3c2b-4f66-8034-b1e613c2e86c")
-		(property "Reference" "R35"
-			(at 308.61 117.2433 90)
-			(effects
-				(font
-					(size 1.016 1.016)
-				)
-			)
-		)
-		(property "Value" "R_Small"
-			(at 308.61 119.4632 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 308.61 121.92 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 308.61 121.92 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Resistor, small symbol"
-			(at 308.61 121.92 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "ecdd68b7-ca3e-487c-b5ec-3fe9460c1d12")
-		)
-		(pin "2"
-			(uuid "6a024d4c-c4f0-4e2e-9759-9d5f2049a28a")
-		)
-		(instances
-			(project ""
-				(path "/5ec870f3-18d6-4ff4-bc31-ac41fb778ddb"
-					(reference "R35")
 					(unit 1)
 				)
 			)
@@ -26091,6 +25881,72 @@
 			(project "unified_pcb"
 				(path "/5ec870f3-18d6-4ff4-bc31-ac41fb778ddb"
 					(reference "#FLG09")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 64.77 158.75 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "f5609518-b519-4ca0-bd2a-be05915beb1c")
+		(property "Reference" "#FLG08"
+			(at 64.77 156.845 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 60.198 154.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 64.77 158.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 64.77 158.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Special symbol for telling ERC where power comes from"
+			(at 64.77 158.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "b5d737c0-f7b2-40ec-b0da-e7b84d231c76")
+		)
+		(instances
+			(project "unified_pcb"
+				(path "/5ec870f3-18d6-4ff4-bc31-ac41fb778ddb"
+					(reference "#FLG08")
 					(unit 1)
 				)
 			)
