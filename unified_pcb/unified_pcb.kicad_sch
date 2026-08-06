@@ -13005,7 +13005,7 @@
 				)
 			)
 		)
-		(property "Value" "12pF"
+		(property "Value" "15pF"
 			(at 209.9818 115.57 90)
 			(effects
 				(font
@@ -13040,7 +13040,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "0402N120F500CT"
+		(property "Designation" "0402CG150J500NT"
 			(at 207.01 115.57 0)
 			(effects
 				(font
@@ -13049,7 +13049,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C555399"
+		(property "LCSC" "C1548"
 			(at 207.01 115.57 90)
 			(effects
 				(font
@@ -17166,7 +17166,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Crystal:Crystal_SMD_2520-4Pin_2.5x2.0mm"
+		(property "Footprint" "Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm"
 			(at 204.47 109.22 0)
 			(effects
 				(font
@@ -17193,7 +17193,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "TXM12M0004252FBCEO00T"
+		(property "Designation" "ABM8-272-T3"
 			(at 204.47 109.22 0)
 			(effects
 				(font
@@ -17202,7 +17202,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C284155"
+		(property "LCSC" "C20625731"
 			(at 204.47 109.22 90)
 			(effects
 				(font
@@ -22654,7 +22654,7 @@
 				)
 			)
 		)
-		(property "Value" "12pF"
+		(property "Value" "15pF"
 			(at 198.882 115.57 90)
 			(effects
 				(font
@@ -22689,7 +22689,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "0402N120F500CT"
+		(property "Designation" "0402CG150J500NT"
 			(at 201.93 115.57 0)
 			(effects
 				(font
@@ -22698,7 +22698,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C555399"
+		(property "LCSC" "C1548"
 			(at 201.93 115.57 90)
 			(effects
 				(font
