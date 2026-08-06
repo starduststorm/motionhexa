@@ -107594,7 +107594,7 @@
 		(path "/e937eb1a-5e94-4145-b0b4-7bff76e029d5")
 		(sheetname "/")
 		(sheetfile "unified_pcb.kicad_sch")
-		(attr through_hole exclude_from_bom)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(pad "1" smd oval
 			(at -1.27 0.127 60)
 			(size 1.524 2.54)
@@ -111583,7 +111583,7 @@
 		(path "/2eb90183-2e16-4e79-aaab-733998a4b678")
 		(sheetname "/")
 		(sheetfile "unified_pcb.kicad_sch")
-		(attr through_hole exclude_from_bom)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(pad "1" smd oval
 			(at -2.54 0 240)
 			(size 1.524 2.54)
