@@ -6341,7 +6341,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "motionhexa:TPS22913BYZVR"
+		(symbol "motionhexa:TPGLF72101CSP4"
 			(pin_names
 				(offset 0.254)
 			)
@@ -6356,7 +6356,7 @@
 					)
 				)
 			)
-			(property "Value" "TPS22913BYZVR"
+			(property "Value" "TPGLF72101CSP4"
 				(at -0.508 -6.35 0)
 				(effects
 					(font
@@ -6374,7 +6374,7 @@
 					(hide yes)
 				)
 			)
-			(property "Datasheet" "TPS22913BYZVR"
+			(property "Datasheet" "TPGLF72101CSP4"
 				(at -0.254 -10.922 0)
 				(effects
 					(font
@@ -6419,7 +6419,7 @@
 					(hide yes)
 				)
 			)
-			(symbol "TPS22913BYZVR_0_1"
+			(symbol "TPGLF72101CSP4_0_1"
 				(polyline
 					(pts
 						(xy -5.08 5.08) (xy -5.08 -5.08)
@@ -13322,7 +13322,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "0402WGF4701TCE"
+		(property "Designation" "FRC0402J472 TS"
 			(at 45.72 172.72 0)
 			(effects
 				(font
@@ -13331,7 +13331,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C25900"
+		(property "LCSC" "C2906941"
 			(at 45.72 172.72 90)
 			(effects
 				(font
@@ -14234,7 +14234,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "0402WGF4701TCE"
+		(property "Designation" "FRC0402J472 TS"
 			(at 38.1 172.72 0)
 			(effects
 				(font
@@ -14243,7 +14243,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C25900"
+		(property "LCSC" "C2906941"
 			(at 38.1 172.72 90)
 			(effects
 				(font
@@ -15105,7 +15105,7 @@
 		)
 	)
 	(symbol
-		(lib_id "motionhexa:TPS22913BYZVR")
+		(lib_id "motionhexa:TPGLF72101CSP4")
 		(at 345.44 208.28 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -15130,7 +15130,7 @@
 			)
 		)
 		(property "Footprint" "motionhexa:YZV0004ADAD"
-			(at 345.44 208.28 0)
+			(at 344.932 216.662 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15140,7 +15140,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/C42449029.pdf"
-			(at 345.44 208.28 0)
+			(at 345.186 219.202 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15724,15 +15724,6 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C6075475"
-			(at 113.03 86.36 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
 		(pin "A1"
 			(uuid "5918890d-2672-4b1c-974e-8024f52eda7d")
 		)
@@ -16055,15 +16046,6 @@
 			)
 		)
 		(property "Description" "6-axis IMU, 16-bit gyroscope + accelerometer, 1.71-3.6V VDD, 1.2-3.6V VDDIO, 4-wire SPI, LGA-14 2.5x3.0x0.83mm"
-			(at 247.65 229.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "MANUFACTURER" "Bosch Sensortec"
 			(at 247.65 229.87 0)
 			(effects
 				(font
@@ -16642,7 +16624,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "0402WGF4701TCE"
+		(property "Designation" "FRC0402J472 TS"
 			(at 156.21 176.53 0)
 			(effects
 				(font
@@ -16651,7 +16633,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C25900"
+		(property "LCSC" "C2906941"
 			(at 156.21 176.53 90)
 			(effects
 				(font
@@ -17124,7 +17106,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "0402WGF4701TCE"
+		(property "Designation" "FRC0402J472 TS"
 			(at 41.91 220.98 0)
 			(effects
 				(font
@@ -17133,7 +17115,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C25900"
+		(property "LCSC" "C2906941"
 			(at 41.91 220.98 90)
 			(effects
 				(font
@@ -17304,7 +17286,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "0402WGF4701TCE"
+		(property "Designation" "FRC0402J472 TS"
 			(at 149.86 176.53 0)
 			(effects
 				(font
@@ -17313,7 +17295,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C25900"
+		(property "LCSC" "C2906941"
 			(at 149.86 176.53 90)
 			(effects
 				(font
@@ -17717,6 +17699,24 @@
 				(hide yes)
 			)
 		)
+		(property "LCSC" "C14445"
+			(at 30.48 179.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A105KP5NNNC"
+			(at 30.48 179.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "fd86e7b2-3a3f-4d11-9aaf-4aece18057ac")
 		)
@@ -18061,6 +18061,24 @@
 			)
 		)
 		(property "Description" ""
+			(at 91.44 179.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C90806"
+			(at 91.44 179.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "0603X106K100"
 			(at 91.44 179.07 0)
 			(effects
 				(font
@@ -18891,6 +18909,24 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 86.36 179.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C106235"
+			(at 86.36 179.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "RC0402FR-071KL"
 			(at 86.36 179.07 0)
 			(effects
 				(font
@@ -20306,8 +20342,8 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C147954"
-			(at 45.466 267.208 0)
+		(property "Designation" "RT9078-33GQZ"
+			(at 45.72 243.84 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20315,7 +20351,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "RT9078-33GQZ"
+		(property "LCSC" "C147954"
 			(at 45.72 243.84 0)
 			(effects
 				(font
@@ -20969,7 +21005,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C17168"
+			(at 304.8 242.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "0402WGF0000TCE"
 			(at 304.8 242.57 0)
 			(effects
 				(font
@@ -22730,8 +22775,8 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C147954"
-			(at 125.476 262.128 0)
+		(property "Designation" "RT9078-33GQZ"
+			(at 125.73 238.76 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22739,7 +22784,7 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" "RT9078-33GQZ"
+		(property "LCSC" "C147954"
 			(at 125.73 238.76 0)
 			(effects
 				(font
@@ -22989,7 +23034,7 @@
 				(hide yes)
 			)
 		)
-		(property "JLC" "C42411118"
+		(property "LCSC" "C42411118"
 			(at 252.73 101.6 0)
 			(effects
 				(font
@@ -24804,15 +24849,6 @@
 			)
 		)
 		(property "Description" "3-axis AMR magnetometer, I2C addr 0x30 / I3C, 1.62-3.6V single supply, WLP-4 0.8x0.8x0.4mm"
-			(at 293.37 229.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "MANUFACTURER" "Memsic"
 			(at 293.37 229.87 0)
 			(effects
 				(font

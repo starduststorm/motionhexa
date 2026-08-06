@@ -12474,7 +12474,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 90.17 0)
 			(effects
 				(font
@@ -14168,7 +14177,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 189.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 189.23 0)
 			(effects
 				(font
@@ -16569,7 +16587,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 82.55 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 82.55 0)
 			(effects
 				(font
@@ -17354,7 +17381,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 143.51 0)
 			(effects
 				(font
@@ -17836,7 +17872,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 173.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 173.99 0)
 			(effects
 				(font
@@ -18015,7 +18060,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 181.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 181.61 0)
 			(effects
 				(font
@@ -18497,7 +18551,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 151.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 151.13 0)
 			(effects
 				(font
@@ -18979,7 +19042,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 105.41 0)
 			(effects
 				(font
@@ -20067,7 +20139,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 74.93 0)
 			(effects
 				(font
@@ -20549,7 +20630,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 128.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 128.27 0)
 			(effects
 				(font
@@ -24566,7 +24656,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 120.65 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 120.65 0)
 			(effects
 				(font
@@ -25553,7 +25652,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 166.37 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 166.37 0)
 			(effects
 				(font
@@ -30176,7 +30284,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 196.85 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 196.85 0)
 			(effects
 				(font
@@ -32981,7 +33098,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 59.69 0)
 			(effects
 				(font
@@ -33362,7 +33488,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 158.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 158.75 0)
 			(effects
 				(font
@@ -34248,7 +34383,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 67.31 0)
 			(effects
 				(font
@@ -34427,7 +34571,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 113.03 0)
 			(effects
 				(font
@@ -34909,7 +35062,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 135.89 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 135.89 0)
 			(effects
 				(font
@@ -36603,7 +36765,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 97.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 97.79 0)
 			(effects
 				(font
@@ -38903,7 +39074,16 @@
 				(hide yes)
 			)
 		)
-		(property "Designation" ""
+		(property "LCSC" "C315248"
+			(at 57.15 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Designation" "CL05A106MP5NUNC"
 			(at 57.15 52.07 0)
 			(effects
 				(font
