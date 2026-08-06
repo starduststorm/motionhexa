@@ -14911,8 +14911,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7u"
-			(at 183.896 65.024 0)
+		(property "Value" "4.7uF"
+			(at 184.658 65.278 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17901,8 +17901,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7u"
-			(at 194.056 65.024 0)
+		(property "Value" "4.7uF"
+			(at 194.818 65.278 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21105,8 +21105,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7u"
-			(at 210.82 51.054 0)
+		(property "Value" "4.7uF"
+			(at 210.566 50.8 0)
 			(effects
 				(font
 					(size 1.27 1.27)

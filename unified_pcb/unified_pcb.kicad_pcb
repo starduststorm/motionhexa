@@ -98158,7 +98158,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "4.7u"
+		(property "Value" "4.7uF"
 			(at 0 -1.16 150)
 			(layer "B.Fab")
 			(uuid "4ba6589d-4dd7-45e5-8423-f0c7fb16c498")
@@ -109112,7 +109112,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "4.7u"
+		(property "Value" "4.7uF"
 			(at 0 -1.16 60)
 			(layer "B.Fab")
 			(uuid "bf0423b7-84dc-46ea-9351-3091e16b05ef")
@@ -109952,7 +109952,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "4.7u"
+		(property "Value" "4.7uF"
 			(at 0 -1.16 150)
 			(layer "B.Fab")
 			(uuid "bf5a041e-0bf0-4d1e-862a-621cc97da8f4")
