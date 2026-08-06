@@ -1,0 +1,192 @@
+(footprint "MMC5603NJ_WLP-4_0.8x0.8mm_P0.4mm"
+	(version 20240108)
+	(generator "pcbnew")
+	(generator_version "8.0")
+	(layer "F.Cu")
+	(descr "Memsic MMC5603NJ 3-axis magnetometer, WLP-4 0.8x0.8x0.4mm body, 4 balls 0.4mm pitch, 0.23mm pads per datasheet recommended land pattern (Rev.B)")
+	(tags "magnetometer WLP CSP MMC5603NJ")
+	(property "Reference" "REF**"
+		(at 0 -1.5 0)
+		(layer "F.SilkS")
+		(uuid "ce5d1f51-2905-46f8-ba06-add64ed3a51c")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "MMC5603NJ"
+		(at 0 1.5 0)
+		(layer "F.Fab")
+		(uuid "1d913680-36e5-4031-8a3b-c15a2fdb3dd2")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Footprint" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "3781460b-546b-441d-b165-2c804a739a60")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "886113c6-0f6d-48ae-a04d-02f980e0feca")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "ad438e41-0470-46c5-bf4b-e556dd66a688")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd)
+	(fp_circle
+		(center -0.7 -0.7)
+		(end -0.63 -0.7)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill solid)
+		(layer "F.SilkS")
+		(uuid "c97a3022-3690-4f5a-8248-689acf84735b")
+	)
+	(fp_line
+		(start -0.66 -0.66)
+		(end -0.66 0.66)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "8e768e45-81e6-432d-ba3d-9c8934252dc4")
+	)
+	(fp_line
+		(start -0.66 0.66)
+		(end 0.66 0.66)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "9443eafa-d839-42e4-bec5-5ab429f9361e")
+	)
+	(fp_line
+		(start 0.66 0.66)
+		(end 0.66 -0.66)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "d68aa1d8-1c2d-481a-9c03-b136b004a5d3")
+	)
+	(fp_line
+		(start 0.66 -0.66)
+		(end -0.66 -0.66)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "50b7bb2a-aad6-4598-902d-a6bd12517cd5")
+	)
+	(fp_line
+		(start -0.41 -0.21)
+		(end -0.21 -0.41)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "3aad0f91-4131-4e94-a5e1-92f3a1db3d0c")
+	)
+	(fp_line
+		(start -0.21 -0.41)
+		(end 0.41 -0.41)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "238674f8-98f7-415f-86b5-cc4810d351a4")
+	)
+	(fp_line
+		(start 0.41 -0.41)
+		(end 0.41 0.41)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "65b1f739-5f0c-40bc-b7d2-f713c15ed214")
+	)
+	(fp_line
+		(start 0.41 0.41)
+		(end -0.41 0.41)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "d08f2a4d-c5bf-45df-b816-50e1ec9a4acc")
+	)
+	(fp_line
+		(start -0.41 0.41)
+		(end -0.41 -0.21)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "e474c6ad-5658-426d-9bf7-38798c7129f8")
+	)
+	(pad "A1" smd circle
+		(at -0.2 -0.2)
+		(size 0.23 0.23)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "5536a9a0-b82b-444b-8781-6a6b9a139141")
+	)
+	(pad "A2" smd circle
+		(at 0.2 -0.2)
+		(size 0.23 0.23)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "1255bbde-e48b-427f-8f4c-f70f4d510190")
+	)
+	(pad "B1" smd circle
+		(at -0.2 0.2)
+		(size 0.23 0.23)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "f2e5106d-49c5-4ba4-923a-e6f0b25657e4")
+	)
+	(pad "B2" smd circle
+		(at 0.2 0.2)
+		(size 0.23 0.23)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "7e6ca4df-bce8-46ea-b0bc-d784023717ed")
+	)
+)
