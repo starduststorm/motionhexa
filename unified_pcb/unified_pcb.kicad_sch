@@ -7562,7 +7562,7 @@
 		)
 		(uuid "39c33e52-e5d6-42af-9d46-8192fd2ccc6f")
 	)
-	(text "C552829 (D3,D9,D10) replaced with C22358693 for v6"
+	(text "C552829 (D3,D9,D10) replaced with C22358693 for v6 & v7"
 		(exclude_from_sim no)
 		(at 76.2 132.08 0)
 		(effects
