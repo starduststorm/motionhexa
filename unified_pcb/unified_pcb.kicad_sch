@@ -6543,191 +6543,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "penta:RT9078-33GQZ"
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "U"
-				(at 0 7.62 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "RT9078-33GQZ"
-				(at -0.254 10.414 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "easyeda2kicad:XDFN-4_L1.0-W1.0-P0.65-BL-EP"
-				(at 0.508 -18.034 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "https://lcsc.com/product-detail/Low-Dropout-Regulators-LDO_RT9078-33GQZ_C147954.html"
-				(at 0.254 -20.32 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "LCSC Part" "C147954"
-				(at -0.254 -23.368 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "RT9078-33GQZ_0_1"
-				(rectangle
-					(start -6.35 5.588)
-					(end 6.35 -5.08)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-				(circle
-					(center -5.08 4.318)
-					(radius 0.254)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center -5.08 4.318)
-					(radius 0.254)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "RT9078-33GQZ_1_1"
-				(pin power_in line
-					(at -8.89 2.54 0)
-					(length 2.54)
-					(name "VIN"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -8.89 -2.54 0)
-					(length 2.54)
-					(name "EN"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at -1.27 -7.62 90)
-					(length 2.54)
-					(name "GND"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 1.27 -7.62 90)
-					(length 2.54)
-					(name "SGND"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_out line
-					(at 8.89 2.54 180)
-					(length 2.54)
-					(name "VOUT"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "power:+1V1"
 			(power)
 			(pin_numbers
@@ -7696,7 +7511,7 @@
 	)
 	(text "lipo charger"
 		(exclude_from_sim no)
-		(at 49.784 144.272 0)
+		(at 49.53 144.78 0)
 		(effects
 			(font
 				(size 2.5 2.5)
@@ -7706,7 +7521,7 @@
 	)
 	(text "life changed when i put\nanother regulator\nin my schematic"
 		(exclude_from_sim no)
-		(at 70.358 229.362 0)
+		(at 69.85 229.87 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7717,7 +7532,7 @@
 	)
 	(text "I2C pulldown avoids floating I2C\nwhen BQ27427 is powered\nbut RP2350 is not"
 		(exclude_from_sim no)
-		(at 160.528 187.198 0)
+		(at 160.02 186.69 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7728,7 +7543,7 @@
 	)
 	(text "need like 330ohm R on these?"
 		(exclude_from_sim no)
-		(at 294.386 115.062 0)
+		(at 294.64 115.57 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7749,7 +7564,7 @@
 	)
 	(text "C552829 (D3,D9,D10) replaced with C22358693 for v6"
 		(exclude_from_sim no)
-		(at 75.946 132.588 0)
+		(at 76.2 132.08 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7759,7 +7574,7 @@
 	)
 	(text "battery gauge"
 		(exclude_from_sim no)
-		(at 99.06 54.102 0)
+		(at 99.06 54.61 0)
 		(effects
 			(font
 				(size 2.5 2.5)
@@ -7770,7 +7585,7 @@
 	)
 	(text "microphone"
 		(exclude_from_sim no)
-		(at 188.468 216.408 0)
+		(at 187.96 215.9 0)
 		(effects
 			(font
 				(size 2.5 2.5)
@@ -7790,7 +7605,7 @@
 	)
 	(text "place caps close to chip"
 		(exclude_from_sim no)
-		(at 122.936 86.106 0)
+		(at 123.19 86.36 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7801,7 +7616,7 @@
 	)
 	(text "power button"
 		(exclude_from_sim no)
-		(at 59.182 212.09 0)
+		(at 59.69 212.09 0)
 		(effects
 			(font
 				(size 2.5 2.5)
@@ -7811,7 +7626,7 @@
 	)
 	(text "layout close to rp2350"
 		(exclude_from_sim no)
-		(at 292.354 56.896 0)
+		(at 292.1 57.15 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7832,7 +7647,7 @@
 	)
 	(text "autobrightness plz work"
 		(exclude_from_sim no)
-		(at 336.804 173.736 0)
+		(at 336.55 173.99 0)
 		(effects
 			(font
 				(size 1.5 1.5)
@@ -7842,7 +7657,7 @@
 	)
 	(text "I2C"
 		(exclude_from_sim no)
-		(at 145.542 165.354 0)
+		(at 146.05 165.1 0)
 		(effects
 			(font
 				(size 2.5 2.5)
@@ -9883,16 +9698,6 @@
 	)
 	(wire
 		(pts
-			(xy 78.74 252.73) (xy 78.74 254)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5ce06e1c-305b-4ec9-84ba-d0045e621ebc")
-	)
-	(wire
-		(pts
 			(xy 36.83 241.3) (xy 36.83 246.38)
 		)
 		(stroke
@@ -10993,7 +10798,7 @@
 	)
 	(wire
 		(pts
-			(xy 149.86 171.196) (xy 149.86 172.72)
+			(xy 149.86 171.45) (xy 149.86 172.72)
 		)
 		(stroke
 			(width 0)
@@ -22723,7 +22528,7 @@
 		)
 	)
 	(symbol
-		(lib_id "penta:RT9078-33GQZ")
+		(lib_id "motionhexa:RT9078-33GQZ")
 		(at 125.73 238.76 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -24675,7 +24480,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 149.86 171.196 0)
+		(at 149.86 171.45 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -24683,7 +24488,7 @@
 		(dnp no)
 		(uuid "dad6124c-f39b-44b2-b3c7-e3d36322602f")
 		(property "Reference" "#PWR020"
-			(at 149.86 175.006 0)
+			(at 149.86 175.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24692,7 +24497,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 150.876 167.64 0)
+			(at 150.876 167.894 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24700,7 +24505,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 149.86 171.196 0)
+			(at 149.86 171.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24709,7 +24514,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 149.86 171.196 0)
+			(at 149.86 171.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24718,7 +24523,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 149.86 171.196 0)
+			(at 149.86 171.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
