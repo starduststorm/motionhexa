@@ -986,7 +986,11 @@ public:
   int animateFromSOC = 0;
   unsigned long lastValueChange;
 
-  ChargingPattern() : lastValueChange(millis()) {}
+  ChargingPattern() : lastValueChange(millis()) {
+    btlogf("[t=%lu] ChargingPattern start: batteryInitialized=%i soc=%u%% flags=%X detected=%i",
+           millis(), powerState.batteryInitialized, batteryData.stateOfCharge, batteryData.flags,
+           batteryData.batteryDetected());
+  }
   void update() {
     ctx.leds.fill_solid(CRGB::Black);
     HexaShells shells;

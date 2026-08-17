@@ -1,6 +1,15 @@
 #define DEBUG 0
 #define WAIT_FOR_SERIAL 0
 
+// Boot timing / core1 stall instrumentation. 
+#define DEBUG_BOOT_TIMING 0
+#if DEBUG_BOOT_TIMING
+#define btlogf(format, ...) logf(format, ## __VA_ARGS__)
+const unsigned long kStallLogMS = 15; // ~3 motion frames' worth
+#else
+#define btlogf(format, ...)
+#endif
+
 // manually-bumped versioning
 #define SOFTWARE_VERSION "1.1"
 
@@ -28,8 +37,6 @@
 #include <updating.h>
 
 #include "power.h"
-
-PowerManager powerState;
 
 #include "MotionManager.h"
 
@@ -114,6 +121,17 @@ void getAsyncData(MotionFrame *motionFrameRef, BatteryData *batteryDataRef) {
   if (batteryDataRef) *batteryDataRef = bd;
 }
 
+inline void logMotionPublishGap() {
+#if DEBUG_BOOT_TIMING
+  static unsigned long lastMotionPublish = 0;
+  unsigned long now = millis();
+  if (lastMotionPublish != 0 && now - lastMotionPublish >= kStallLogMS) {
+    btlogf("[t=%lu] core1: %lums gap between published motion frames", now, now - lastMotionPublish);
+  }
+  lastMotionPublish = now;
+#endif
+}
+
 void hard_reset_check_core1() {
   assert(1 == get_core_num(), "hard_reset_check_core1 not on core1");
     // hard reset
@@ -141,17 +159,12 @@ void core1_main() {
   // Motion data reads take upwards of 4.5ms so we're doing them on core1
   init_i2c();
 
+  unsigned long motionInitStart = millis();
   MotionManager::manager().init();
+  unsigned long motionStartedAt = millis();
+  btlogf("[t=%lu] core1: motion init took %lums (i2c up at t=%lu)",
+         motionStartedAt, motionStartedAt - motionInitStart, motionInitStart);
 
-  bool batterySucess = false;
-#if HARDWARE_VERSION >= 4
-  batterySucess = initializeBattery();
-  powerState.batteryInitialized = batterySucess; // should be fine to write this bool from core1?
-  logf("initializeBattery = %i", batterySucess);
-  digitalWrite(DISABLE_CHARGE_PIN, false);
-#endif
-
-  static unsigned long lastBatteryPoll = 0;
   while (1) {
     while (!_gCore1DataGetNext) {
       hard_reset_check_core1();
@@ -160,24 +173,31 @@ void core1_main() {
     hard_reset_check_core1();
     MotionFrame motionFrame = MotionManager::manager().loop();
     localizeMotionFrame(motionFrame);
-    BatteryData bd = {0};
-    bool batteryDateUpdated = false;
-#if HARDWARE_VERSION > 2
-    if (lastBatteryPoll == 0 || millis() - lastBatteryPoll > 3000) {
-      if (batterySucess) {
-        bd = getBatteryData();
-        bd.print();
-      }
-      batteryDateUpdated = true;
-      lastBatteryPoll = millis();
-    }
-#endif
 
+    // Publish motion before touching the gauge, so battery i2c lands where core1 would otherwise
+    // be waiting on _gCore1DataGetNext rather than inside a frame core0 is waiting on.
     mutex_enter_blocking(&core1DataLock);
     _gMotionFrame = motionFrame;
-    if (batteryDateUpdated) _gBatteryData = bd;
     _gCore1DataGetNext = false;
     mutex_exit(&core1DataLock);
+    logMotionPublishGap();
+
+#if HARDWARE_VERSION >= 5
+    BatteryData bd = {0};
+    if (battery_step_core1(motionStartedAt, bd)) {
+      mutex_enter_blocking(&core1DataLock);
+      _gBatteryData = bd;
+      mutex_exit(&core1DataLock);
+#if DEBUG_BOOT_TIMING
+      static bool loggedFirstReady = false;
+      if (!loggedFirstReady && bd.gaugingReady()) {
+        loggedFirstReady = true;
+        logf("[t=%lu] core1: first gauging-ready sample (soc=%u%%, flags=%X, status=%X, detected=%i)",
+             millis(), bd.stateOfCharge, bd.flags, bd.controlStatus, bd.batteryDetected());
+      }
+#endif
+    }
+#endif
   }
 }
 
@@ -233,9 +253,11 @@ void setup() {
     buttonWake = false;
   }
 
-  // disable lipo charging so we can figure out if there is a battery
+#if SOFTWARE_CHARGE_LIMITER
+  // disable lipo charging so we can figure out if there is a battery; ChargeController re-enables it.
   pinMode(DISABLE_CHARGE_PIN, OUTPUT);
   digitalWrite(DISABLE_CHARGE_PIN, true);
+#endif
 
 #endif
 
@@ -262,8 +284,10 @@ void setup() {
   pinMode(GPOUT_PIN, INPUT_PULLUP);
 #endif
 #if HARDWARE_VERSION >= 4
+#ifdef EN_BOOST_PIN
   pinMode(EN_BOOST_PIN, OUTPUT);
-  
+#endif
+
   // if we booted this far, maintain our own power.
   gpio_set_function(EN_LDO_PIN, GPIO_FUNC_SIO);
   gpio_set_dir(EN_LDO_PIN, true);
@@ -447,6 +471,15 @@ void loop() {
   }
 #endif
 
+#if SOFTWARE_CHARGE_LIMITER
+  // sample the analog battery sense divider for core1's battery log (adc must stay core0-only)
+  static unsigned long lastBatterySenseRead = 0;
+  if (millis() - lastBatterySenseRead > 1000) {
+    lastBatterySenseMV = batterySenseMV();
+    lastBatterySenseRead = millis();
+  }
+#endif
+
   getAsyncData(&MotionManager::motionFrame, &batteryData);
   powerState.update(isVBUSPowered, batteryData);
 
@@ -455,6 +488,12 @@ void loop() {
 
   char *serialLine = readSerialLine();
   updater->loop(serialLine);
+#if HARDWARE_VERSION >= 5
+  if (serialLine && strcmp(serialLine, kBatteryResetCommand) == 0) {
+    logf("BATRESET requested");
+    batteryResetRequested = true; // executed on core1, which owns i2c
+  }
+#endif
 
   indexedRunner->paused = !powerState.isRunning();
   controls.update();
