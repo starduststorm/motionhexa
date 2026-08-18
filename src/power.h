@@ -8,8 +8,8 @@
 
 const int kFullCharge = 95; // %, limit for charging ui
 
-// v5/v6 charger (LP28013HQVF-435) floats at 4.35V but the cells are 4.2V
-#define SOFTWARE_CHARGE_LIMITER HARDWARE_VERSION >= 5
+// v5/v6 charger (LP28013HQVF-435) floats at 4.35V but the cells are 4.2V; v7's LY4176D terminates on its own.
+#define SOFTWARE_CHARGE_LIMITER (HARDWARE_VERSION >= 5 && HARDWARE_VERSION < 7)
 
 #if HARDWARE_VERSION >= 3
 #include <BQ27427.h>
@@ -26,16 +26,24 @@ struct BatteryData {
   uint8_t softFull;         // ChargeController declared the battery full (software 4.2V cutoff); always 0 without SOFTWARE_CHARGE_LIMITER
   uint8_t sampled;          // filled from a gauge read (vs. the zeroed initial value)
   uint16_t controlStatus;   // CONTROL_STATUS, for the log
+  int16_t current;          // mA, average; positive = charging
+  uint8_t presence;         // BatteryPresence verdict (v7+), see below
   void print(uint16_t senseMV = 0) {
-    logf("battery: %s, soc: %u%%, soh: %u%%, voltage: %umV, sense: %umV, capacity: %umAh / %umAh, power: %imW, temp: %uK, flags: %X, status: %X%s%s",
-      batteryDetected()?"yes":"no", stateOfCharge, stateOfHealth, voltage, senseMV, currentCapacity, fullCapacity, powerDraw, temperature, flags,
+    logf("battery: %s, soc: %u%%, soh: %u%%, voltage: %umV, sense: %umV, capacity: %umAh / %umAh, power: %imW, current: %imA, temp: %uK, flags: %X, status: %X%s%s",
+      batteryDetected()?"yes":"no", stateOfCharge, stateOfHealth, voltage, senseMV, currentCapacity, fullCapacity, powerDraw, current, temperature, flags,
       controlStatus, gaugingReady() ? "" : ", initializing", softFull ? ", soft-full" : "");
   }
+  enum : uint8_t { presenceUnknown = 0, presenceYes = 1, presenceNo = 2 };
   bool batteryDetected() {
+#if HARDWARE_VERSION >= 7
+    // v7: Can't use BAT_DET since it relies on the thermistor pin, so check the inferred verdict from BatteryPresence (core1)
+    return presence == presenceYes;
+#else
     // Issue: almost always detects a battery, presumably mistaking the lipo charger, powering the load, as a battery
     //   if the charger is off then the i2c reads will be all 1s, SoC will be 0xFFFF.
     //   but there is no battery we might still see a reasoanble "state of charge" because the lipo charger is tricking the BQ27*.
     return stateOfCharge <= 100 && flags & 1<<3;
+#endif
   }
   // For a few seconds after a gauge reset, soc reads 0 with capacity 0/0. SoC is RemainingCapacity
   // over FullChargeCapacity, so FCC == 0 is exactly "no valid percentage yet" (and it comes good
@@ -333,6 +341,75 @@ public:
 ChargeController chargeController;
 #endif // SOFTWARE_CHARGE_LIMITER
 
+#if HARDWARE_VERSION >= 7
+// Infers whether a cell is actually connected, since the gauge can't tell us (see BatteryData::batteryDetected).
+// Evidence, evaluated on each 5s gauge sample while VBUS is present (unplugged and running implies a cell):
+//   no cell:  voltage above anything a 4.2V-terminated cell can reach (the LY4176D output floats to ~4.3-4.6V unloaded),
+//             or the reading jumping between samples (measured 4327 -> 4549mV sample to sample with no cell; a cell under
+//             our <1A load moves a few tens of mV at most, ~50mV for a full pixel-load step at ~100mOhm pack).
+//   cell:     voltage in the cell range and steady between samples.
+// Two consecutive agreeing votes flip the verdict; a single ambiguous or contradicting sample holds it. A first sample that
+// is unambiguous decides immediately so the charging ui isn't delayed by a whole poll interval.
+class BatteryPresence {
+  static const uint16_t kNoCellMV = 4270;      // above the 4.2V termination + margin
+  static const uint16_t kCellMaxMV = 4230;     // steady readings up to here are a cell on charge
+  static const uint16_t kCellMinMV = 2800;
+  static const uint16_t kJitterNoCellMV = 120; // sample-to-sample swing that no cell produces
+  static const uint16_t kJitterCellMV = 60;    // sample-to-sample swing consistent with a cell
+  uint16_t lastVoltage = 0;
+  uint8_t verdict = BatteryData::presenceUnknown;
+  uint8_t pendingVerdict = BatteryData::presenceUnknown;
+  uint8_t pendingVotes = 0;
+
+  void vote(uint8_t v) {
+    if (v == BatteryData::presenceUnknown) { pendingVotes = 0; return; }
+    if (v == verdict) { pendingVotes = 0; return; }
+    if (v == pendingVerdict) {
+      pendingVotes++;
+    } else {
+      pendingVerdict = v;
+      pendingVotes = 1;
+    }
+    // first decision is immediate, later flips need agreement
+    if (verdict == BatteryData::presenceUnknown || pendingVotes >= 2) {
+      logf("battery presence: %s (voltage %umV, current %imA)", v == BatteryData::presenceYes ? "cell detected" : "no cell", lastVoltage, lastCurrent);
+      verdict = v;
+      pendingVotes = 0;
+    }
+  }
+  int16_t lastCurrent = 0;
+public:
+  uint8_t current() { return verdict; }
+  // returns the verdict after folding in this sample
+  uint8_t update(const BatteryData &bd, bool vbusPowered) {
+    lastCurrent = bd.current;
+    if (!vbusPowered) {
+      // nothing but a cell can be powering us
+      lastVoltage = bd.voltage;
+      vote(BatteryData::presenceYes);
+      return verdict;
+    }
+    if (bd.voltage == 0 || bd.voltage == 0xFFFF) {
+      // failed read, no information
+      return verdict;
+    }
+    uint16_t jitter = lastVoltage ? (uint16_t)abs((int)bd.voltage - (int)lastVoltage) : 0;
+    bool haveHistory = lastVoltage != 0;
+    lastVoltage = bd.voltage;
+
+    if (bd.voltage > kNoCellMV || (haveHistory && jitter > kJitterNoCellMV)) {
+      vote(BatteryData::presenceNo);
+    } else if (bd.voltage >= kCellMinMV && bd.voltage <= kCellMaxMV && (!haveHistory || jitter <= kJitterCellMV)) {
+      vote(BatteryData::presenceYes);
+    } else {
+      vote(BatteryData::presenceUnknown); // 4230..4270mV band, or a mid-size swing: wait for the next sample
+    }
+    return verdict;
+  }
+};
+BatteryPresence batteryPresence;
+#endif
+
 bool sampleBattery(BatteryData &out) {
   assert(1 == get_core_num(), "sampleBattery not on core1");
 #if HARDWARE_VERSION >= 5
@@ -344,10 +421,14 @@ bool sampleBattery(BatteryData &out) {
   bd.currentCapacity = lipo.capacity(REMAIN);
   bd.fullCapacity = lipo.capacity(FULL);
   bd.powerDraw = lipo.power();
+  bd.current = lipo.current(AVG);
   bd.temperature = lipo.temperature(INTERNAL_TEMP)/10.;
   bd.flags = lipo.flags();
   bd.controlStatus = lipo.status();
   bd.sampled = true;
+#if HARDWARE_VERSION >= 7
+  bd.presence = batteryPresence.update(bd, digitalRead(VBUS_SENSOR_PIN));
+#endif
   out = bd;
   return true;
 #else
@@ -449,12 +530,6 @@ uint8_t chargingPatternCheck(PatternRunner &runner, PowerManager &runState) {
   const int kFadeTime = 300;
   const int kSitTimeAtFullCharge = 5000;
   const int kRecentStateChangeDelay = 200;
-
-  // This is whether or not the lipo charger is actually pushing current into the battery. I don't actually think this is useful since it toggles on and off a lot near full charge.
-  // static unsigned long lastLipoChargeIndicator = 0;
-  // if (!digitalRead(CHRG_PIN)) {
-  //   lastLipoChargeIndicator = millis();
-  // }
   
   // logf("isCharging=%i, isHexaRunning=%i, hasPattern = %i, lastReachedFullCharge= %i, lastChargingStateChange= %i, millis=%i", 
   //   runState.isCharging(), runState.isRunning(), (bool)(runner.pattern), runState.lastReachedFullCharge(), runState.lastChargingStateChange(), millis());

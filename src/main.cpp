@@ -1,5 +1,6 @@
 #define DEBUG 0
 #define WAIT_FOR_SERIAL 0
+#define AUTO_BRIGHTNESS 0 // photosensor-driven global brightness; off until the v7 multi-sensor path is characterized
 
 // Boot timing / core1 stall instrumentation. 
 #define DEBUG_BOOT_TIMING 0
@@ -105,7 +106,7 @@ void serialTimeoutIndicator() {
 }
 
 mutex_t core1DataLock;
-MotionFrame _gMotionFrame; // locked AGMT/motion read
+MotionFrame _gMotionFrame; // locked motion read
 BatteryData _gBatteryData = {0}; // locked BatteryData read
 bool _gCore1DataGetNext = true; // prevent core1 from doing multiple motion reads in a single frame
 
@@ -154,13 +155,18 @@ void hard_reset_check_core1() {
   lastMillis = curMillis;
 }
 
+// core1 gets its own stack instead of pico-sdk's 2KB default in SCRATCH_X (the SDK is prebuilt in arduino-pico, so
+// PICO_CORE1_STACK_SIZE can't be changed from build flags). The BMI270 init path (Bosch API + SPI + logf/USB) measured
+// ~1.2KB deep, which is closer to 2KB than we'd like.
+static uint32_t core1Stack[4096 / sizeof(uint32_t)] __attribute__((aligned(8)));
+
 void core1_main() {
   assert(1 == get_core_num(), "core1_main not on core1");
   // Motion data reads take upwards of 4.5ms so we're doing them on core1
   init_i2c();
 
   unsigned long motionInitStart = millis();
-  MotionManager::manager().init();
+  MotionManager::manager().init(kHexaMotionPlacement);
   unsigned long motionStartedAt = millis();
   btlogf("[t=%lu] core1: motion init took %lums (i2c up at t=%lu)",
          motionStartedAt, motionStartedAt - motionInitStart, motionInitStart);
@@ -172,7 +178,6 @@ void core1_main() {
     }
     hard_reset_check_core1();
     MotionFrame motionFrame = MotionManager::manager().loop();
-    localizeMotionFrame(motionFrame);
 
     // Publish motion before touching the gauge, so battery i2c lands where core1 would otherwise
     // be waiting on _gCore1DataGetNext rather than inside a frame core0 is waiting on.
@@ -229,7 +234,9 @@ void setup() {
 
 #if !DEBUG && !MEASURE_PHOTO_SENSOR_BASELINE
   // watchdog barks if we hang or hardfault
-  watchdog_enable(8388 /* max value is 0xffffffu decremented twice per microsecond, roughly 8.3s */, true);
+  // load register is 24 bits of microseconds; RP2040 (errata E1) ticks it twice per µs so 8388ms is its ceiling, RP2350 ticks
+  // once per µs and could go to ~16.7s. pico-sdk clamps either way, so 8388 is a safe max on both.
+  watchdog_enable(8388, true);
 #endif
 
 #if HARDWARE_VERSION >= 4
@@ -240,12 +247,10 @@ void setup() {
     logf("Watchdog detected, button pressed. Sleeping until button up...");
     Serial.flush();
     attachInterrupt(digitalPinToInterrupt(BUTTON_0), buttonUpISR, (BUTTON_PRESSED_STATE == HIGH ? FALLING : RISING));
-    set_sys_clock_khz(10*1000, false);
     do {
       __wfi();
     } while (!buttonWake);
     // it's likely that we actually powered off here. in case we didn't, startup normally.
-    set_sys_clock_khz(133*1000, false);
     detachInterrupt(digitalPinToInterrupt(BUTTON_0));
     delay(100);
     init_serial();
@@ -263,7 +268,7 @@ void setup() {
 
   mutex_init(&core1DataLock);
 #if !MEASURE_PHOTO_SENSOR_BASELINE
-  multicore_launch_core1(core1_main);
+  multicore_launch_core1_with_stack(core1_main, core1Stack, sizeof(core1Stack));
 #endif
 
   pinMode(UNCONNECTED_PIN_1, INPUT);
@@ -278,7 +283,6 @@ void setup() {
 #if HARDWARE_VERSION < 5
   pinMode(PWR_SWITCH_PIN, INPUT_PULLDOWN);
 #endif
-  pinMode(CHRG_PIN, INPUT);
   pinMode(VBUS_SENSOR_PIN, INPUT_PULLDOWN);
   
   pinMode(GPOUT_PIN, INPUT_PULLUP);
@@ -293,12 +297,11 @@ void setup() {
   gpio_set_dir(EN_LDO_PIN, true);
   gpio_put(EN_LDO_PIN, true);
 
-  int batteryVoltageRead = analogRead(BATTERY_VOLTAGE_PIN);
 #else // HARDWARE_VERSION < 4
   powerState.setRunning(true);
 #endif
   bool v6Hardware = false;
-#if HARDWARE_VERSION >= 5
+#if HARDWARE_VERSION >= 5 && HARDWARE_VERSION < 7
   pinMode(V6_DETECTOR_PIN, INPUT);
   v6Hardware = (digitalRead(V6_DETECTOR_PIN) != 0);
   logdf("v6Hardware = %i", v6Hardware);
@@ -379,12 +382,21 @@ void setup() {
   initLEDGraph();
   assert(ledgraph.adjList.size() == LED_COUNT, "adjlist size should match LED_COUNT");
 
+#if PHOTOSENSOR_COUNT > 1
+  autoBrightness = new PhotoSensorBrightness({PHOTOSENSOR_READ_PIN, PHOTOSENSOR1_READ_PIN, PHOTOSENSOR2_READ_PIN}, PHOTOSENSOR_POWER_PIN);
+#else
   autoBrightness = new PhotoSensorBrightness(PHOTOSENSOR_READ_PIN, PHOTOSENSOR_POWER_PIN);
+#endif
   autoBrightness->maxBrightness = 20; // needs to be lowish or we will overheat
   autoBrightness->logChanges = true;
 
 #if MEASURE_PHOTO_SENSOR_BASELINE
-  autoBrightness->measureBaseline(ctx.leds, 0x15, photosensorNearbyPixels, ARRAY_SIZE(photosensorNearbyPixels));
+  // sweep every pixel near any sensor; every sensor is logged for each, so cross-talk between corners shows up too
+  std::vector<int> baselinePixels;
+  for (unsigned s = 0; s < ARRAY_SIZE(photosensorNearbyPixelLists); ++s) {
+    baselinePixels.insert(baselinePixels.end(), photosensorNearbyPixelLists[s], photosensorNearbyPixelLists[s] + photosensorNearbyPixelCounts[s]);
+  }
+  autoBrightness->measureBaseline(ctx.leds, 0x15, baselinePixels.data(), baselinePixels.size());
 #endif
 
   patternManager.setup();
@@ -489,6 +501,13 @@ void loop() {
   char *serialLine = readSerialLine();
   updater->loop(serialLine);
 #if HARDWARE_VERSION >= 5
+  if (serialLine && strcmp(serialLine, "POWEROFF") == 0) {
+    // bench helper: with USB attached VBUS re-asserts EN_LDO once GPIO23 goes hi-z, so this is a real cold boot of the 3V3 net
+    logf("POWEROFF requested");
+    Serial.flush();
+    delay(50);
+    powerOff();
+  }
   if (serialLine && strcmp(serialLine, kBatteryResetCommand) == 0) {
     logf("BATRESET requested");
     batteryResetRequested = true; // executed on core1, which owns i2c
@@ -527,19 +546,21 @@ void loop() {
 #endif
 
 #if AUTO_BRIGHTNESS
-  // opportunistically grab photo reads when nearby pixels are off, otherwise they are too bright and impact the sensor
-  // TODO: the effect of this is not great. it would be better to properly calibrate the brightness sensor with my baseline nearby pixel readings so we can adjust it constantly.
-  int nearbyBrightness = 0;
-  for (int i = 0; i < ARRAY_SIZE(photosensorNearbyPixels); ++i) {
-    int px = photosensorNearbyPixels[i];
-    int b = ctx.leds[px].r + 2*ctx.leds[px].g + 4 * ctx.leds[px].b;
-    if (b > nearbyBrightness) {
-      nearbyBrightness = b;
+  // opportunistically use photo reads from sensors whose nearby pixels are off, otherwise they are too bright and impact the sensor.
+  // TODO: the effect of this is not great. it would be better to properly calibrate each sensor against its nearby pixel
+  //       readings (PhotoSensorBrightness::ledContribution) so we can adjust it constantly.
+  for (int sensor = 0; sensor < autoBrightness->sensors(); ++sensor) {
+    int nearbyBrightness = 0;
+    for (int i = 0; i < photosensorNearbyPixelCounts[sensor]; ++i) {
+      int px = photosensorNearbyPixelLists[sensor][i];
+      int b = ctx.leds[px].r + 2*ctx.leds[px].g + 4 * ctx.leds[px].b;
+      if (b > nearbyBrightness) {
+        nearbyBrightness = b;
+      }
     }
+    autoBrightness->setInterference(sensor, nearbyBrightness);
   }
-  if (nearbyBrightness < 6) {
-    autoBrightness->loop();
-  }
+  autoBrightness->loop(); // holds brightness if every sensor is interfered with
 #else
   FastLED.setBrightness(kDefaultBrightness);
 #endif

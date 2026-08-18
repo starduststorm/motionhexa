@@ -120,9 +120,9 @@ public:
 
   void update() {
     constexpr int mult = 1000; // smooth everything with integer math
-    auto agmt = MotionManager::motionFrame.agmt;
+    const MotionFrame &motion = MotionManager::motionFrame;
 
-    vector32 acc = vector32(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z) * 5;
+    vector32 acc = vector32(motion.acc.x, motion.acc.y, motion.acc.z) * 5;
     const int smoooooth = 10;
     smoothAcc = (smoooooth * smoothAcc + acc) / (smoooooth+1);
 
@@ -176,19 +176,34 @@ public:
 
   vector32 gyrAccum32;
   vector32 accAccum32;
+  // sub-frame remainders so integration is framerate-invariant without losing precision at short frames
+  vector32 gyrCarry;
+  vector32 accCarry;
+
+  static constexpr int32_t kBaselineFPS = 150;
+  static void accumulate(vector32 &accum, vector32 &carry, const vector16 &sample, int32_t frameMS) {
+    carry += vector32(sample) * (frameMS * kBaselineFPS);
+    accum.x += carry.x / 1000; carry.x %= 1000;
+    accum.y += carry.y / 1000; carry.y %= 1000;
+    accum.z += carry.z / 1000; carry.z %= 1000;
+  }
 
   void update() {
-    const int accScale = (MotionManager::manager().enableDMP ? 1000 : 2000); // coolcool cool coooool
-    const int gyrScale = (MotionManager::manager().enableDMP ? 200 : 2000); // coolcoolcool
-    ICM_20948_AGMT_t agmt = MotionManager::motionFrame.agmt;
-    gyrAccum32 += vector16(agmt.gyr.axes.x, agmt.gyr.axes.y, agmt.gyr.axes.z);
-    accAccum32 += vector16(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
+    // tuned against MotionFrame's fixed scales (8192 LSB/g, 16.4 LSB/dps)
+    const int accScale = 1000;
+    const int gyrScale = 200;
+    const MotionFrame &motion = MotionManager::motionFrame;
+    // first frame has no frame time; treat as one baseline frame. clamp long stalls so a hitch doesn't slam the accumulators.
+    int32_t frameMS = constrain((int32_t)frameTime(), 0, 100);
+    if (frameMS == 0) frameMS = 1000 / kBaselineFPS;
+    accumulate(gyrAccum32, gyrCarry, motion.gyr, frameMS);
+    accumulate(accAccum32, accCarry, motion.acc, frameMS);
     vector32 gyrAccum = gyrAccum32 / gyrScale;
     vector32 accAccum = accAccum32 / accScale;
     // logf("gyr = (%i, %i, %i), gyrAccum = (%i, %i, %i), accel = (%i, %i, %i), accelAccum = (%i, %i, %i)", 
-    //         agmt.gyr.axes.x/gyrScale, agmt.gyr.axes.y/gyrScale, agmt.gyr.axes.z/gyrScale,
+    //         motion.gyr.x/gyrScale, motion.gyr.y/gyrScale, motion.gyr.z/gyrScale,
     //         gyrAccum.x, gyrAccum.y, gyrAccum.z,
-    //         agmt.acc.axes.x/accScale, agmt.acc.axes.y/accScale, agmt.acc.axes.z/accScale,
+    //         motion.acc.x/accScale, motion.acc.y/accScale, motion.acc.z/accScale,
     //         accAccum.x, accAccum.y, accAccum.z);
     
     int index = 0;
@@ -333,7 +348,7 @@ public:
   virtual void update() {
     ctx.leds.fadeToBlackBy(fadeDown);
     physics.update([](PixelIndex index) {
-      return accelerationAtPixelIndex(index, MotionManager::motionFrame.agmt);
+      return accelerationAtPixelIndex(index, MotionManager::motionFrame);
     });
     int i = 0;
     for (PixelPhysics<LED_COUNT>::Particle *p : physics.particles) {
@@ -512,8 +527,8 @@ public:
     }
     
     PixelIndex px = pxopt.value();
-    auto agmt = MotionManager::motionFrame.agmt;
-    vectorf accelVector = accelerationAtPixelIndex(px, agmt);
+    const MotionFrame &motion = MotionManager::motionFrame;
+    vectorf accelVector = accelerationAtPixelIndex(px, motion);
 
     const float accelPreScale = 3600; // tuned
     vectorf scaledAccel = accelVector * elapsed / accelPreScale / MotionManager::accelToGScale;
@@ -523,7 +538,7 @@ public:
     // Coriolis: deflects ball path during rotation
     const float coriolisScale = 1.0f;
     const float coriolisK = coriolisScale / (MotionManager::gyrToRadScale * 1000.0f);
-    float coriolisF = agmt.gyr.axes.z * elapsed * coriolisK;
+    float coriolisF = motion.gyr.z * elapsed * coriolisK;
     p.velocity.x +=  coriolisF * p.velocity.y;
     p.velocity.y += -coriolisF * p.velocity.x;
 
@@ -674,16 +689,16 @@ public:
   float dSpin = 1/500.;
   void update() {
     
-    ICM_20948_AGMT_t agmt = MotionManager::motionFrame.agmt;
+    const MotionFrame &motion = MotionManager::motionFrame;
 
-    float theta = M_PI+atan2(agmt.acc.axes.y, agmt.acc.axes.x);
+    float theta = M_PI+atan2(motion.acc.y, motion.acc.x);
     int flag = 6*(theta+M_PI/12) / (2*M_PI);
     flag = mod_wrap(flag,6);
     
     const int maxHexRadius = (kMeridian/2-2);
     const int minHexRadius = -3;
     const float maxZ = 9000.;
-    avgZ = min(maxZ, (10*avgZ+agmt.acc.axes.z)/11.f);
+    avgZ = min(maxZ, (10*avgZ+motion.acc.z)/11.f);
     const float maxLineRadius = kMeridian/2+2;
     float lineRadius = maxLineRadius - (maxLineRadius+2) * abs(avgZ) / maxZ;
     float hexRadius = minHexRadius + (maxHexRadius-minHexRadius) * abs(avgZ) / maxZ;
@@ -694,7 +709,7 @@ public:
 
     ctx.leds.fadeToBlackBy(5 + (hexRadius>0?hexRadius:0));
 
-    float scaledGyr = (agmt.gyr.axes.z / 6666) / 66666.f;
+    float scaledGyr = (motion.gyr.z / 6666) / 66666.f;
     spinTheta += frameTime() * dSpin;
   
     if (lineRadius > 0) {
@@ -867,7 +882,7 @@ public:
         int shellNum = (s + millis()/1000 + random8()%2) % shells.shells.size();
         int indexInShell = random16()%shells.shells[shellNum].size();
         
-        paletteRotate(MotionManager::motionFrame.agmt.gyr.axes.z/1000);
+        paletteRotate(MotionManager::motionFrame.gyr.z/1000);
 
         auto pxOpt = shells.shells[shellNum][indexInShell];
         if (!pxOpt.has_value()) continue;
@@ -936,21 +951,32 @@ public:
       if (bit.age() > bit.lifespan/2) {
         bit.brightness = min(0xFF, max(0, (int)(0xFF - 0xAF * (bit.age()-bit.lifespan/2) / (bit.lifespan-bit.lifespan/2))));
       }
-      if (bit.speed > bitLoudZoom - bitLoudZoom * bit.age() / bit.lifespan) {
-        bit.speed-=2;
+      // slow the bit down toward a threshold that falls to zero over its life
+      int threshold = bitLoudZoom - bitLoudZoom * (int)bit.age() / (int)bit.lifespan;
+      if (bit.speed > threshold) {
+        int decay = (2 * baselineFrames + 500) / 1000; // rounded
+        bit.speed = max(0, (int)bit.speed - max(1, decay));
       }
     };
   }
 
   vector32 gyrAccum32;
-  
+  vector32 gyrCarry;
+  static constexpr int32_t kBaselineFPS = 100;
+  int32_t baselineFrames = 1000; // framerate-invariant slowdown tuning
+
   void update() {
     unsigned long mils = millis();
+
+    // framerate-invariant integration, see MotionHexa::accumulate
+    int32_t frameMS = constrain((int32_t)frameTime(), 0, 100);
+    if (frameMS == 0) frameMS = 1000 / kBaselineFPS;
+    baselineFrames = frameMS * kBaselineFPS;
+
+    const MotionFrame &motion = MotionManager::motionFrame;
+    MotionHexa::accumulate(gyrAccum32, gyrCarry, vector16(motion.gyr.x/100, motion.gyr.y/100, motion.gyr.z/100), frameMS); // drop low order noisy data
     
-    auto agmt = MotionManager::motionFrame.agmt;
-    gyrAccum32 += vector16(agmt.gyr.axes.x/100, agmt.gyr.axes.y/100, agmt.gyr.axes.z/100); // drop low order noisy data
-    
-    paletteRotate(MotionManager::motionFrame.agmt.gyr.axes.z/1000);
+    paletteRotate(motion.gyr.z/1000);
 
     FFTFrame frame = spectrumFrame();
     for (int s = 0 ; s < min(frame.size, shells.shells.size()); ++s) {

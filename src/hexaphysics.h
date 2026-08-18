@@ -262,6 +262,7 @@ public:
   };
 private:
   T meridian;
+  const bool zigzag = true; // pixel wiring order, see initConnections
   T _valueCount, _totalCount;
   const float spacing=0;
   
@@ -299,13 +300,18 @@ private:
     for (int r = 0; r<meridian; ++r) {
       rowStarts[r] = (r>0 ? rowStarts[r-1] + rowCounts[r-1] : 0);
     }
+    // Wiring order within a row: zig-zag alternates direction every row (v1-v6 pcbs), row-major runs every row left-to-right (v7+).
+    // Row 0 is the top row and starts at the top-left corner in both cases. 
+    auto rowRightToLeft = [&](int r) -> bool { return zigzag && (r % 2); };
+    auto indexForPos = [&](int r, int pos) -> int { return rowStarts[r] + (rowRightToLeft(r) ? rowCounts[r]-1-pos : pos); };
+
     for (int i = 0; i < _valueCount; ++i) {
       if (row+1 < meridian && i >= rowStarts[row+1]) {
         row++;
       }
       bool topSide = rowCounts[row] < rowCounts[row+1];
       int indexInRow = i - rowStarts[row];
-      int rightToLeft = row % 2;
+      int posInRow = (rowRightToLeft(row) ? rowCounts[row]-1-indexInRow : indexInRow); // geometric position, left to right
       
       // Compute pixel physical position
       // integral positions given in micrometers relative to center pixel at (0,0)
@@ -313,37 +319,29 @@ private:
         const float colSpacing = sin(2*PI/6)*spacing; // 3.3774990747593105 when spacing == 3.9
         int centerRow = kSidelen-1;
         float y = -colSpacing * (row - centerRow);
-        float x = (rightToLeft ? -1 : 1) * spacing * (indexInRow - rowCounts[row]/2) + (rightToLeft ? 0 : spacing/2);
-        // logf("spacing: i=%i, row=%i, indexInRow=%i, rowCounts[row]=%i, rightToLeft=%i, x,y=(%f,%f)", i, row, indexInRow, rowCounts[row], rightToLeft, x, y);
+        float x = spacing * (posInRow - rowCounts[row]/2) + (rowCounts[row] % 2 == 0 ? spacing/2 : 0);
+        // logf("spacing: i=%i, row=%i, posInRow=%i, rowCounts[row]=%i, x,y=(%f,%f)", i, row, posInRow, rowCounts[row], x, y);
         setPosition(i, UMPoint::fromMM(x,y));
       }
 
       // Find Neighbors
-      if (rightToLeft) {
-        if (i > rowStarts[row]) {
-          nodes[i]->named.r = nodes[i-1];
-          nodes[i-1]->named.l = nodes[i];
-        }
-      } else {
-        if (i < rowStarts[row] + rowCounts[row] - 1) {
-          nodes[i]->named.r = nodes[i+1];
-          nodes[i+1]->named.l = nodes[i];
-        }
+      if (posInRow + 1 < rowCounts[row]) {
+        int r = indexForPos(row, posInRow+1);
+        nodes[i]->named.r = nodes[r];
+        nodes[r]->named.l = nodes[i];
       }
       if (row+1 < meridian) {
-        int indexInRow = i - rowStarts[row];
-        bool pastNearHexSide = i > rowStarts[row];
-        bool beforeFarHexSide = i < rowStarts[row] + rowCounts[row]-1;
-        int topSideCorrection = (topSide ? -1 : 0);
-        if (topSide || (!rightToLeft && pastNearHexSide) || (rightToLeft && beforeFarHexSide)) {
-          int rightToLeftCorrection = (rightToLeft ? -1 : 0);
-          int dl = (rowStarts[row+1] + rowCounts[row+1]) - indexInRow + topSideCorrection + rightToLeftCorrection;
+        // top half: next row is one longer, so below-left is at the same position and below-right one further.
+        // bottom half: next row is one shorter, so below-left is one position back and below-right at the same position.
+        int dlPos = (topSide ? posInRow : posInRow-1);
+        int drPos = (topSide ? posInRow+1 : posInRow);
+        if (dlPos >= 0) {
+          int dl = indexForPos(row+1, dlPos);
           nodes[i]->named.dl = nodes[dl];
           nodes[dl]->named.ur = nodes[i];
         }
-        if (topSide || (!rightToLeft && beforeFarHexSide) || (rightToLeft && pastNearHexSide)) {
-          int rightToLeftCorrection = (rightToLeft ? 0 : -1);
-          int dr = (rowStarts[row+1] + rowCounts[row+1]) - indexInRow + topSideCorrection + rightToLeftCorrection;
+        if (drPos < rowCounts[row+1]) {
+          int dr = indexForPos(row+1, drPos);
           nodes[i]->named.dr = nodes[dr];
           nodes[dr]->named.ul = nodes[i];
         }
@@ -352,7 +350,7 @@ private:
 
     // "edge" nodes represent the border of the hexagon which pixels will bounce off of
     // generate edge nodes only after value nodes are generated
-    // this way the value node indices are in zig-zag order, unaffected by "edge" nodes
+    // this way the value node indices are in wiring order, unaffected by "edge" nodes
 
     int16_t vertexDistance=222, sideDistance=192, yintercept=384, x1=111; // center-to-point 222
     // clockwise for correct normal orientation
@@ -449,7 +447,7 @@ public:
   T edgeCount() {
     return _totalCount-_valueCount;
   }
-  HexGrid(T meridian, float spacing=0) : meridian(meridian), spacing(spacing) {
+  HexGrid(T meridian, float spacing=0, bool zigzag=true) : meridian(meridian), zigzag(zigzag), spacing(spacing) {
     // spacing == 0 means disable geometry features
     initConnections(meridian);
   }

@@ -33,7 +33,24 @@ constexpr uint16_t kHexaCenterIndex = LED_COUNT/2;
 constexpr uint8_t kMeridian = (3 + sqrt(12*LED_COUNT-3))/6 * 2 - 1; // 19
 const float pixelSpacing = 3.9;
 
-HexGrid<PixelIndex> hexGrid(kMeridian, pixelSpacing);
+constexpr bool kZigZagPixelWiring = (HARDWARE_VERSION < 7);
+
+// Motion sensor and magnetometer placement
+#if HARDWARE_VERSION >= 7
+const MotionSensorPlacement kHexaMotionPlacement = {
+  .accelGyro = AxisRotation::axes(-Axis::Y, -Axis::X, -Axis::Z),
+  .mag = AxisRotation::axes(-Axis::Y, -Axis::X, -Axis::Z).rotatedAboutZ(60),
+  .position = UMPoint::fromMM(2.449, 17.808),
+};
+#else
+const MotionSensorPlacement kHexaMotionPlacement = {
+  .accelGyro = AxisRotation::axes(Axis::Y, Axis::X, -Axis::Z),
+  .mag = AxisRotation::axes(Axis::Y, Axis::X, -Axis::Z),
+  .position = UMPoint::fromMM(100-83.125922, 100-92.920152),
+};
+#endif
+
+HexGrid<PixelIndex> hexGrid(kMeridian, pixelSpacing, kZigZagPixelWiring);
 
 // clockwise degrees, for integer math
 static int angleForDirection(HexagonBounding dir) {
@@ -65,42 +82,15 @@ static HexagonBounding directionForAngle(int angle) {
   }
 }
 
-void localizeMotionFrame(MotionFrame &frame) {
-  // fix MotionFrame for our specific IMU orientation and handedness
-#if HARDWARE_VERSION > 1
-  // native imu orientation:
-  // assume hexa placed on flat edge with usb port up to the right, such that the first row of LEDs goes left-to-right, and the last row right-to-left.
-  // x across cartesian y axis of front face, crossing over rows of zigzag wiring, -x on first row, +x on last
-  // y across cartesian x axis of front face, +y leftmost hexa along zigzags, -y on right
-  // z through hexa, (negative leds up)
-  // we'll swap x,y and set +z=up for convention
-  std::swap(frame.agmt.acc.axes.x, frame.agmt.acc.axes.y);
-  frame.agmt.acc.axes.z = -frame.agmt.acc.axes.z;
-  std::swap(frame.agmt.gyr.axes.x, frame.agmt.gyr.axes.y);
-  frame.agmt.gyr.axes.z = -frame.agmt.gyr.axes.z;
-  std::swap(frame.quat.x, frame.quat.y);
-  frame.quat.z = -frame.quat.z;
-#else
-  frame.agmt.acc.axes.x = -frame.agmt.acc.axes.x;
-  frame.agmt.gyr.axes.x = -frame.agmt.gyr.axes.x;
-#endif
-}
-
-vector32 accelerationAtPixelIndex(PixelIndex index, ICM_20948_AGMT_t &agmt) {
+vector32 accelerationAtPixelIndex(PixelIndex index, const MotionFrame &frame) {
   UMPoint Q = hexGrid.position(index); // in micrometers, 0,0 at center
-
-  // P is the position of the IMU in micrometers relative to the center of the hexa.
-#if HARDWARE_VERSION > 1
-  static const UMPoint P = UMPoint::fromMM(100-83.125922, 100-92.920152);
-#else
-  static const UMPoint P = UMPoint::fromMM(8.0506, -22.9692);
-#endif
-  vector32 accel(agmt.acc.axes.x, agmt.acc.axes.y);
+  const UMPoint &P = kHexaMotionPlacement.position;
+  vector32 accel(frame.acc.x, frame.acc.y);
 
   UMPoint P2Q = Q - P;
   // centrifugal: ω²×r in accel LSB = gyroZ² × P2Q_um × accelToGScale / (gyrToRadScale² × 1e6 × 9.81)
   static constexpr int32_t centrifugalDiv = (int32_t)(MotionManager::gyrToRadScale * MotionManager::gyrToRadScale * 1e6 * 9.81 / MotionManager::accelToGScale);
-  int32_t gyroZ = agmt.gyr.axes.z;
+  int32_t gyroZ = frame.gyr.z;
   int32_t gyroZ_sq = gyroZ * gyroZ;
   accel.x += (int32_t)((int64_t)gyroZ_sq * P2Q.x / centrifugalDiv);
   accel.y += (int32_t)((int64_t)gyroZ_sq * P2Q.y / centrifugalDiv);
@@ -165,6 +155,7 @@ AxialT<T>::AxialT(fAxial fax) : AxialT((T)fax.q(), (T)fax.r()) {}
 
 class AxialAccess {
   int meridian;
+  bool zigzag;
   // axial coordinates are stored in a meridian*meridian 2d array
   std::optional<PixelIndex> *storageToPixelMap; // storage index -> pixel index
   int16_t *pixelToStorageMap; // pixel index -> storage index
@@ -172,7 +163,7 @@ class AxialAccess {
     return (q+meridian/2) + meridian*(r+meridian/2);
   }
 public:
-  AxialAccess(int meridian) : meridian(meridian) {
+  AxialAccess(int meridian, bool zigzag=true) : meridian(meridian), zigzag(zigzag) {
     int n = meridian / 2;
     int count = 3*n*n + 3*n + 1;
     storageToPixelMap = (std::optional<PixelIndex> *)malloc(meridian * meridian * sizeof(std::optional<PixelIndex>));
@@ -180,13 +171,13 @@ public:
     pixelToStorageMap = (int16_t*)malloc(count * sizeof(int16_t));
     memset(pixelToStorageMap, 0xFF, count*sizeof(int16_t));
 
-    // hexa wiring is zig-zag starting from left-to-right
+    // hexa wiring starts top-left going left-to-right; zig-zag (v1-6) alternates direction each row, row-major (v7+) does not
     PixelIndex px = 0;
     for (int r = -n; r <= n; ++r) {
       int q_start = max(-n, -n - r);
       int q_end   = min( n,  n - r);
       int row = r + n;
-      bool rightToLeft = row % 2;
+      bool rightToLeft = zigzag && (row % 2);
       if (rightToLeft) {
         for (int q = q_end; q >= q_start; --q) {
           int idx = index(q, r);
@@ -252,7 +243,7 @@ public:
   }
 };
 
-AxialAccess axial(kMeridian);
+AxialAccess axial(kMeridian, kZigZagPixelWiring);
 
 void initLEDGraph() {
   assert(hexGrid.valueCount() == LED_COUNT, "led count issue");
