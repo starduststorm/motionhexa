@@ -218,8 +218,8 @@ public:
       }
     }
     HexNode(HexGrid<T>::HexNode&& oth) noexcept :
-        _value(move(oth.value)),
-        _edgeLine(move(oth.edgeLine)) {
+        _value(move(oth._value)),
+        _edgeLine(move(oth._edgeLine)) {
           for (int j = 0; j < 6; ++j) {
             neighbors[j] = oth.neighbors[j];
             oth.neighbors[j] = nullptr;
