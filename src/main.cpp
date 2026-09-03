@@ -382,11 +382,7 @@ void setup() {
   initLEDGraph();
   assert(ledgraph.adjList.size() == LED_COUNT, "adjlist size should match LED_COUNT");
 
-#if PHOTOSENSOR_COUNT > 1
-  autoBrightness = new PhotoSensorBrightness({PHOTOSENSOR_READ_PIN, PHOTOSENSOR1_READ_PIN, PHOTOSENSOR2_READ_PIN}, PHOTOSENSOR_POWER_PIN);
-#else
   autoBrightness = new PhotoSensorBrightness(PHOTOSENSOR_READ_PIN, PHOTOSENSOR_POWER_PIN);
-#endif
   autoBrightness->maxBrightness = 20; // needs to be lowish or we will overheat
   autoBrightness->logChanges = true;
 
