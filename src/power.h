@@ -14,6 +14,10 @@ const int kFullCharge = 95; // %, limit for charging ui
 #if HARDWARE_VERSION >= 3
 #include <BQ27427.h>
 #endif
+#if HARDWARE_VERSION >= 5
+#include <tusb.h>
+#include "hardware/structs/usb.h"
+#endif
 struct BatteryData {
   uint16_t stateOfCharge;   // %
   uint16_t stateOfHealth;   // %
@@ -139,6 +143,9 @@ PowerManager powerState;
 const uint16_t kBQ27421DeviceType = 0x421;
 const uint16_t kBQ27427DeviceType = 0x427;
 const uint16_t kBQ27427ChemID4V2 = 0x1202;
+// CC Gain sign bit (CC Cal[5] bit 7, via BQ27427::currentPolarity()) that makes charge current read positive on
+// our wiring. The ROM default (1) is the other one; see initializeBattery().
+const bool kBQ27427ChargePositivePolarity = false;
 
 // "BATRESET" serial command: full gauge reset + reconfigure, to shed learned state (FCC/Qmax).
 // Parsed on core0; executed on core1, which owns i2c.
@@ -149,7 +156,7 @@ volatile bool batteryResetRequested = false;
 // Versioning lasts while BQ2742* is powered, mismatch triggers a reset+reconfigure.
 // Bump the generation whenever the config values in initializeBattery() change.
 // Older firmware wrote a plain 2000 (at the wrong offset on the BQ27421); ROM default is 1340.
-const uint16_t kGaugeConfigGeneration = 1;
+const uint16_t kGaugeConfigGeneration = 2; // 2: BQ27427 current polarity
 uint16_t targetDesignCapacity() { return BATTERY_CAPACITY + kGaugeConfigGeneration; }
 
 // Reads the marker without disturbing the gauge. Returns 0 on error.
@@ -232,6 +239,16 @@ bool initializeBattery() {
   success &= lipo.setTerminateVoltage(3200); // mV; loaded voltage where SoC=0
   // Taper Rate = Design Capacity / (0.1 * taper current), taper current = 100mA:
   success &= lipo.setTaperRate(10 * BATTERY_CAPACITY / 100);
+  if (deviceType == kBQ27427DeviceType) {
+    // The BQ27427 ships with the wrong CC Gain sign (TI E2E #1350114; not in the datasheet).
+    // Flip it so charge is positive, as the BQ27421 on v5/v6 reads and BatteryData::current documents.
+    // The coulomb counter follows the same sign (RemainingCapacity climbs on charge after the flip).
+    bool polarity = lipo.currentPolarity();
+    bool polaritySuccess = polarity == kBQ27427ChargePositivePolarity || lipo.changeCurrentPolarity();
+    logf("gauge: BQ27427 current polarity bit %i (want %i)%s", polarity, kBQ27427ChargePositivePolarity,
+         polaritySuccess ? "" : " - write FAILED");
+    success &= polaritySuccess;
+  }
   delay(5); // Hack: I don't know why a delay is required here but exitConfig fails without this
   success &= lipo.exitConfig(true); // soft reset: gauge re-inits from a fresh OCV estimate
   btlogf("[t=%lu] initializeBattery: full config path done, success=%i, took %lums, marker reads %u (want %u)",
@@ -408,6 +425,65 @@ public:
   }
 };
 BatteryPresence batteryPresence;
+#endif
+
+#if HARDWARE_VERSION >= 5
+// VBUS_PRESENCE plausibility filter confirmed on v7
+// After USB is unplugged the VBUS node does not bleed off through the 20k/33k sense divider: TinyUSB forces the
+// VBUS-detect override, so the RP2040/RP2350 keeps its 1.5k D+ pull-up on, and D+ back-feeds the VBUS node through the
+// USBLC6's clamp diode (its VBUS pin is on the VBUS net). The node parks at ~2.6-2.8V, which lands VBUS_PRESENCE right at
+// the input threshold: the pin can read "powered" for seconds to minutes after unplug. Clearing PULLUP_EN dropped the node
+// to ~1.5V within a second on the bench, so: while no host is talking (a charger never does), keep the pull-up down and only
+// re-assert it briefly every few seconds so a host that is plugged in can still find us. With the pull-up down the node is
+// not back-fed and the pin is honest; while it is up, hold the last honest answer. Unplug is then seen within ~1.6s.
+// "Talking" is judged from the hardware SOF counter rather than tud_suspended(), which TinyUSB only reports for a link that
+// was once enumerated.
+struct VbusSense {
+  static constexpr uint32_t kHostQuietMS = 1000;        // no SOFs for this long = nobody is talking to us
+  static constexpr uint32_t kBleedMS = 600;             // pull-up off this long before the pin is trusted
+  static constexpr uint32_t kProbeOnMS = 1000;          // pull-up re-asserted this long so a host can still enumerate us...
+  static constexpr uint32_t kProbePeriodFastMS = 4000;  // ...every this often when no host ever enumerated us (charger, nothing)
+  static constexpr uint32_t kProbePeriodSlowMS = 20000; // ...when an enumerated host went quiet (asleep): don't keep poking it
+  uint32_t lastSof = 0, lastSofChange = 0;
+  uint32_t pullupSince = 0;   // millis of the last pull-up state change
+  bool pullupOn = true;       // TinyUSB connects at boot
+  bool inited = false;
+  bool lastTrusted = false;   // last pin reading taken with the pull-up off (or with a host talking)
+
+  void setPullup(bool on, uint32_t now) {
+    if (on) tud_connect(); else tud_disconnect();
+    pullupOn = on; pullupSince = now;
+  }
+
+  bool update(bool rawPin) {
+    uint32_t now = millis();
+    uint32_t sof = usb_hw->sof_rd & 0x7ff;
+    if (sof != lastSof) { lastSof = sof; lastSofChange = now; }
+    if (!inited) { inited = true; lastTrusted = rawPin; pullupSince = now; }
+
+    if (now - lastSofChange < kHostQuietMS) {
+      // a host is talking: VBUS is really there and we must keep the pull-up up
+      if (!pullupOn) setPullup(true, now);
+      lastTrusted = rawPin;
+      return rawPin;
+    }
+    if (pullupOn) {
+      // quiet with the pull-up up: the node may be back-fed, so don't trust the pin. drop the pull-up once the probe
+      // window is over (immediately on the talking->quiet edge, since pullupSince is then long past)
+      if (now - pullupSince >= kProbeOnMS) setPullup(false, now);
+      return lastTrusted;
+    }
+    // pull-up down: nothing back-feeds the node, so once it has bled the pin is honest
+    if (now - pullupSince >= kBleedMS) {
+      if (rawPin != lastTrusted) logf("VBUS_PRESENCE (verified) -> %i", rawPin);
+      lastTrusted = rawPin;
+    }
+    uint32_t period = tud_connected() ? kProbePeriodSlowMS : kProbePeriodFastMS;
+    if (now - pullupSince >= period) setPullup(true, now);
+    return lastTrusted;
+  }
+};
+VbusSense vbusSense;
 #endif
 
 bool sampleBattery(BatteryData &out) {

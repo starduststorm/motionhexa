@@ -43,7 +43,7 @@ const unsigned long kStallLogMS = 15; // ~3 motion frames' worth
 
 #define MEASURE_PHOTO_SENSOR_BASELINE false
 PhotoSensorBrightness *autoBrightness;
-const uint8_t kDefaultBrightness = 15;
+uint8_t kDefaultBrightness = 15;
 
 DrawingContext ctx;
 HardwareControls controls;
@@ -239,11 +239,13 @@ void setup() {
   watchdog_enable(8388, true);
 #endif
 
+  mainButton = controls.addButton(BUTTON_0, BUTTON_PRESSED_STATE);
+
 #if HARDWARE_VERSION >= 4
   // on v4, power-on happens by squeezing the unit, which often happens in a bag. 
   // if the device is squeezed to hard reset (10s), wait in a lower-power state until button-up before doing anything
   // this will also happen after crash/hang and after reprogramming, which is fine.
-  if (watchdog_caused_reboot() && digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE) {
+  if (watchdog_caused_reboot() && mainButton->isButtonPressed()) {
     logf("Watchdog detected, button pressed. Sleeping until button up...");
     Serial.flush();
     attachInterrupt(digitalPinToInterrupt(BUTTON_0), buttonUpISR, (BUTTON_PRESSED_STATE == HIGH ? FALLING : RISING));
@@ -339,7 +341,6 @@ void setup() {
   
   indexedRunner = patternManager.setupIndexedRunner(0);
   
-  mainButton = controls.addButton(BUTTON_0, BUTTON_PRESSED_STATE);
   mainButton->ignoreEventsUntilFirstButtonUp = true;
   mainButton->onSinglePress([]() {
     if (powerState.isRunning()) {
@@ -425,8 +426,11 @@ void loop() {
 
   bool isVBUSPowered = false;
 #if HARDWARE_VERSION > 2
-  bool isButtonPressed = (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE);
+  bool isButtonPressed = mainButton->isButtonPressed();
   isVBUSPowered = digitalRead(VBUS_SENSOR_PIN);
+#if HARDWARE_VERSION >= 5
+  isVBUSPowered = vbusSense.update(isVBUSPowered);
+#endif
 #endif
 #if HARDWARE_VERSION >= 4
   if (!powerState.isRunning()) {
@@ -451,7 +455,7 @@ void loop() {
         return new PowerOnOffAnimation(true);
       }, 0xFF, 0xFF, [](PatternRunner&) {
         if (!powerState.isRunning()) { // we might have called it good early
-          bool isButtonPressed = (digitalRead(BUTTON_0) == BUTTON_PRESSED_STATE);
+          bool isButtonPressed = mainButton->isButtonPressed();
           if (isButtonPressed) {
             startupCompleted();
           } else {
