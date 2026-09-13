@@ -117,6 +117,7 @@ public:
   }
 
   vector32 smoothAcc;
+  BaselineStepper smoothStepper;
 
   void update() {
     constexpr int mult = 1000; // smooth everything with integer math
@@ -124,7 +125,9 @@ public:
 
     vector32 acc = vector32(motion.acc.x, motion.acc.y, motion.acc.z) * 5;
     const int smoooooth = 10;
-    smoothAcc = (smoooooth * smoothAcc + acc) / (smoooooth+1);
+    for (int k = smoothStepper.steps(170); k > 0; --k) {
+      smoothAcc = (smoooooth * smoothAcc + acc) / (smoooooth+1);
+    }
 
     constexpr int kInverseRootThree = mult*1/sqrt(3);
     AxialT<int32_t> offcenter = center;
@@ -134,10 +137,16 @@ public:
 
     int amplitude = amplitudeFrame();
 
+    // frame-constant terms
+    const unsigned long mils = millis();
+    CRGBPalette256 &palette = getPalette(); // also advances palette rotation once per frame instead of per pixel
+    const int32_t pulseBeat = beatsin16(2, 250, 350);
+    const uint16_t paletteEvolve = beatsin8(3, 0, kMeridian);
+
     for (PixelIndex px = 0; px < LED_COUNT; ++px) {
       AxialT<int32_t> ax(axial.axialFromPixelIndex(px));
       ax *= mult;
-      
+
       const int kAccScale = 20000;
       const int kAmpScale = 600;
       const int kLocScale = 2000000;
@@ -146,9 +155,9 @@ public:
       // smooth-transition glitch that also reacts to sound
       int glitchIt = (smoothAcc.z<0 ? (ax.q()*ax.r()*ax.s())/kLocScale * (1 + amplitude/kAmpScale) * smoothAcc.z/kAccScale: 0);
       int distance = max(max(abs(offcenter.q() - ax.q()), abs(offcenter.r() - ax.r())), abs(offcenter.s() - ax.s())) + glitchIt;
-      
-      uint8_t brightness = beatsin8(60, 0, 255, 0, -beatsin16(2, 250, 350)*distance/(kMeridian/2)/mult);
-      CRGB c = this->getMirroredPaletteColor(millis()/100 + distance*15/mult + beatsin8(3, 0, kMeridian));
+
+      uint8_t brightness = beatsin8(60, 0, 255, 0, -pulseBeat*distance/(kMeridian/2)/mult);
+      CRGB c = PaletteRotation<CRGBPalette256>::getMirroredPaletteColor(palette, mils/100 + distance*15/mult + paletteEvolve);
       c = c.scale8(brightness);
       ctx.leds[px] = c;
     }
@@ -180,7 +189,7 @@ public:
   vector32 gyrCarry;
   vector32 accCarry;
 
-  static constexpr int32_t kBaselineFPS = 150;
+  static constexpr int32_t kBaselineFPS = 90;
   static void accumulate(vector32 &accum, vector32 &carry, const vector16 &sample, int32_t frameMS) {
     carry += vector32(sample) * (frameMS * kBaselineFPS);
     accum.x += carry.x / 1000; carry.x %= 1000;
@@ -193,9 +202,9 @@ public:
     const int accScale = 1000;
     const int gyrScale = 200;
     const MotionFrame &motion = MotionManager::motionFrame;
-    // first frame has no frame time; treat as one baseline frame. clamp long stalls so a hitch doesn't slam the accumulators.
+    // frameTime() wall clock (0 is a sub-ms frame)
+    // clamp long stalls so a hitch doesn't slam the accumulators.
     int32_t frameMS = constrain((int32_t)frameTime(), 0, 100);
-    if (frameMS == 0) frameMS = 1000 / kBaselineFPS;
     accumulate(gyrAccum32, gyrCarry, motion.gyr, frameMS);
     accumulate(accAccum32, accCarry, motion.acc, frameMS);
     vector32 gyrAccum = gyrAccum32 / gyrScale;
@@ -206,46 +215,53 @@ public:
     //         motion.acc.x/accScale, motion.acc.y/accScale, motion.acc.z/accScale,
     //         accAccum.x, accAccum.y, accAccum.z);
     
-    int index = 0;
     int shellCount = hexaShells.shells.size();
-    for (int s = 0 ; s < hexaShells.shells.size(); ++s) {
-      uint8_t shellSize = hexaShells.shells[s].size();
-      
-      const int32_t bandIndex = gyrAccum.x*2; // TODO: tune this so it's roughly one half index change every complete flip
-      const int32_t bandRotate = accAccum.x;
-      const int32_t bandTwist = accAccum.y;//gyrAccum.z*2;
-      const int32_t bandThing = 0;//accAccum.x;
-      const int bandCounts[] = {0, 1, 2, 3, 6, 9}; // i like this somewhat better than arbitrary band counts
-      int32_t bands = bandCounts[((int32_t)(bandIndex+INT16_MAX) / (1<<12)) % ARRAY_SIZE(bandCounts)];
-      int32_t withinBand = (int32_t)(bandIndex+INT16_MAX-(1<<11)) % (1<<12);
-      uint8_t bandFadeIn = 0xFF - cos8(0xFF*withinBand / (1<<12));
-      
+
+    // frame-constant terms
+    const unsigned long mils = millis();
+    const unsigned long rt = runTime();
+    CRGBPalette256 &palette = getPalette(); // also advances palette rotation once per frame instead of per pixel
+
+    const int32_t bandIndex = gyrAccum.x*2;
+    const int32_t bandRotate = accAccum.x;
+    const int32_t bandTwist = accAccum.y;//gyrAccum.z*2;
+    const int32_t bandThing = 0;//accAccum.x;
+    const int bandCounts[] = {0, 1, 2, 3, 6, 9}; // i like this somewhat better than arbitrary band counts
+    int32_t bands = bandCounts[((int32_t)(bandIndex+INT16_MAX) / (1<<12)) % ARRAY_SIZE(bandCounts)];
+    int32_t withinBand = (int32_t)(bandIndex+INT16_MAX-(1<<11)) % (1<<12);
+    uint8_t bandFadeIn = 0xFF - cos8(0xFF*withinBand / (1<<12));
+
+    const int32_t gyrRotate = (gyrAccum.z/2) % 0x200;
+    const int32_t evolve = (mils/100)%0x200;
+    const int32_t shellHBeat = beatsin16(3, 0, 0x200, 0, gyrAccum.x);
+
+    for (int s = 0 ; s < shellCount; ++s) {
+      auto &shell = hexaShells.shells[s];
+      uint8_t shellSize = shell.size();
+
       // fade in at start
       const long fadeinDuration = 1000;
-      // uint8_t shellBrightness = runTime() < fadeinDuration ? max(0, min(0xFF, 0xFF * (runTime() - fadeinDuration/hexaShells.shells.size()*s)/fadeinDuration * (hexaShells.shells.size() - s) / hexaShells.shells.size())) : 0xFF;
-
       uint8_t shellBrightness = 0xFF;
-      if (runTime() < fadeinDuration) {
-        long fadeOverlap = hexaShells.shells.size()/2;
-        long shellFadeTime = fadeinDuration/(hexaShells.shells.size() + fadeOverlap);
-        shellBrightness = (runTime() > s * shellFadeTime ? min(0xFF, 0xFF * (runTime() - s*shellFadeTime) / (fadeOverlap * shellFadeTime)) : 0);
+      if (rt < fadeinDuration) {
+        long fadeOverlap = shellCount/2;
+        long shellFadeTime = fadeinDuration/(shellCount + fadeOverlap);
+        shellBrightness = (rt > s * shellFadeTime ? min(0xFF, 0xFF * (rt - s*shellFadeTime) / (fadeOverlap * shellFadeTime)) : 0);
       }
 
-      for (int si = 0; si < hexaShells.shells[s].size(); ++si) {
-        auto pxOpt = hexaShells.shells[s][si];
+      int32_t twistFactor = (s * gyrAccum.y/8 + s * mils/500) % 0x200;
+      int32_t shellH = 0x200 * s/shellCount * shellHBeat / 0x200;
+
+      for (int si = 0; si < shellSize; ++si) {
+        auto pxOpt = shell[si];
         if (!pxOpt.has_value()) continue;
         PixelIndex px = pxOpt.value();
 
         uint8_t brightness = lerp8by8(sin8(-bandRotate/4 + bands*(0xFF*si - bandTwist) / shellSize - 0xFF * (s-bandThing)/shellCount), 0xFF, bandFadeIn);
 
         brightness = scale8(brightness, brightness);
-        int32_t gyrRotate = (gyrAccum.z/2) % 0x200;
         int32_t radialH =  0x200 * si / shellSize;
-        int32_t twistFactor = (s * gyrAccum.y/8 + s * millis()/500) % 0x200;
-        int32_t shellH = 0x200 * s/shellCount * beatsin16(3, 0, 0x200, 0, gyrAccum.x) / 0x200;
-        int32_t evolve = (millis()/100)%0x200;
-        CRGB c = this->getMirroredPaletteColor(gyrRotate + radialH + twistFactor + shellH + evolve);
-        
+        CRGB c = PaletteRotation<CRGBPalette256>::getMirroredPaletteColor(palette, gyrRotate + radialH + twistFactor + shellH + evolve);
+
         // improvement: do this in certain accelerometer conditions
         // if (si%2) {
         //   brightness = scale8(brightness, beatsin8(10));
@@ -253,7 +269,9 @@ public:
         //   brightness = scale8(brightness, beatsin8(10, 0, 0xFF, 0, 0x7F));
         // }
         c.nscale8(brightness);
-        c.nscale8(shellBrightness);
+        if (shellBrightness != 0xFF) {
+          c.nscale8(shellBrightness);
+        }
         ctx.leds[px] = c;
       }
     }
@@ -283,7 +301,7 @@ public:
   }
 
   void update() {
-    ctx.leds.fadeToBlackBy(18);
+    ctx.fadeToBlackBy16(18 * 245 * 256 / 1000);
     for (int s = 0 ; s < hexaShells.shells.size(); ++s) {
       uint8_t shellSize = hexaShells.shells[s].size();
       
@@ -313,7 +331,7 @@ public:
   }
 
   void update() {
-    ctx.leds.fadeToBlackBy(5);
+    ctx.fadeToBlackBy16(5 * 245 * 256 / 1000);
     int shellCount = hexaShells.shells.size();
     for (int s = 0 ; s < hexaShells.shells.size(); ++s) {
       uint8_t shellSize = hexaShells.shells[s].size();
@@ -418,6 +436,8 @@ class LargeBouncyBall : public Pattern {
 public:
   Ball p;
   unsigned long boomStart = 0;
+  // hit brightness and bounce elasticity tuned as per-frame displacement
+  static constexpr float kTunedFrameMS = 5.5f;
 
   void stellate(float radius, float bright) {
     for (PixelIndex px = 0; px < LED_COUNT; ++px) {
@@ -433,7 +453,7 @@ public:
 
   void sideHit(Ball &p, int w, uint8_t hue, unsigned long elapsed) {
     assert(hexaSide(w).size() == 10,"hexa side size");
-    uint8_t hitSpeed = constrain(2000 * p.velocity.length()*elapsed - 100, 0, 0xFF);
+    uint8_t hitSpeed = constrain(2000 * p.velocity.length()*kTunedFrameMS - 100, 0, 0xFF);
     for (PixelIndex px : hexaSide(w)) {
       ctx.leds[px] = CHSV(hue+0xFF/2, 0xFF, hitSpeed);
     }
@@ -450,7 +470,7 @@ public:
 
     // u,ur,dr,d,dl,ul order, matches clockwise from px 0 hexaSide order
     const linef lines[] = {uLine, urLine, drLine, dLine, dlLine, ulLine};
-    const float elasticity = 0.95f + constrain(p.velocity.length()*elapsed/6 - 0.019, 0, 0.09f);
+    const float elasticity = 0.95f + constrain(p.velocity.length()*kTunedFrameMS/6 - 0.019, 0, 0.09f);
 
     uint8_t sidesHit = 0;
     // Iterate to handle corner collision
@@ -486,7 +506,7 @@ public:
 
   unsigned long lastUpdate = 0;
   virtual void update() {
-    ctx.leds.fadeToBlackBy(12);
+    ctx.fadeToBlackBy16(12 * 180 * 256 / 1000);
 
     int32_t elapsed = (lastUpdate > 0 ? millis() - lastUpdate : 1);
     lastUpdate = millis();
@@ -686,19 +706,22 @@ public:
   float avgZ=0;
   int lastSeenAtHighAngle = 0;
   float spinTheta = 0;
-  float dSpin = 1/500.;
+  float dSpin = 1/750.;
+  BaselineStepper smoothStepper;
   void update() {
-    
+
     const MotionFrame &motion = MotionManager::motionFrame;
 
     float theta = M_PI+atan2(motion.acc.y, motion.acc.x);
     int flag = 6*(theta+M_PI/12) / (2*M_PI);
     flag = mod_wrap(flag,6);
-    
+
     const int maxHexRadius = (kMeridian/2-2);
     const int minHexRadius = -3;
     const float maxZ = 9000.;
-    avgZ = min(maxZ, (10*avgZ+motion.acc.z)/11.f);
+    for (int k = smoothStepper.steps(195); k > 0; --k) {
+      avgZ = min(maxZ, (10*avgZ+motion.acc.z)/11.f);
+    }
     const float maxLineRadius = kMeridian/2+2;
     float lineRadius = maxLineRadius - (maxLineRadius+2) * abs(avgZ) / maxZ;
     float hexRadius = minHexRadius + (maxHexRadius-minHexRadius) * abs(avgZ) / maxZ;
@@ -707,9 +730,9 @@ public:
       lastSeenAtHighAngle = flag;
     }
 
-    ctx.leds.fadeToBlackBy(5 + (hexRadius>0?hexRadius:0));
+    ctx.fadeToBlackBy16((5 + (hexRadius>0?(int)hexRadius:0)) * 195 * 256 / 1000);
 
-    float scaledGyr = (motion.gyr.z / 6666) / 66666.f;
+    float scaledGyr = (motion.gyr.z / 6666) / 100000.f;
     spinTheta += frameTime() * dSpin;
   
     if (lineRadius > 0) {
@@ -872,24 +895,29 @@ public:
     }
   }
 
+  unsigned long lastSpawnCheck = 0;
+
   void update() {
     unsigned long mils = millis();
     FFTFrame frame = spectrumFrame();
 
-    for (int s = 0 ; s < min(frame.size, shells.shells.size()); ++s) {
-      int32_t level = frame.spectrum[s] - fftLevelThreshold;
-      if (level > 0) {
-        int shellNum = (s + millis()/1000 + random8()%2) % shells.shells.size();
-        int indexInShell = random16()%shells.shells[shellNum].size();
-        
-        paletteRotate(MotionManager::motionFrame.gyr.z/1000);
+    if (mils - lastSpawnCheck >= 8) {
+      lastSpawnCheck = mils;
+      for (int s = 0 ; s < min(frame.size, shells.shells.size()); ++s) {
+        int32_t level = frame.spectrum[s] - fftLevelThreshold;
+        if (level > 0) {
+          int shellNum = (s + millis()/1000 + random8()%2) % shells.shells.size();
+          int indexInShell = random16()%shells.shells[shellNum].size();
 
-        auto pxOpt = shells.shells[shellNum][indexInShell];
-        if (!pxOpt.has_value()) continue;
-        PixelIndex px = pxOpt.value();
-        uint8_t phase = s*15+millis()/100;
-        uint8_t brightness = min(0xFF, level*20);
-        makeDroplet(px, dropletSize,phase, brightness);
+          paletteRotate(MotionManager::motionFrame.gyr.z/1000);
+
+          auto pxOpt = shells.shells[shellNum][indexInShell];
+          if (!pxOpt.has_value()) continue;
+          PixelIndex px = pxOpt.value();
+          uint8_t phase = s*15+millis()/100;
+          uint8_t brightness = min(0xFF, level*20);
+          makeDroplet(px, dropletSize,phase, brightness);
+        }
       }
     }
 
@@ -954,47 +982,50 @@ public:
       // slow the bit down toward a threshold that falls to zero over its life
       int threshold = bitLoudZoom - bitLoudZoom * (int)bit.age() / (int)bit.lifespan;
       if (bit.speed > threshold) {
-        int decay = (2 * baselineFrames + 500) / 1000; // rounded
-        bit.speed = max(0, (int)bit.speed - max(1, decay));
+        bit.speed = max(0, (int)bit.speed - speedDecaySteps);
       }
     };
   }
 
   vector32 gyrAccum32;
   vector32 gyrCarry;
-  static constexpr int32_t kBaselineFPS = 100;
-  int32_t baselineFrames = 1000; // framerate-invariant slowdown tuning
+  static constexpr int32_t kBaselineFPS = 36;
+  unsigned long lastSpawnCheck = 0;
+  int speedDecaySteps = 0;
+  BaselineStepper decayStepper;
 
   void update() {
     unsigned long mils = millis();
 
-    // framerate-invariant integration, see MotionHexa::accumulate
+    // framerate-invariant integration, see MotionHexa::accumulate. frameMS 0 means a sub-ms frame.
     int32_t frameMS = constrain((int32_t)frameTime(), 0, 100);
-    if (frameMS == 0) frameMS = 1000 / kBaselineFPS;
-    baselineFrames = frameMS * kBaselineFPS;
+    speedDecaySteps = decayStepper.steps(125);
 
     const MotionFrame &motion = MotionManager::motionFrame;
     MotionHexa::accumulate(gyrAccum32, gyrCarry, vector16(motion.gyr.x/100, motion.gyr.y/100, motion.gyr.z/100), frameMS); // drop low order noisy data
-    
-    paletteRotate(motion.gyr.z/1000);
 
     FFTFrame frame = spectrumFrame();
-    for (int s = 0 ; s < min(frame.size, shells.shells.size()); ++s) {
-      int32_t level = frame.spectrum[s] - fftLevelThreshold;
-      if (level > 0 && particles.particles.size() < 255) {
-        int shellNum = (s + millis()/1000 + random8()%2 + gyrAccum32.x/200) % shells.shells.size();
-        int indexInShell = random16()%shells.shells[shellNum].size();
-        
-        unsigned maxlifespan = 300;
-        Particle &p = particles.addParticle();
-        p.px = shells.shells[shellNum][indexInShell].value();
-        p.lifespan = max(1, min(maxlifespan, maxlifespan * level/30));
-        uint8_t phase = s*15+millis()/100;
-        uint8_t brightness = min(0xFF, level*10);
-        p.color = getPaletteColor(phase, brightness);
-        p.speed = min(bitLoudZoom, 3*level);
+    if (mils - lastSpawnCheck >= 10) {
+      lastSpawnCheck = mils;
+      paletteRotate(motion.gyr.z/1000);
+
+      for (int s = 0 ; s < min(frame.size, shells.shells.size()); ++s) {
+        int32_t level = frame.spectrum[s] - fftLevelThreshold;
+        if (level > 0 && particles.particles.size() < 255) {
+          int shellNum = (s + millis()/1000 + random8()%2 + gyrAccum32.x/200) % shells.shells.size();
+          int indexInShell = random16()%shells.shells[shellNum].size();
+
+          unsigned maxlifespan = 300;
+          Particle &p = particles.addParticle();
+          p.px = shells.shells[shellNum][indexInShell].value();
+          p.lifespan = max(1, min(maxlifespan, maxlifespan * level/30));
+          uint8_t phase = s*15+millis()/100;
+          uint8_t brightness = min(0xFF, level*10);
+          p.color = getPaletteColor(phase, brightness);
+          p.speed = min(bitLoudZoom, 3*level);
+        }
+        autoGainUpdate();
       }
-      autoGainUpdate();
     }
     particles.update();
   }
@@ -1008,6 +1039,7 @@ public:
 
 class ChargingPattern : public Pattern {
 public:
+  HexaShells shells;
   int lastStateOfCharge = 0;
   int animateFromSOC = 0;
   unsigned long lastValueChange;
@@ -1019,8 +1051,7 @@ public:
   }
   void update() {
     ctx.leds.fill_solid(CRGB::Black);
-    HexaShells shells;
-    auto outerShell = shells.shells.back();
+    const auto &outerShell = shells.shells.back();
 
     const int ringAnimateTime = 1000;
     const int minHue = 0;
@@ -1127,7 +1158,7 @@ class BlinkIdentifyPattern : public Pattern {
   HexaShells hexaShells;
   void update() {
     unsigned long rt = runTime();
-    ctx.leds.fadeToBlackBy(20);
+    ctx.fadeToBlackBy16(20 * 245 * 256 / 1000);
     int shell = hexaShells.shells.size() * triwave8(0xFF * rt / (blinkTime/3)) / 0xFF;
     shell = min(hexaShells.shells.size(), shell);
     for (int i = 0; i < hexaShells.shells[shell].size(); ++i) {

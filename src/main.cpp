@@ -1,5 +1,6 @@
 #define DEBUG 0
 #define WAIT_FOR_SERIAL 0
+#define PERF_TIMING 1 // log detailed per-frame phase timing
 #define AUTO_BRIGHTNESS 0 // photosensor-driven global brightness; off until the v7 multi-sensor path is characterized
 
 // Boot timing / core1 stall instrumentation. 
@@ -30,6 +31,7 @@ const unsigned long kStallLogMS = 15; // ~3 motion frames' worth
 
 #define DUSTLIB_SHARED_COLORMANAGER true
 #include <util.h>
+#include <apa102pio.h>
 #include "ledgraph.h"
 
 #include <patterning.h>
@@ -309,7 +311,9 @@ void setup() {
   logdf("v6Hardware = %i", v6Hardware);
 #endif
 
-  FastLED.addLeds<SK9822HD, LED_SPI0_TX, LED_SPI0_SCK, BGR, DATA_RATE_MHZ(16)>(ctx.leds, LED_COUNT);//.setCorrection(0xFFB0C0);
+  // PIO+DMA transport at 16MHz
+  static APA102PIOController<BGR> ledController(LED_SPI0_TX, LED_SPI0_SCK, 16000000);
+  FastLED.addLeds(&ledController, &ctx.leds[0], LED_COUNT);//.setCorrection(0xFFB0C0);
 
 #if DEBUG
   digitalWrite(LED_LINE_0_PWR_PIN, true);
@@ -413,7 +417,21 @@ void setup() {
 
 /* ------ Loop ------------------------------------------------------------------------------------------------------------ */
 
+#if PERF_TIMING
+static uint32_t perfPatternUS = 0, perfShowUS = 0, perfLoopUS = 0;
+static uint32_t perfFrames = 0;
+static unsigned long perfLastLog = 0;
+#define PERF_MARK() uint32_t _perfMark = micros()
+#define PERF_ACCUM(counter) counter += micros() - _perfMark
+#else
+#define PERF_MARK()
+#define PERF_ACCUM(counter)
+#endif
+
 void loop() {
+#if PERF_TIMING
+  uint32_t perfLoopStart = micros();
+#endif
 #if !DEBUG
   // pet the dog
   watchdog_update();
@@ -508,15 +526,39 @@ void loop() {
     delay(50);
     powerOff();
   }
+  if (serialLine && strcmp(serialLine, "POWERON") == 0) {
+    // bench helper: skip the button hold and power-on animation
+    logf("POWERON requested");
+    if (!powerState.isRunning()) {
+      startupCompleted();
+    }
+  }
   if (serialLine && strcmp(serialLine, kBatteryResetCommand) == 0) {
     logf("BATRESET requested");
     batteryResetRequested = true; // executed on core1, which owns i2c
+  }
+  if (serialLine && strncmp(serialLine, "PATTERN ", 8) == 0) {
+    // bench helper: switch the indexed runner by pattern index
+    int patternIndex = atoi(serialLine + 8);
+    logf("PATTERN %i requested", patternIndex);
+    if (powerState.isRunning()) {
+      indexedRunner->runPatternAtIndex(patternIndex);
+    }
+  }
+  if (serialLine && strncmp(serialLine, "FAKEFFT ", 8) == 0) {
+    // bench helper: deterministic synthetic spectrum for sound patterns, 0 = real audio
+    fftProcessing.benchTestLevel = atoi(serialLine + 8);
+    logf("FAKEFFT %i requested", fftProcessing.benchTestLevel);
   }
 #endif
 
   indexedRunner->paused = !powerState.isRunning();
   controls.update();
-  patternManager.loop();
+  {
+    PERF_MARK();
+    patternManager.loop();
+    PERF_ACCUM(perfPatternUS);
+  }
  
 #if HARDWARE_VERSION > 1
   static bool pixelsHavePower = false;
@@ -566,11 +608,27 @@ void loop() {
 #endif
 
   if (pixelsHavePower || fc.hasFPSAssertion()) {
+    PERF_MARK();
     FastLED.show();
+    PERF_ACCUM(perfShowUS);
   }
 
+#if PERF_TIMING
+  perfLoopUS += micros() - perfLoopStart;
+  perfFrames++;
+  if (millis() - perfLastLog > 2000) {
+    if (perfLastLog != 0 && perfFrames > 0) {
+      logf("perf avg us/frame: pattern=%lu show=%lu loop=%lu (n=%lu)",
+           perfPatternUS / perfFrames, perfShowUS / perfFrames, perfLoopUS / perfFrames, perfFrames);
+    }
+    perfPatternUS = perfShowUS = perfLoopUS = 0;
+    perfFrames = 0;
+    perfLastLog = millis();
+  }
+#endif
+
   fc.loop();
-  fc.clampToFramerate(240);
+  // fc.clampToFramerate(240);
 
   if (!pixelsNeedPower) {
     // FIXME: proper sleep

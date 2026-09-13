@@ -470,8 +470,9 @@ public:
     vector16 pos;      // pos within hexagonal inner-particle dof space in range (-255, 255)
     vector16 velocity; // velocity in range (-255, 255)
     vector32 acceleration; // remainder of rounded-off accel, unscaled
-    Particle() : index(0), pos(0,0), velocity(0,0), acceleration(0,0) {};
-    Particle(PixelIndex index, vector16 pos, vector16 velocity) : index(index), pos(pos), velocity(velocity), acceleration(0,0) {};
+    vector16 posRemainder; // sub-unit remainder of position integration, so slow particles still creep on short frames
+    Particle() : index(0), pos(0,0), velocity(0,0), acceleration(0,0), posRemainder(0,0) {};
+    Particle(PixelIndex index, vector16 pos, vector16 velocity) : index(index), pos(pos), velocity(velocity), acceleration(0,0), posRemainder(0,0) {};
   };
   vector<Particle *> particles;
   Particle *particleMap[SIZE] = {0}; // map from physical led index to particle
@@ -601,7 +602,9 @@ private:
         line32 line = dst->edgeLine();
         plogf("    wall line points (%i,%i), (%i,%i)", line.x1, line.y1, line.x2, line.y2);
 
-        // roll back the particle movement since it crossed a line
+        // roll back the particle movement since it crossed a line.
+        // note this is a full velocity-unit (8ms of motion at kMotionDamper) rather than this frame's motion:
+        // a constant rollback distance at any framerate, and generous enough to reliably get behind the wall.
         plogf("  pre-wall pos (%i, %i), velocity (%i, %i)", p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
         p.pos -= p.velocity;
         plogf("    rolled back to (%i, %i)", p.pos.x, p.pos.y);
@@ -710,9 +713,12 @@ public:
   unsigned long lastUpdate = 0;
 
   void update(std::function<vector32(PixelIndex)> accelForIndex) {
-    const int accelPreScale = 100000;
+    // velocity units per (accel unit · millisecond); folded with kMotionDamper below
+    const int32_t accelPreScale = 100000;
+    const int32_t accelDivisor = accelPreScale * kMotionDamper;
 
     unsigned long elapsed = (lastUpdate > 0 ? millis() - lastUpdate : 1);
+    elapsed = constrain(elapsed, (unsigned long)0, (unsigned long)100); // don't slam velocities after a stall or unpause
     lastUpdate = millis();
 
     vector<Particle *> lastParticles = particles;
@@ -720,21 +726,28 @@ public:
       Particle &p = *particles[i];
       vector32 accelVector = accelForIndex(p.index);
       plogf("PHYSICS UPDATE px %i saw raw accel = %i, %i", i, accelVector.x, accelVector.y);
-      
-      vector32 scaledAccel = (accelScaling * accelVector + p.acceleration) / accelPreScale;
-      vector32 remainder = vector32((accelScaling * accelVector.x + p.acceleration.x) % accelPreScale, (accelScaling * accelVector.y + p.acceleration.y) % accelPreScale);
-      plogf("  scaled accel = %i, %i, remainder accel (%i,%i) => %i", scaledAccel.x, scaledAccel.y, p.acceleration, remainder);
-      
-      scaledAccel.x = constrain(scaledAccel.x, -0xFF, 0xFF);
-      scaledAccel.y = constrain(scaledAccel.y, -0xFF, 0xFF);
-      
-      p.acceleration = remainder;
 
-      p.velocity += (scaledAccel * elapsed) / kMotionDamper;
+      // integrate accel*elapsed before dividing, carrying the sub-unit remainder: dividing first
+      // truncated ~1g accelerations to zero velocity gain on short (1-2ms) frames
+      vector32 num = accelScaling * accelVector;
+      num *= (int32_t)elapsed;
+      num += p.acceleration;
+      vector32 dv = num / accelDivisor;
+      p.acceleration = vector32(num.x % accelDivisor, num.y % accelDivisor);
+      plogf("  dv = %i, %i, remainder accel (%i,%i)", dv.x, dv.y, p.acceleration.x, p.acceleration.y);
+
+      dv.x = constrain(dv.x, -0xFF, 0xFF);
+      dv.y = constrain(dv.y, -0xFF, 0xFF);
+
+      p.velocity += dv;
       p.velocity.x = constrain(p.velocity.x, -0xFF, 0xFF);
       p.velocity.y = constrain(p.velocity.y, -0xFF, 0xFF);
 
-      vector16 newPos = p.pos + (p.velocity * elapsed) / kMotionDamper;
+      vector16 motionNum = p.velocity;
+      motionNum *= (int16_t)elapsed;
+      motionNum += p.posRemainder;
+      vector16 newPos = p.pos + motionNum / (int16_t)kMotionDamper;
+      p.posRemainder = vector16(motionNum.x % kMotionDamper, motionNum.y % kMotionDamper);
       plogf("  p%i at px %i move from pos (%i, %i) to pos (%i, %i) with velocity (%i, %i)", i, p.index, p.pos.x, p.pos.y, newPos.x, newPos.y, p.velocity.x, p.velocity.y);
       p.pos = newPos;
     }
