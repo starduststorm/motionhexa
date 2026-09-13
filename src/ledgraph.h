@@ -308,14 +308,33 @@ static float fpart(float x) {
 static float rfpart(float x) {
   return 1 - fpart(x);
 }
-static void point(PixelStorage<LED_COUNT> &ctx, int q, int r, CRGB color, float brightness) {
+// The FastLED HD output path applies a gamma 2.8 table to buffer values.
+// Wu's coverage split is a fraction of emitted light, so it has to be encoded the same way
+static constexpr float kHexlineOutputGamma = 2.8;
+static uint8_t coverageToBuffer(float coverage) {
+  static uint8_t lut[256];
+  static bool built = false;
+  if (!built) {
+    for (int i = 0; i < 256; ++i) {
+      lut[i] = roundf(255.f * powf(i / 255.f, 1.f / kHexlineOutputGamma));
+    }
+    built = true;
+  }
+  int i = roundf(constrain(coverage, 0.f, 1.f) * 255.f);
+  return lut[i];
+}
+static void point(PixelStorage<LED_COUNT> &ctx, int q, int r, CRGB color, float coverage, bool useGamma) {
   auto index = axial.indexAtAxial(q, r);
   if (index.has_value()) {
-    color.nscale8_video(brightness * 0xFF);
+    if (useGamma) {
+      color.nscale8_video(coverageToBuffer(coverage));
+    } else {
+      color.nscale8_video(coverage * 0xFF);
+    }
     ctx.point(index.value(), color, blendBrighten);
   }
 }
-static void hexline(PixelStorage<LED_COUNT> &ctx, float q0, float r0, float q1, float r1, std::function<CRGB(uint8_t)> colorFunc) {
+static void hexline(PixelStorage<LED_COUNT> &ctx, float q0, float r0, float q1, float r1, bool useGamma, std::function<CRGB(uint8_t)> colorFunc) {
   CRGB color0 = colorFunc(0);
   CRGB color1 = colorFunc(0xFF);
   
@@ -361,14 +380,14 @@ static void hexline(PixelStorage<LED_COUNT> &ctx, float q0, float r0, float q1, 
   float qpxl0 = qend; // this will be used in the main loop
   float rpxl0 = floorf(rend);
   if (sline) {
-    point(ctx, -qpxl0-rpxl0, rpxl0,   color0, rfpart(rend) * qgap);
-    point(ctx, -qpxl0-(rpxl0+1), rpxl0+1, color0,  fpart(rend) * qgap);
+    point(ctx, -qpxl0-rpxl0, rpxl0,   color0, rfpart(rend) * qgap, useGamma);
+    point(ctx, -qpxl0-(rpxl0+1), rpxl0+1, color0,  fpart(rend) * qgap, useGamma);
   } else if (rline) {
-    point(ctx, rpxl0,   qpxl0, color0, rfpart(rend) * qgap);
-    point(ctx, rpxl0+1, qpxl0, color0,  fpart(rend) * qgap);
+    point(ctx, rpxl0,   qpxl0, color0, rfpart(rend) * qgap, useGamma);
+    point(ctx, rpxl0+1, qpxl0, color0,  fpart(rend) * qgap, useGamma);
   } else {
-    point(ctx, qpxl0, rpxl0  , color0, rfpart(rend) * qgap);
-    point(ctx, qpxl0, rpxl0+1, color0,  fpart(rend) * qgap);
+    point(ctx, qpxl0, rpxl0  , color0, rfpart(rend) * qgap, useGamma);
+    point(ctx, qpxl0, rpxl0+1, color0,  fpart(rend) * qgap, useGamma);
   }
 
   float rinter = rend + gradient; // first r-intersection for the main loop
@@ -380,14 +399,14 @@ static void hexline(PixelStorage<LED_COUNT> &ctx, float q0, float r0, float q1, 
   float qpxl1 = qend; //this will be used in the main loop
   float rpxl1 = floorf(rend);
   if (sline) {
-    point(ctx, -qpxl1-rpxl1,     rpxl1,   color1, rfpart(rend) * qgap);
-    point(ctx, -qpxl1-(rpxl1+1), rpxl1+1, color1,  fpart(rend) * qgap);
+    point(ctx, -qpxl1-rpxl1,     rpxl1,   color1, rfpart(rend) * qgap, useGamma);
+    point(ctx, -qpxl1-(rpxl1+1), rpxl1+1, color1,  fpart(rend) * qgap, useGamma);
   } else if (rline) {
-    point(ctx, rpxl1,   qpxl1, color1, rfpart(rend) * qgap);
-    point(ctx, rpxl1+1, qpxl1, color1,  fpart(rend) * qgap);
+    point(ctx, rpxl1,   qpxl1, color1, rfpart(rend) * qgap, useGamma);
+    point(ctx, rpxl1+1, qpxl1, color1,  fpart(rend) * qgap, useGamma);
   } else {
-    point(ctx, qpxl1, rpxl1,   color1, rfpart(rend) * qgap);
-    point(ctx, qpxl1, rpxl1+1, color1,  fpart(rend) * qgap);
+    point(ctx, qpxl1, rpxl1,   color1, rfpart(rend) * qgap, useGamma);
+    point(ctx, qpxl1, rpxl1+1, color1,  fpart(rend) * qgap, useGamma);
   }
 
   // main loop
@@ -396,24 +415,24 @@ static void hexline(PixelStorage<LED_COUNT> &ctx, float q0, float r0, float q1, 
     if (swapped) progress = 0xFF - progress;
     CRGB color = colorFunc(progress);
     if (sline) {
-      point(ctx, -q-floorf(rinter), floorf(rinter),   color, rfpart(rinter));
-      point(ctx, -q-(floorf(rinter)+1), floorf(rinter)+1, color,  fpart(rinter));
+      point(ctx, -q-floorf(rinter), floorf(rinter),   color, rfpart(rinter), useGamma);
+      point(ctx, -q-(floorf(rinter)+1), floorf(rinter)+1, color,  fpart(rinter), useGamma);
     } else if (rline) {
-      point(ctx, floorf(rinter),   q,   color, rfpart(rinter));
-      point(ctx, floorf(rinter)+1, q, color,  fpart(rinter));
+      point(ctx, floorf(rinter),   q,   color, rfpart(rinter), useGamma);
+      point(ctx, floorf(rinter)+1, q, color,  fpart(rinter), useGamma);
     } else {
-      point(ctx, q, floorf(rinter),   color, rfpart(rinter));
-      point(ctx, q, floorf(rinter)+1, color,  fpart(rinter));
+      point(ctx, q, floorf(rinter),   color, rfpart(rinter), useGamma);
+      point(ctx, q, floorf(rinter)+1, color,  fpart(rinter), useGamma);
     }
     rinter = rinter + gradient;
   }
 }
 
-void hexline(PixelStorage<LED_COUNT> &ctx, fAxial p0, fAxial p1, std::function<CRGB(uint8_t)> colorFunc) {
-  hexline(ctx, p0.q(), p0.r(), p1.q(), p1.r(), colorFunc);
+void hexline(PixelStorage<LED_COUNT> &ctx, fAxial p0, fAxial p1, bool useGamma, std::function<CRGB(uint8_t)> colorFunc) {
+  hexline(ctx, p0.q(), p0.r(), p1.q(), p1.r(), useGamma, colorFunc);
 }
-void hexline(PixelStorage<LED_COUNT> &ctx, fAxial p0, fAxial p1, CRGB color) {
-  hexline(ctx, p0, p1, [color] (uint8_t progress) {
+void hexline(PixelStorage<LED_COUNT> &ctx, fAxial p0, fAxial p1, bool useGamma, CRGB color) {
+  hexline(ctx, p0, p1, useGamma, [color] (uint8_t progress) {
     return color;
   });
 }

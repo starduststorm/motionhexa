@@ -675,7 +675,7 @@ public:
       fAxial ax2 = axial.rectToHex(pb, 1.0);
 
       uint16_t edgeOffset = e * 0x1FF / 6;
-      hexline(ctx, ax1, ax2, [this, yawBytes, timeOffset, edgeOffset, brightness] (uint8_t progress) {
+      hexline(ctx, ax1, ax2, false, [this, yawBytes, timeOffset, edgeOffset, brightness] (uint8_t progress) {
         CRGB c = getMirroredPaletteColor(timeOffset + yawBytes + edgeOffset + progress);
         c.nscale8(brightness);
         return c;
@@ -741,7 +741,7 @@ public:
       fAxial ax1 = axial.rectToHex(pt1, 1.0);
       fAxial ax2 = axial.rectToHex(pt2, 1.0);
 
-      hexline(ctx, ax1, ax2, [this, flag] (uint8_t progress) {
+      hexline(ctx, ax1, ax2, true, [this, flag] (uint8_t progress) {
         return ColorFromPalette(palettes[flag], progress);
       });
     }
@@ -762,7 +762,7 @@ public:
         fAxial ax1 = axial.rectToHex(pt1, 1.0);
         fAxial ax2 = axial.rectToHex(pt2, 1.0);
         
-        hexline(ctx, ax1, ax2, [this, i] (uint8_t progress) {
+        hexline(ctx, ax1, ax2, true, [this, i] (uint8_t progress) {
           return PaletteRotation<CRGBPalette256>::getMirroredPaletteColor(palettes[lastSeenAtHighAngle], progress/3 + 0xFF*i/3);
         });
       }
