@@ -706,7 +706,7 @@ public:
   float avgZ=0;
   int lastSeenAtHighAngle = 0;
   float spinTheta = 0;
-  float dSpin = 1/750.;
+  float dSpin = 1/500.;
   BaselineStepper smoothStepper;
   void update() {
 
@@ -730,7 +730,7 @@ public:
       lastSeenAtHighAngle = flag;
     }
 
-    ctx.fadeToBlackBy16((5 + (hexRadius>0?(int)hexRadius:0)) * 195 * 256 / 1000);
+    ctx.fadeToBlackBy16((5 + (hexRadius>0?(int)hexRadius:0)) * 400 * 256 / 1000);
 
     float scaledGyr = (motion.gyr.z / 6666) / 100000.f;
     spinTheta += frameTime() * dSpin;
