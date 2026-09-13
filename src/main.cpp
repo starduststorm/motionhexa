@@ -1,7 +1,6 @@
 #define DEBUG 0
 #define WAIT_FOR_SERIAL 0
 #define PERF_TIMING 1 // log detailed per-frame phase timing
-#define AUTO_BRIGHTNESS 0 // photosensor-driven global brightness; off until the v7 multi-sensor path is characterized
 
 // Boot timing / core1 stall instrumentation. 
 #define DEBUG_BOOT_TIMING 0
@@ -43,8 +42,25 @@ const unsigned long kStallLogMS = 15; // ~3 motion frames' worth
 
 #include "MotionManager.h"
 
-#define MEASURE_PHOTO_SENSOR_BASELINE false
-PhotoSensorBrightness *autoBrightness;
+#if AUTO_BRIGHTNESS
+#include "autobrightness.h"
+#endif
+#include "photobench.h"
+
+// photosensor-driven global brightness
+static const int kPhotoPins[] = {
+#if PHOTOSENSOR_COUNT > 1
+  PHOTOSENSOR_READ_PIN, PHOTOSENSOR1_READ_PIN, PHOTOSENSOR2_READ_PIN
+#else
+  PHOTOSENSOR_READ_PIN
+#endif
+};
+#if AUTO_BRIGHTNESS
+HexaAutoBrightness *autoBrightness;
+#endif
+#if PHOTO_BENCH
+PhotoBench *photoBench;
+#endif
 uint8_t kDefaultBrightness = 15;
 
 DrawingContext ctx;
@@ -234,7 +250,7 @@ void startupCompleted() {
 void setup() {
   init_serial();
 
-#if !DEBUG && !MEASURE_PHOTO_SENSOR_BASELINE
+#if !DEBUG
   // watchdog barks if we hang or hardfault
   // load register is 24 bits of microseconds; RP2040 (errata E1) ticks it twice per µs so 8388ms is its ceiling, RP2350 ticks
   // once per µs and could go to ~16.7s. pico-sdk clamps either way, so 8388 is a safe max on both.
@@ -271,9 +287,7 @@ void setup() {
 #endif
 
   mutex_init(&core1DataLock);
-#if !MEASURE_PHOTO_SENSOR_BASELINE
   multicore_launch_core1_with_stack(core1_main, core1Stack, sizeof(core1Stack));
-#endif
 
   pinMode(UNCONNECTED_PIN_1, INPUT);
   auto noise = lsb_noise(UNCONNECTED_PIN_1, 8 * sizeof(uint32_t));
@@ -387,17 +401,18 @@ void setup() {
   initLEDGraph();
   assert(ledgraph.adjList.size() == LED_COUNT, "adjlist size should match LED_COUNT");
 
-  autoBrightness = new PhotoSensorBrightness(PHOTOSENSOR_READ_PIN, PHOTOSENSOR_POWER_PIN);
-  autoBrightness->maxBrightness = 20; // needs to be lowish or we will overheat
+#if AUTO_BRIGHTNESS
+  autoBrightness = new HexaAutoBrightness(kPhotoPins, ARRAY_SIZE(kPhotoPins), PHOTOSENSOR_POWER_PIN);
+  autoBrightness->setup();
   autoBrightness->logChanges = true;
+#endif
 
-#if MEASURE_PHOTO_SENSOR_BASELINE
-  // sweep every pixel near any sensor; every sensor is logged for each, so cross-talk between corners shows up too
-  std::vector<int> baselinePixels;
-  for (unsigned s = 0; s < ARRAY_SIZE(photosensorNearbyPixelLists); ++s) {
-    baselinePixels.insert(baselinePixels.end(), photosensorNearbyPixelLists[s], photosensorNearbyPixelLists[s] + photosensorNearbyPixelCounts[s]);
-  }
-  autoBrightness->measureBaseline(ctx.leds, 0x15, baselinePixels.data(), baselinePixels.size());
+#if PHOTO_BENCH
+  photoBench = new PhotoBench(ctx.leds, kPhotoPins, ARRAY_SIZE(kPhotoPins), PHOTOSENSOR_POWER_PIN);
+  photoBench->setup();
+#if AUTO_BRIGHTNESS
+  photoBench->ab = autoBrightness;
+#endif
 #endif
 
   patternManager.setup();
@@ -552,6 +567,26 @@ void loop() {
   }
 #endif
 
+#if PHOTO_BENCH
+  photoBench->tempK = batteryData.temperature;
+  photoBench->setRunning = [](bool running) { powerState.setRunning(running); };
+  photoBench->nextPattern = []() { indexedRunner->nextPattern(); };
+  photoBench->handleCommand(serialLine);
+  if (photoBench->ownsPixels()) {
+    // bench drives the pixels directly; keep the LED rail up and leave patterns alone. The estimator
+    // still runs so its residual can be read against a known panel state, but it doesn't set brightness.
+    digitalWrite(LED_LINE_0_PWR_PIN, true);
+#if AUTO_BRIGHTNESS
+    autoBrightness->loop(ctx.leds, FastLED.getBrightness(), batteryData.temperature, false);
+#endif
+    photoBench->loop();
+    fc.loop();
+    fc.clampToFramerate(1000);
+    return;
+  }
+  photoBench->loop();
+#endif
+
   indexedRunner->paused = !powerState.isRunning();
   controls.update();
   {
@@ -588,21 +623,9 @@ void loop() {
 #endif
 
 #if AUTO_BRIGHTNESS
-  // opportunistically use photo reads from sensors whose nearby pixels are off, otherwise they are too bright and impact the sensor.
-  // TODO: the effect of this is not great. it would be better to properly calibrate each sensor against its nearby pixel
-  //       readings (PhotoSensorBrightness::ledContribution) so we can adjust it constantly.
-  for (int sensor = 0; sensor < autoBrightness->sensors(); ++sensor) {
-    int nearbyBrightness = 0;
-    for (int i = 0; i < photosensorNearbyPixelCounts[sensor]; ++i) {
-      int px = photosensorNearbyPixelLists[sensor][i];
-      int b = ctx.leds[px].r + 2*ctx.leds[px].g + 4 * ctx.leds[px].b;
-      if (b > nearbyBrightness) {
-        nearbyBrightness = b;
-      }
-    }
-    autoBrightness->setInterference(sensor, nearbyBrightness);
-  }
-  autoBrightness->loop(); // holds brightness if every sensor is interfered with
+  // baselines ambient at boot while the pixels are off, then updates opportunistically
+  autoBrightness->loop(ctx.leds, autoBrightness->brightness(), batteryData.temperature);
+  FastLED.setBrightness(autoBrightness->brightness());
 #else
   FastLED.setBrightness(kDefaultBrightness);
 #endif
