@@ -42,6 +42,8 @@ const unsigned long kStallLogMS = 15; // ~3 motion frames' worth
 
 #include "MotionManager.h"
 
+#define AUTOBRIGHTNESS (AUTO_BRIGHTNESS_CAPABLE)
+
 #if AUTO_BRIGHTNESS
 #include "autobrightness.h"
 #endif
