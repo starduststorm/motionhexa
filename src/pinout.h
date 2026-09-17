@@ -1,10 +1,30 @@
 #ifndef PINOUT_H
 #define PINOUT_H
 
+// mutually-exclusive hardware flags
+// HARDWARE_VERSION => motionhexa
+// MINI_VERSION => minihexa
+
+#ifndef HARDWARE_VERSION
+#define HARDWARE_VERSION 0
+#endif
+#ifndef MINI_VERSION
+#define MINI_VERSION 0
+#endif
+#if (HARDWARE_VERSION > 0) == (MINI_VERSION > 0)
+#error "define exactly one of HARDWARE_VERSION or MINI_VERSION"
+#endif
+
 #define SDA 8
 #define SCL 9
 
-#if HARDWARE_VERSION >= 7
+#if MINI_VERSION >= 1
+
+// mini v2: WS2812B pixels in row-major
+#define LED_SERIAL_DATA 0
+#define UNCONNECTED_PIN_1 26
+
+#elif HARDWARE_VERSION >= 7
 
 #define EN_CHARGE 4 // pulled up, drive low to disable
 
@@ -56,7 +76,9 @@
 
 #define PHOTOSENSOR_POWER_PIN 25
 #define PHOTOSENSOR_READ_PIN 27
-#define PHOTOSENSOR_COUNT 1
+#if HARDWARE_VERSION >= 6
+#define PHOTOSENSOR_COUNT 1 // v5's sensor was never brought up (too much capacitance)
+#endif
 
 #define BUTTON_0 24
 #define BUTTON_PRESSED_STATE HIGH
@@ -179,12 +201,16 @@
 
 #endif // pinout.
 
-#define HAS_AUTO_BRIGHTNESS (HARDWARE_VERSION >= 6)
-
 #ifndef PHOTOSENSOR_COUNT
-#define PHOTOSENSOR_COUNT 1
+#define PHOTOSENSOR_COUNT 0 // usable photosensors; v4 and earlier have none, v5's is not brought up
 #endif
 
+
 #define HAS_MOTION (HARDWARE_VERSION >= 1)
+#define HAS_MICROPHONE (HARDWARE_VERSION >= 1)
+#define HAS_BUTTON (HARDWARE_VERSION >= 1)
+#define HAS_BUTTON_BOOT (HARDWARE_VERSION >= 4)
+#define HAS_BATTERY (HARDWARE_VERSION >= 1)
+#define HAS_AUTO_BRIGHTNESS (HARDWARE_VERSION >= 6)
 
 #endif

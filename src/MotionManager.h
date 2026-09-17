@@ -573,12 +573,15 @@ private:
     f.hasOrientation = true;
   }
 #else
+  // No motion hardware
+  bool readMagBias(float b[3]) override { return false; }
+  bool writeMagBias(const float b[3]) override { return false; }
   bool initHardware() {
-    assert(!HAS_MOTION, "No motion hardware");
+    logf("  no motion hardware");
+    return false;
   }
-  void readHardware() {
-    assert(!HAS_MOTION, "No motion hardware");
-  }
+  void readHardware() { }
+  void finishFrame(MotionFrame &out) { }
 #endif
 
   static int16_t clamp16(float v) {

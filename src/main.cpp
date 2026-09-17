@@ -43,7 +43,7 @@ const unsigned long kStallLogMS = 15; // ~3 motion frames' worth
 #include "MotionManager.h"
 #include "compass.h"
 
-#define AUTOBRIGHTNESS (AUTO_BRIGHTNESS_CAPABLE)
+#define AUTO_BRIGHTNESS (HAS_AUTO_BRIGHTNESS)
 
 #if AUTO_BRIGHTNESS
 #include "autobrightness.h"
@@ -51,6 +51,7 @@ const unsigned long kStallLogMS = 15; // ~3 motion frames' worth
 #include "photobench.h"
 
 // photosensor-driven global brightness
+#if PHOTOSENSOR_COUNT > 0
 static const int kPhotoPins[] = {
 #if PHOTOSENSOR_COUNT > 1
   PHOTOSENSOR_READ_PIN, PHOTOSENSOR1_READ_PIN, PHOTOSENSOR2_READ_PIN
@@ -58,6 +59,7 @@ static const int kPhotoPins[] = {
   PHOTOSENSOR_READ_PIN
 #endif
 };
+#endif
 #if AUTO_BRIGHTNESS
 HexaAutoBrightness *autoBrightness;
 #endif
@@ -74,7 +76,11 @@ FrameCounter fc;
 PatternManager patternManager(ctx);
 
 #include <audio.h>
+#if HAS_MICROPHONE
 AudioInputPDM audioInput(PDM_DATA, PDM_CLK, (HARDWARE_VERSION >= 4));
+#else
+ShimAudioProcessing audioInput; // synthetic samples so the audio patterns still run
+#endif
 // TODO: fft numBins should be pattern-determined. how to rationalize this with a shared fft?
 FFTProcessing fftProcessing(audioInput, 10, 128);
 
@@ -159,7 +165,17 @@ inline void logMotionPublishGap() {
 #endif
 }
 
+#if !HAS_MOTION
+static void synthesizeMotionFrame(MotionFrame &frame) {
+  const float rotation = 2 * PI * (millis() % 36000) / 36000.0f;
+  frame.acc = vector16(8000 * sinf(rotation), 8000 * cosf(rotation), 0);
+  frame.gyr = vector16(100 * sinf(rotation), 100 * cosf(rotation), 0);
+  frame.hasAccelGyro = true;
+}
+#endif
+
 void hard_reset_check_core1() {
+#if HAS_BUTTON
   assert(1 == get_core_num(), "hard_reset_check_core1 not on core1");
     // hard reset
   static unsigned long lastButtonReleased = 0 ;
@@ -179,6 +195,7 @@ void hard_reset_check_core1() {
     lastButtonReleased = curMillis;
   }
   lastMillis = curMillis;
+#endif
 }
 
 // we use arduino-pico's setup1()/loop1() for EEPROM support. core1_separate_stack gives it an 8KB heap stack
@@ -189,16 +206,15 @@ static unsigned long motionStartedAt = 0;
 void setup1() {
   assert(1 == get_core_num(), "setup1 not on core1");
 
-#if HAS_MOTION
-  // Motion data reads take upwards of 4.5ms so we're doing them on core1
+#if HAS_MOTION || HAS_BATTERY
   init_i2c();
+#endif
 
   unsigned long motionInitStart = millis();
   MotionManager::manager().init(kHexaMotionPlacement);
   motionStartedAt = millis();
   btlogf("[t=%lu] core1: motion init took %lums (i2c up at t=%lu)",
          motionStartedAt, motionStartedAt - motionInitStart, motionInitStart);
-#endif
 }
 
 void loop1() {
@@ -223,6 +239,9 @@ void loop1() {
     }
 #endif
     MotionFrame motionFrame = MotionManager::manager().loop();
+#if !HAS_MOTION
+    synthesizeMotionFrame(motionFrame);
+#endif
 
     // Publish motion before touching the gauge, so battery i2c lands where core1 would otherwise
     // be waiting on _gCore1DataGetNext rather than inside a frame core0 is waiting on.
@@ -286,7 +305,9 @@ void setup() {
   watchdog_enable(8388, true);
 #endif
 
+#if HAS_BUTTON
   mainButton = controls.addButton(BUTTON_0, BUTTON_PRESSED_STATE);
+#endif
 
 #if HARDWARE_VERSION >= 4
   // on v4, power-on happens by squeezing the unit, which often happens in a bag. 
@@ -351,12 +372,20 @@ void setup() {
   logdf("v6Hardware = %i", v6Hardware);
 #endif
 
-  // PIO+DMA transport at 16MHz
+#if defined(LED_SERIAL_DATA)
+  FastLED.addLeds<WS2812B, LED_SERIAL_DATA, GRB>(ctx.leds, LED_COUNT);
+#elif defined(LED_SPI0_TX)
+  // APA102/SK9822: our own PIO+DMA transport at 16MHz
   static APA102PIOController<BGR> ledController(LED_SPI0_TX, LED_SPI0_SCK, 16000000);
   FastLED.addLeds(&ledController, &ctx.leds[0], LED_COUNT);//.setCorrection(0xFFB0C0);
+#else
+#error "no pixel data pin in pinout.h"
+#endif
 
 #if DEBUG
+#ifdef LED_LINE_0_PWR_PIN
   digitalWrite(LED_LINE_0_PWR_PIN, true);
+#endif
   ctx.leds.fill_solid(CRGB::Red);
   FastLED.setBrightness(1);
   FastLED.show();
@@ -365,13 +394,17 @@ void setup() {
 
   patternManager.registerPattern<MotionHexa>();
   patternManager.registerPattern<TriBounce>();
+#if HAS_MOTION
   patternManager.registerPattern<PixelDust>();
   patternManager.registerPattern<PixelSand>();
   patternManager.registerPattern<LargeBouncyBall>();
   patternManager.registerPattern<PulseHexaSmooth>();
+#endif
   patternManager.registerPattern<PridefulSpinnyThing>();
+#if HAS_MOTION
   patternManager.registerPattern<TriangleSpin>();
   patternManager.registerPattern<CompassPattern>();
+#endif
   patternManager.registerPattern<SparkleDroplets>();
   patternManager.registerPattern<BlobDroplets>();
   patternManager.registerPattern<SoundBits>();
@@ -384,8 +417,9 @@ void setup() {
   chargingRunner->animateDim = true;
 #endif
   
+#if HAS_BUTTON
   indexedRunner = patternManager.setupIndexedRunner(0);
-  
+
   mainButton->ignoreEventsUntilFirstButtonUp = true;
   mainButton->onSinglePress([]() {
     if (powerState.isRunning()) {
@@ -397,7 +431,11 @@ void setup() {
       indexedRunner->previousPattern();
     }
   });
-#if DEBUG_PHYSICS
+#else
+  // no button: autoprogression through patterns
+  indexedRunner = patternManager.setupRandomRunner(60*1000, 500);
+#endif
+#if DEBUG_PHYSICS && HAS_BUTTON
   mainButton->onDoubleLongPress([]() {    
     physicsDebugFlag = !physicsDebugFlag;
   });
@@ -448,7 +486,11 @@ void setup() {
   // TODO: stop audio device when not in use by a pattern, but don't toggle twice between two audio patterns?
   audioInput.subscribe();
 
+#if MINI_VERSION
+  const char* hardwareVersionString = "mini" xstr(MINI_VERSION);
+#else
   const char* hardwareVersionString = (v6Hardware ? "6" : xstr(HARDWARE_VERSION));
+#endif
   updater = new RP2040Updater("motionhexa", SOFTWARE_VERSION, hardwareVersionString, [](void) {
     patternManager.runOneShotPattern<BlinkIdentifyPattern>(0xFE, 0xFF);
   });
@@ -592,10 +634,10 @@ void loop() {
     PERF_ACCUM(perfPatternUS);
   }
  
-#if HARDWARE_VERSION > 1
+  bool pixelsNeedPower = ctx.leds;
+#ifdef LED_LINE_0_PWR_PIN
   static bool pixelsHavePower = false;
   static unsigned long lastPixelsNeedPower = 0;
-  bool pixelsNeedPower = ctx.leds;
   if (pixelsNeedPower) {
     lastPixelsNeedPower = millis();
   }
@@ -605,6 +647,8 @@ void loop() {
     pixelsHavePower = pixelsNeedPower;
     digitalWrite(LED_LINE_0_PWR_PIN, pixelsNeedPower);
   }
+#else
+  const bool pixelsHavePower = true; // no pixel power switch: always show, including black
 #endif
 
 #if DEBUG
@@ -615,8 +659,9 @@ void loop() {
   ctx.leds[1] = powerState.isRunning() ? CRGB::Green : CRGB::Black;
   ctx.leds[2] = powerState.isCharging() ? CRGB::Blue : CRGB::Black;
   ctx.leds[4] = powerState.batteryInitialized ? CRGB::Yellow : CRGB::Black;
-  
+#ifdef LED_LINE_0_PWR_PIN
   digitalWrite(LED_LINE_0_PWR_PIN, true);
+#endif
 #endif
 
 #if AUTO_BRIGHTNESS

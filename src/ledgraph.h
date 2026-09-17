@@ -12,7 +12,13 @@ using namespace std;
 
 #include <drawing.h>
 
+#if MINI_VERSION == 1
+#define LED_COUNT (91)
+#elif MINI_VERSION == 2
+#define LED_COUNT (127)
+#else
 #define LED_COUNT (271)
+#endif
 
 #include <mapping.h>
 #include "hexaphysics.h"
@@ -33,7 +39,8 @@ constexpr uint16_t kHexaCenterIndex = LED_COUNT/2;
 constexpr uint8_t kMeridian = (3 + sqrt(12*LED_COUNT-3))/6 * 2 - 1; // 19
 const float pixelSpacing = 3.9;
 
-constexpr bool kZigZagPixelWiring = (HARDWARE_VERSION < 7);
+// serpentine rows on hexa v1-v6 (and mini v1); hexa v7 and mini v2 are row-major
+constexpr bool kZigZagPixelWiring = (HARDWARE_VERSION > 0 && HARDWARE_VERSION < 7) || (MINI_VERSION == 1);
 
 // Motion sensor and magnetometer placement
 #if HARDWARE_VERSION >= 7

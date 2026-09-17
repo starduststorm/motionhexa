@@ -163,6 +163,7 @@ uint16_t targetDesignCapacity() { return BATTERY_CAPACITY + kGaugeConfigGenerati
 // A normal-mode data memory block read (no config-update round trip, no soft reset), validated
 // against a byte we never write with a known ROM default (State offset 5, Load Select/Mode = 0x81).
 // The BQ27421 also has a DesignCapacity() command (0x3C) as a fallback; the BQ27427 doesn't.
+#if HARDWARE_VERSION >= 5
 const uint8_t kStateLoadSelectOffset = 5;
 const uint8_t kStateLoadSelectDefault = 0x81;
 uint16_t readGaugeDesignCapacity(uint16_t deviceType) {
@@ -183,6 +184,7 @@ uint16_t readGaugeDesignCapacity(uint16_t deviceType) {
          millis(), peekOK ? "valid" : "INVALID", loadSel, peeked, direct);
   return peekOK ? peeked : direct;
 }
+#endif
 
 // Configures the gauge on the first battery connection (ITPOR) or a config-generation change;
 // otherwise a few reads confirm the marker and the running gauge is left alone. The config path

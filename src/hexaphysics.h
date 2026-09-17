@@ -28,8 +28,6 @@ static const int kMotionDamper = 8; // drop some low order motion bits
 
 class AxialAccess;
 
-typedef uint16_t PixelIndex;
-
 template<typename T>
 struct vectorT {
   T x,y,z;
