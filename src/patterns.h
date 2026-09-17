@@ -1173,4 +1173,57 @@ class BlinkIdentifyPattern : public Pattern {
   }
 };
 
+/* ------------------------------------------------------------------------------- */
+
+class CompassPattern : public Pattern {
+  static constexpr float kDotRadius = 6.0f; // hex cells from center
+  float dotAngle = 0; // rad, pixel frame; integrates -gyro z (see update) so the dots counter-rotate against the device
+
+  void drawRingDots(CRGB color) {
+    for (int i = 0; i < 6; ++i) {
+      float a = dotAngle + i * (float)M_PI / 3;
+      hexdot(ctx, vectorf(kDotRadius * cosf(a), kDotRadius * sinf(a), 0), true, color);
+    }
+  }
+
+public:
+  void update() {
+    ctx.leds.fill_solid(CRGB::Black);
+    const MotionFrame &motion = MotionManager::motionFrame;
+
+    if (!Compass::headingValid()) {
+      // Counter-rotate: a device turning CCW about +z (positive gyro z in the motion frame; the pixel frame is that
+      // rotated 180deg about z, so the sense is the same) makes a world-fixed feature turn CW across the panel.
+      float dt = constrain((int32_t)frameTime(), 0, 100) * 1e-3f; // clamp stalls so a hitch can't spin the ring
+      dotAngle -= motion.gyr.z / MotionManager::gyrToRadScale * dt;
+      dotAngle = fmodf(dotAngle, 2 * (float)M_PI);
+      drawRingDots(CRGB::White);
+      return;
+    }
+
+    // Compass angles are in the motion frame; the pixel geometry frame (rectToHex) is that rotated 180deg about z.
+    float a = Compass::northAngleRad() + PI;
+    const float r = kMeridian / 2;
+    vectorf tip((r-2) * cosf(a), (r-2) * sinf(a), 0);
+    vectorf back((r-3) * cosf(a-PI), (r-3) * sinf(a-PI), 0);
+
+    fAxial backHex = axial.rectToHex(back, 1.0);
+    fAxial tipHex = axial.rectToHex(tip, 1.0);
+    hexline(ctx, backHex, tipHex, true, CRGB::White);
+
+    // Two barbs pointing back from the tip
+    const float barbLen = 4.0f;
+    const float barbSpread = 15.0f * M_PI / 180.0f;
+    for (float s : {+3.0f, -3.0f}) {
+      float ba = a + M_PI + s * barbSpread;
+      vectorf barb(tip.x + barbLen * cosf(ba), tip.y + barbLen * sinf(ba), 0);
+      hexline(ctx, tipHex, axial.rectToHex(barb, 1.0), true, CRGB::White);
+    }
+  }
+
+  const char *description() {
+    return "CompassPattern";
+  }
+};
+
 #endif

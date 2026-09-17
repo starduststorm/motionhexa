@@ -39,8 +39,12 @@ constexpr bool kZigZagPixelWiring = (HARDWARE_VERSION < 7);
 #if HARDWARE_VERSION >= 7
 const MotionSensorPlacement kHexaMotionPlacement = {
   .accelGyro = AxisRotation::axes(-Axis::Y, -Axis::X, -Axis::Z),
-  .mag = AxisRotation::axes(-Axis::Y, -Axis::X, -Axis::Z).rotatedAboutZ(60),
+  // mag z points down in the northern hemisphere
+  // Net: a reflection of the accel-style map, consistent with Memsic drawing +Z into the package.
+  .mag = AxisRotation::axes(Axis::Y, Axis::X, Axis::Z).rotatedAboutZ(60),
   .position = UMPoint::fromMM(2.449, 17.808),
+  .magTempSlopeUTperC = {0.81f, -0.81f, 4.65f}, // bench. FIXME: test multiple units to confirm
+  .magTempRefC = 40,
 };
 #else
 const MotionSensorPlacement kHexaMotionPlacement = {
@@ -435,6 +439,21 @@ void hexline(PixelStorage<LED_COUNT> &ctx, fAxial p0, fAxial p1, bool useGamma, 
   hexline(ctx, p0, p1, useGamma, [color] (uint8_t progress) {
     return color;
   });
+}
+
+// Antialiased dot at a continuous position in rect space using a 3x3 axial neighborhood
+static void hexdot(PixelStorage<LED_COUNT> &ctx, vectorf p, bool useGamma, CRGB color) {
+  fAxial c = axial.rectToHex(p, 1.0);
+  int q0 = roundf(c.q()), r0 = roundf(c.r());
+  for (int q = q0 - 1; q <= q0 + 1; ++q) {
+    for (int r = r0 - 1; r <= r0 + 1; ++r) {
+      vectorf cc = axial.hexToRect(fAxial(q, r), 1.0);
+      float coverage = 1.f - hypotf(cc.x - p.x, cc.y - p.y);
+      if (coverage > 0) {
+        point(ctx, q, r, color, coverage, useGamma);
+      }
+    }
+  }
 }
 
 // insetEdgeNodesBy is here due to dedependency cycle. Axial should have been the base and hexgrid should have been based on that.

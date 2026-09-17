@@ -41,6 +41,7 @@ const unsigned long kStallLogMS = 15; // ~3 motion frames' worth
 #include "power.h"
 
 #include "MotionManager.h"
+#include "compass.h"
 
 #define AUTOBRIGHTNESS (AUTO_BRIGHTNESS_CAPABLE)
 
@@ -120,15 +121,20 @@ void serialTimeoutIndicator() {
   if ((millis() - setupDoneTime) % 250 < 100) {
     ctx.leds.fill_solid(CRGB::Red);
   }
+#ifdef LED_LINE_0_PWR_PIN
   gpio_put(LED_LINE_0_PWR_PIN, true);
+#endif
   FastLED.show();
   delay(20);
 }
 
-mutex_t core1DataLock;
+auto_init_mutex(core1DataLock);
 MotionFrame _gMotionFrame; // locked motion read
 BatteryData _gBatteryData = {0}; // locked BatteryData read
 bool _gCore1DataGetNext = true; // prevent core1 from doing multiple motion reads in a single frame
+volatile bool compassCalRequested = false; // core0 -> core1: COMPASSCAL, discard the hard-iron offset and recalibrate from zero (core1 owns the sensors)
+volatile bool magSetResetRequested = false; // core0 -> core1: MAGSET bench diagnostic (v7 MMC5603NJ)
+volatile bool i2cScanRequested = false;      // core0 -> core1: I2CSCAN bench diagnostic, lists ACKing addresses on Wire
 
 void getAsyncData(MotionFrame *motionFrameRef, BatteryData *batteryDataRef) {
   assert(0 == get_core_num(), "getAGMT not on core0");
@@ -175,28 +181,47 @@ void hard_reset_check_core1() {
   lastMillis = curMillis;
 }
 
-// core1 gets its own stack instead of pico-sdk's 2KB default in SCRATCH_X (the SDK is prebuilt in arduino-pico, so
-// PICO_CORE1_STACK_SIZE can't be changed from build flags). The BMI270 init path (Bosch API + SPI + logf/USB) measured
-// ~1.2KB deep, which is closer to 2KB than we'd like.
-static uint32_t core1Stack[4096 / sizeof(uint32_t)] __attribute__((aligned(8)));
+// we use arduino-pico's setup1()/loop1() for EEPROM support. core1_separate_stack gives it an 8KB heap stack
+// instead of pico-sdk's 2KB default in SCRATCH_X; the BMI270 init path (Bosch API + SPI + logf/USB) is a little (~1.2KB) deep.
+bool core1_separate_stack = true;
+static unsigned long motionStartedAt = 0;
 
-void core1_main() {
-  assert(1 == get_core_num(), "core1_main not on core1");
+void setup1() {
+  assert(1 == get_core_num(), "setup1 not on core1");
+
+#if HAS_MOTION
   // Motion data reads take upwards of 4.5ms so we're doing them on core1
   init_i2c();
 
   unsigned long motionInitStart = millis();
   MotionManager::manager().init(kHexaMotionPlacement);
-  unsigned long motionStartedAt = millis();
+  motionStartedAt = millis();
   btlogf("[t=%lu] core1: motion init took %lums (i2c up at t=%lu)",
          motionStartedAt, motionStartedAt - motionInitStart, motionInitStart);
+#endif
+}
 
-  while (1) {
+void loop1() {
+  {
     while (!_gCore1DataGetNext) {
       hard_reset_check_core1();
       delayMicroseconds(100); // FIXME: i would rather do this with multicore fifo but cannot seem to get fifo to work at all
     }
     hard_reset_check_core1();
+    if (compassCalRequested) {
+      compassCalRequested = false;
+      MotionManager::manager().restartCompassCalibration();
+    }
+#if MOTION_HW_BMI270_MMC5603
+    if (magSetResetRequested) {
+      magSetResetRequested = false;
+      MotionManager::manager().magSetReset();
+    }
+    if (i2cScanRequested) {
+      i2cScanRequested = false;
+      MotionManager::manager().i2cScan();
+    }
+#endif
     MotionFrame motionFrame = MotionManager::manager().loop();
 
     // Publish motion before touching the gauge, so battery i2c lands where core1 would otherwise
@@ -247,6 +272,8 @@ void startupCompleted() {
   indexedRunner->runPatternAtIndex(0);
 }
 
+#include "bench.h"
+
 /* ------ Setup ------------------------------------------------------------------------------------------------------------ */
 
 void setup() {
@@ -287,9 +314,6 @@ void setup() {
 #endif
 
 #endif
-
-  mutex_init(&core1DataLock);
-  multicore_launch_core1_with_stack(core1_main, core1Stack, sizeof(core1Stack));
 
   pinMode(UNCONNECTED_PIN_1, INPUT);
   auto noise = lsb_noise(UNCONNECTED_PIN_1, 8 * sizeof(uint32_t));
@@ -347,6 +371,7 @@ void setup() {
   patternManager.registerPattern<PulseHexaSmooth>();
   patternManager.registerPattern<PridefulSpinnyThing>();
   patternManager.registerPattern<TriangleSpin>();
+  patternManager.registerPattern<CompassPattern>();
   patternManager.registerPattern<SparkleDroplets>();
   patternManager.registerPattern<BlobDroplets>();
   patternManager.registerPattern<SoundBits>();
@@ -430,7 +455,7 @@ void setup() {
 
   setupDoneTime = millis();
   logf("setup done");
-} 
+}
 
 /* ------ Loop ------------------------------------------------------------------------------------------------------------ */
 
@@ -530,44 +555,14 @@ void loop() {
   getAsyncData(&MotionManager::motionFrame, &batteryData);
   powerState.update(isVBUSPowered, batteryData);
 
+  Compass::update(MotionManager::motionFrame);
+
   // shared fft cache reset
   fftProcessing.frameReset();
 
   char *serialLine = readSerialLine();
   updater->loop(serialLine);
-#if HARDWARE_VERSION >= 5
-  if (serialLine && strcmp(serialLine, "POWEROFF") == 0) {
-    // bench helper: with USB attached VBUS re-asserts EN_LDO once GPIO23 goes hi-z, so this is a real cold boot of the 3V3 net
-    logf("POWEROFF requested");
-    Serial.flush();
-    delay(50);
-    powerOff();
-  }
-  if (serialLine && strcmp(serialLine, "POWERON") == 0) {
-    // bench helper: skip the button hold and power-on animation
-    logf("POWERON requested");
-    if (!powerState.isRunning()) {
-      startupCompleted();
-    }
-  }
-  if (serialLine && strcmp(serialLine, kBatteryResetCommand) == 0) {
-    logf("BATRESET requested");
-    batteryResetRequested = true; // executed on core1, which owns i2c
-  }
-  if (serialLine && strncmp(serialLine, "PATTERN ", 8) == 0) {
-    // bench helper: switch the indexed runner by pattern index
-    int patternIndex = atoi(serialLine + 8);
-    logf("PATTERN %i requested", patternIndex);
-    if (powerState.isRunning()) {
-      indexedRunner->runPatternAtIndex(patternIndex);
-    }
-  }
-  if (serialLine && strncmp(serialLine, "FAKEFFT ", 8) == 0) {
-    // bench helper: deterministic synthetic spectrum for sound patterns, 0 = real audio
-    fftProcessing.benchTestLevel = atoi(serialLine + 8);
-    logf("FAKEFFT %i requested", fftProcessing.benchTestLevel);
-  }
-#endif
+  benchLoop(serialLine);
 
 #if PHOTO_BENCH
   photoBench->tempK = batteryData.temperature;

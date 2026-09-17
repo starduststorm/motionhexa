@@ -1,6 +1,4 @@
 #pragma once
-#ifndef MOTIONMANAGER_H
-#define MOTIONMANAGER_H
 
 #include <functional>
 #include <map>
@@ -9,19 +7,32 @@
 
 #include "hexaphysics.h"
 #include "pinout.h"
+#include "compasscal.h"
+#include "compassstore.h"
 
 // Motion sensing hardware by revision:
 //   v7+:  BMI270 6-axis accel/gyro on SPI0 (GPIO0-3) + MMC5603NJ 3-axis magnetometer on I2C. Orientation is fused in software.
 //   v1-6: ICM-20948 9-axis on I2C, with the on-chip DMP providing the orientation quaternion.
 // MotionFrame is backend agnostic. localizeMotionFrame corrects for IMU placement.
+// The magnetometer is hard-iron corrected on both (compasscal.h/compassstore.h); heading lives in compass.h.
 #define MOTION_HW_BMI270_MMC5603 (HARDWARE_VERSION >= 7)
-#define MOTION_HW_ICM20948 (HARDWARE_VERSION < 7)
+#define MOTION_HW_ICM20948 (HARDWARE_VERSION >= 1 && HARDWARE_VERSION < 7)
+
+// Compiled-in hard-iron seed, uT, magnetometer package frame; all zero = none. Written and trusted at boot on a unit with
+// no stored calibration so the compass arrow is available before the first tumble; the always-on calibrator
+// (compasscal.h) corrects it from there. 
+// FIXME: measure several units and fill this, but only if unit-to-unit spread is small (< ~20uT).
+#if HARDWARE_VERSION >= 7
+constexpr float kHexaDefaultMagBiasUT[3] = {0, 0, 0};
+#else
+constexpr float kHexaDefaultMagBiasUT[3] = {0, 0, 0};
+#endif
 
 #if MOTION_HW_BMI270_MMC5603
 #include <SPI.h>
 #include <SparkFun_BMI270_Arduino_Library.h>
 #include <Adafruit_MMC56x3.h>
-#else
+#elif MOTION_HW_ICM20948
 #include <ICM_20948.h>
 #endif
 
@@ -49,6 +60,11 @@ struct MotionFrame {
   bool hasAccelGyro = false; // acc/gyr came from a live sensor this frame
   bool hasMag = false;       // mag came from a live sensor this frame
   bool hasOrientation = false; // quat/euler are valid
+  float tempC = 0;           // IMU die temperature, a board temperature proxy for correlating magnetometer drift
+  uint32_t magCount = 0;     // increments per fresh magnetometer sample; compare across frames to detect new data
+  uint16_t magInitRetries = 0; // magnetometer bring-up retries since boot (v7; nonzero means it failed at boot)
+  bool magCalibrated = false; // the hard-iron offset in effect is trusted (restored from flash or converged); heading usability is compass.h's call
+  CompassCalStatus compassCal; // always-on hard-iron calibrator snapshot (core1 -> core0)
 };
 
 // The hexa's logical motion frame, expressed against the pixel geometry (hexGrid positions: x increases along a row, y
@@ -124,9 +140,15 @@ struct MotionSensorPlacement {
   // Accel/gyro position relative to the center of the pixel array, in micrometers. In pixel geometry axes rather than motion
   // axes, since what consumes it (accelerationAtPixelIndex) works in pixel positions.
   UMPoint position;
+  // Temperature coefficient of the board's hard iron, uT per degC, motion frame (what the COMPASS log shows), applied as
+  // bias(T) = bias + slope * (T - magTempRefC) with T the IMU die temperature. Something near the v7 magnetometer is
+  // thermally magnetic: 5uT/degC, linear over 30-47degC. All zero = no compensation. The stored hard-iron
+  // offset is defined at magTempRefC.
+  float magTempSlopeUTperC[3] = {0, 0, 0};
+  float magTempRefC = 40;
 };
 
-class MotionManager {
+class MotionManager : public MagBiasPort {
 protected:
   static MotionManager *_singleton;
   MotionManager() {}
@@ -155,10 +177,49 @@ private:
   bool hasIMU = false;
   bool hasMagnetometer = false;
   MotionFrame frame; // store frame between loops since our framerate can exceed the sensor odr
+  CompassCalibrator calibrator; // always-on hard-iron calibration, core1; see compasscal.h
+
+  // Restore the persisted hard-iron offset, if any, into the chip; the calibrator trusts it until a tumble says otherwise.
+  // Logs integers only (core1).
+  void restoreMagBias() {
+    CompassBiasRecord rec;
+    if (compassStoreRead(&rec)) {
+      float b[3] = {rec.biasCentiUT[0] / 100.0f, rec.biasCentiUT[1] / 100.0f, rec.biasCentiUT[2] / 100.0f};
+      bool ok = writeMagBias(b);
+      if (ok) calibrator.noteRestoredBias(b, rec.fitRadiusCentiUT / 100.0f);
+      logf("  mag bias restore [%ld %ld %ld] x0.01uT R=%ld calCount=%lu spread=%ld: %s",
+           (long)rec.biasCentiUT[0], (long)rec.biasCentiUT[1], (long)rec.biasCentiUT[2], (long)rec.fitRadiusCentiUT,
+           (unsigned long)rec.calCount, (long)rec.magSpreadCentiUT, ok ? "ok" : "FAILED");
+    } else if (kHexaDefaultMagBiasUT[0] != 0 || kHexaDefaultMagBiasUT[1] != 0 || kHexaDefaultMagBiasUT[2] != 0) {
+      bool ok = writeMagBias(kHexaDefaultMagBiasUT);
+      if (ok) calibrator.noteRestoredBias(kHexaDefaultMagBiasUT, 0);
+      logf("  mag: no stored bias; seeded the hardware v%i default (%s)", HARDWARE_VERSION, ok ? "ok" : "FAILED");
+    } else {
+      logf("  mag: no stored bias; calibrating in the background (tumble the device)");
+    }
+  }
 
 #if MOTION_HW_ICM20948
   const bool enableDMP = true;
   ICM_20948_I2C icm;
+
+  // Hard iron lives in the DMP compass bias registers (uT * 2^16, ICM body frame), which the DMP subtracts before its own
+  // fusion and before the Compass_Calibr output. The registers start at zero every boot.
+  static constexpr float kCPassBiasScale = 65536.0f;
+  bool readMagBias(float b[3]) override {
+    int32_t r[3];
+    bool ok = (icm.getBiasCPassX(&r[0]) == ICM_20948_Stat_Ok);
+    ok &= (icm.getBiasCPassY(&r[1]) == ICM_20948_Stat_Ok);
+    ok &= (icm.getBiasCPassZ(&r[2]) == ICM_20948_Stat_Ok);
+    for (int i = 0; i < 3; ++i) b[i] = r[i] / kCPassBiasScale;
+    return ok;
+  }
+  bool writeMagBias(const float b[3]) override {
+    bool ok = (icm.setBiasCPassX((int32_t)(b[0] * kCPassBiasScale)) == ICM_20948_Stat_Ok);
+    ok &= (icm.setBiasCPassY((int32_t)(b[1] * kCPassBiasScale)) == ICM_20948_Stat_Ok);
+    ok &= (icm.setBiasCPassZ((int32_t)(b[2] * kCPassBiasScale)) == ICM_20948_Stat_Ok);
+    return ok;
+  }
   void initDMP() {
     logf("Init DMP...");
     bool success = true; // Use success to show if the DMP configuration was successful
@@ -170,9 +231,17 @@ private:
     success &= (icm.enableDMPSensor(INV_ICM20948_SENSOR_LINEAR_ACCELERATION) == ICM_20948_Stat_Ok);
     success &= (icm.enableDMPSensor(INV_ICM20948_SENSOR_ORIENTATION) == ICM_20948_Stat_Ok);
 
+    // 32-bit DMP-calibrated compass (Compass_Calibr packets, uT * 2^16) is our only usable mag source while the DMP runs
+    // (see readHardware). NOTE: do NOT enable INV_ICM20948_SENSOR_GEOMAGNETIC_ROTATION_VECTOR, it
+    // perturbs the DMP: compass runtime calibration never engaged (biases stuck at 0), header2 compass accuracy read
+    // garbage, and the fusion slewed the attitude at up to ~26 deg/s while the device was physically stationary.
+    success &= (icm.enableDMPSensor(INV_ICM20948_SENSOR_GEOMAGNETIC_FIELD) == ICM_20948_Stat_Ok);
+
     // Configuring DMP to output data at multiple ODRs:
     // Value = (DMP running rate / ODR ) - 1
     success &= (icm.setDMPODRrate(DMP_ODR_Reg_Quat9, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+    // DMP runs at 55Hz; 10 ≈ 5Hz. FIFO output rate only; fusion still consumes the mag at the 69Hz set by initializeDMP.
+    success &= (icm.setDMPODRrate(DMP_ODR_Reg_Cpass_Calibr, 10) == ICM_20948_Stat_Ok);
 
     success &= (icm.enableFIFO() == ICM_20948_Stat_Ok);
     success &= (icm.enableDMP() == ICM_20948_Stat_Ok);
@@ -184,6 +253,9 @@ private:
     } else {
       logf("Enable DMP failed!");
     }
+
+    // Bias register writes go after the reset sequence, per SparkFun Example11.
+    restoreMagBias();
   }
 
   bool initHardware() {
@@ -202,30 +274,55 @@ private:
     // ICM DMP config is ±4g / ±2000dps, i.e. exactly the MotionFrame scales, so raw LSBs pass through
     frame.acc = vector16(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
     frame.gyr = vector16(agmt.gyr.axes.x, agmt.gyr.axes.y, agmt.gyr.axes.z);
-    // AK09916 is 0.15µT/LSB -> 10 LSB/µT
-    frame.mag = vector16(agmt.mag.axes.x * 3 / 2, agmt.mag.axes.y * 3 / 2, agmt.mag.axes.z * 3 / 2);
     frame.hasAccelGyro = true;
-    frame.hasMag = true;
-
+    frame.tempC = agmt.tmp.val / 333.87f + 21.0f; // datasheet: 333.87 LSB/degC, 21degC offset
+    // NOTE: agmt.mag is garbage whenever the DMP is enabled: initializeDMP reconfigures I2C_SLV0 to read 10 byte-swapped
+    // bytes from the AK09916's undocumented RSV2 register, but getAGMT still parses EXT_SLV_SENS_DATA assuming the non-DMP
+    // little-endian layout. The mag comes from the DMP's Compass_Calibr FIFO output below instead.
     if (!enableDMP) {
+      // AK09916 is 0.15µT/LSB -> 10 LSB/µT
+      frame.mag = vector16(agmt.mag.axes.x * 3 / 2, agmt.mag.axes.y * 3 / 2, agmt.mag.axes.z * 3 / 2);
+      frame.hasMag = true;
+      frame.magCount++;
       return;
     }
-    icm_20948_DMP_data_t data;
-    icm.readDMPdataFromFIFO(&data);
 
-    if ((icm.status == ICM_20948_Stat_Ok) || (icm.status == ICM_20948_Stat_FIFOMoreDataAvail)) { // Was valid data available?
-      if ((data.header & DMP_header_bitmap_Quat9) > 0) {
-        // Q0 value is computed from this equation: Q0^2 + Q1^2 + Q2^2 + Q3^2 = 1.
-        // The quaternion data is scaled by 2^30.
-        double q1 = ((double)data.Quat9.Data.Q1) / 1073741824.0;
-        double q2 = ((double)data.Quat9.Data.Q2) / 1073741824.0;
-        double q3 = ((double)data.Quat9.Data.Q3) / 1073741824.0;
-        double q0sq = 1.0 - ((q1 * q1) + (q2 * q2) + (q3 * q3));
-        if (q0sq < 0.0) q0sq = 0.0;
-        double q0 = sqrt(q0sq);
-        frame.quat = {(float)q0, (float)q1, (float)q2, (float)q3};
-        frame.hasOrientation = true;
+    // Drain the FIFO so we always end on the freshest sample; reading a single packet per loop falls behind permanently
+    // once the FIFO backs up during a slow pattern frame.
+    icm_20948_DMP_data_t data;
+    do {
+      icm.readDMPdataFromFIFO(&data);
+      if ((icm.status != ICM_20948_Stat_Ok) && (icm.status != ICM_20948_Stat_FIFOMoreDataAvail)) {
+        break;
       }
+      processDMPPacket(data);
+    } while (icm.status == ICM_20948_Stat_FIFOMoreDataAvail);
+  }
+
+  void processDMPPacket(const icm_20948_DMP_data_t &data) {
+    if ((data.header & DMP_header_bitmap_Quat9) > 0) {
+      // Q0 value is computed from this equation: Q0^2 + Q1^2 + Q2^2 + Q3^2 = 1.
+      // The quaternion data is scaled by 2^30.
+      double q1 = ((double)data.Quat9.Data.Q1) / 1073741824.0;
+      double q2 = ((double)data.Quat9.Data.Q2) / 1073741824.0;
+      double q3 = ((double)data.Quat9.Data.Q3) / 1073741824.0;
+      double q0sq = 1.0 - ((q1 * q1) + (q2 * q2) + (q3 * q3));
+      if (q0sq < 0.0) q0sq = 0.0;
+      double q0 = sqrt(q0sq);
+      frame.quat = {(float)q0, (float)q1, (float)q2, (float)q3};
+      frame.hasOrientation = true;
+    }
+    // DMP-calibrated compass (uT * 2^16, ICM body frame, hard-iron biases already subtracted)
+    if (data.header & DMP_header_bitmap_Compass_Calibr) {
+      float m[3] = {
+        data.Compass_Calibr.Data.X / kCPassBiasScale,
+        data.Compass_Calibr.Data.Y / kCPassBiasScale,
+        data.Compass_Calibr.Data.Z / kCPassBiasScale,
+      };
+      frame.mag = vector16(clamp16(m[0] * magToUTScale), clamp16(m[1] * magToUTScale), clamp16(m[2] * magToUTScale));
+      frame.hasMag = true;
+      frame.magCount++;
+      calibrator.onMagSample(m);
     }
   }
 
@@ -236,11 +333,37 @@ private:
     }
   }
 
-#else // MOTION_HW_BMI270_MMC5603
+#elif MOTION_HW_BMI270_MMC5603
 
   BMI270 imu;
   Adafruit_MMC5603 mag = Adafruit_MMC5603(12345);
   unsigned long lastFusionMicros = 0;
+
+  // Hard iron is a software offset, uT, MMC5603NJ package frame, subtracted from every reading, plus a temperature term
+  // (placement.magTempSlopeUTperC rotated into the package frame at init; the map is orthogonal so its inverse is its transpose).
+  float magBiasUT[3] = {0, 0, 0};
+  float magTempSlopePkg[3] = {0, 0, 0};
+  float lastRawMagUT[3] = {0, 0, 0}; // continuous mode has no data-ready flag we use; a changed reading is a fresh sample
+  bool readMagBias(float b[3]) override {
+    for (int i = 0; i < 3; ++i) b[i] = magBiasUT[i];
+    return true;
+  }
+  bool writeMagBias(const float b[3]) override {
+    for (int i = 0; i < 3; ++i) magBiasUT[i] = b[i];
+    return true;
+  }
+
+public:
+  // core1, bench diagnostic (MAGSET serial command): pulse the MMC5603NJ SET/RESET coils and resume continuous mode. A step
+  // in the reading afterwards means the drift was the AMR bridge offset (fixable with periodic auto SET/RESET); no step
+  // means it is external to the sensor.
+  void magSetReset() {
+    if (!hasMagnetometer) return;
+    mag.magnetSetReset();      // writes CTRL0 directly, which drops Cmm_freq_en
+    mag.setContinuousMode(true);
+    logf("mag SET/RESET pulsed");
+  }
+private:
 
   bool initHardware() {
     // BMI270 on SPI0. GPIO0=RX(SDO), GPIO1=CS, GPIO2=SCK, GPIO3=TX(SDI). 
@@ -278,19 +401,55 @@ private:
       imu.disableAdvancedPowerSave();
     }
 
-    hasMagnetometer = mag.begin(MMC56X3_DEFAULT_ADDRESS, &Wire);
+    initMagnetometer();
     logf("  MMC5603NJ init = %i", hasMagnetometer);
-    if (hasMagnetometer) {
-      // continuous mode so reads never block waiting on a one-shot conversion; 200Hz keeps up with the frame loop
-      mag.setDataRate(200);
-      mag.setContinuousMode(true);
-    }
     return hasIMU || hasMagnetometer;
   }
 
-  static int16_t clamp16(float v) {
-    return (int16_t)constrain(v, -32768.f, 32767.f);
+  // Bring up the MMC5603NJ. Retry with logging to find intermittent init issues.
+  unsigned long lastMagRetryMillis = 0;
+  uint16_t magRetries = 0;
+  void initMagnetometer() {
+    hasMagnetometer = mag.begin(MMC56X3_DEFAULT_ADDRESS, &Wire);
+    if (hasMagnetometer) {
+      // continuous mode so reads never block waiting on a one-shot conversion; 200Hz keeps up with the frame loop.
+      // begin() already pulsed SET/RESET once to clear the sensor's own bridge offset; the board's hard iron is ours.
+      mag.setDataRate(200);
+      mag.setContinuousMode(true);
+      restoreMagBias();
+    }
   }
+  // Raw probe for the retry log: does 0x30 ACK, and what product ID does it report (0x10 expected)?
+  void probeMagnetometer(int *ack, int *productId) {
+    Wire.beginTransmission(MMC56X3_DEFAULT_ADDRESS);
+    Wire.write(0x39); // MMC56X3_PRODUCT_ID
+    *ack = Wire.endTransmission(false);
+    *productId = -1;
+    if (Wire.requestFrom((uint8_t)MMC56X3_DEFAULT_ADDRESS, (uint8_t)1) == 1) *productId = Wire.read();
+    else Wire.endTransmission(true);
+  }
+  void retryMagnetometer() {
+    if (hasMagnetometer || millis() - lastMagRetryMillis < 3000) return;
+    lastMagRetryMillis = millis();
+    int ack, id;
+    probeMagnetometer(&ack, &id);
+    initMagnetometer();
+    magRetries++;
+    logf("MMC5603NJ retry #%u: probe ack=%i (0=ok) productId=0x%02x, begin=%i", magRetries, ack, id, hasMagnetometer);
+  }
+
+public:
+  // core1, bench diagnostic (I2CSCAN serial command): list the addresses that ACK on the Wire bus.
+  void i2cScan() {
+    char line[160]; int n = 0;
+    n += snprintf(line + n, sizeof(line) - n, "I2C scan:");
+    for (uint8_t a = 1; a < 127 && n < (int)sizeof(line) - 6; ++a) {
+      Wire.beginTransmission(a);
+      if (Wire.endTransmission(true) == 0) n += snprintf(line + n, sizeof(line) - n, " 0x%02x", a);
+    }
+    logf("%s%s", line, n <= 10 ? " (nothing)" : "");
+  }
+private:
 
   void readHardware() {
     if (hasIMU) {
@@ -301,12 +460,32 @@ private:
         frame.gyr = vector16(clamp16(imu.data.gyroX * dpsToLSB), clamp16(imu.data.gyroY * dpsToLSB), clamp16(imu.data.gyroZ * dpsToLSB));
         frame.hasAccelGyro = true;
       }
+      static unsigned long lastTempMillis = 0;
+      if (millis() - lastTempMillis >= 1000) { // two SPI register reads; once a second is plenty
+        lastTempMillis = millis();
+        float t;
+        if (imu.getTemperature(&t) == BMI2_OK) frame.tempC = t;
+      }
     }
+    retryMagnetometer();
     if (hasMagnetometer) {
       sensors_event_t event;
       if (mag.getEvent(&event)) {
-        frame.mag = vector16(clamp16(event.magnetic.x * magToUTScale), clamp16(event.magnetic.y * magToUTScale), clamp16(event.magnetic.z * magToUTScale));
-        frame.hasMag = true;
+        float raw[3] = {event.magnetic.x, event.magnetic.y, event.magnetic.z};
+        bool fresh = (raw[0] != lastRawMagUT[0] || raw[1] != lastRawMagUT[1] || raw[2] != lastRawMagUT[2]);
+        bool compensated = frame.tempC != 0 || (magTempSlopePkg[0] == 0 && magTempSlopePkg[1] == 0 && magTempSlopePkg[2] == 0);
+        if (fresh && compensated) { // an uncompensated sample (no die temperature yet, first frames after boot) is tens of uT off
+          float m[3];
+          float dT = frame.tempC - placement.magTempRefC;
+          for (int i = 0; i < 3; ++i) {
+            lastRawMagUT[i] = raw[i];
+            m[i] = raw[i] - magBiasUT[i] - magTempSlopePkg[i] * dT;
+          }
+          frame.mag = vector16(clamp16(m[0] * magToUTScale), clamp16(m[1] * magToUTScale), clamp16(m[2] * magToUTScale));
+          frame.hasMag = true;
+          frame.magCount++;
+          calibrator.onMagSample(m);
+        }
       }
     }
   }
@@ -393,9 +572,31 @@ private:
     f.euler = eulerFromQuaternion(f.quat);
     f.hasOrientation = true;
   }
+#else
+  bool initHardware() {
+    assert(!HAS_MOTION, "No motion hardware");
+  }
+  void readHardware() {
+    assert(!HAS_MOTION, "No motion hardware");
+  }
 #endif
 
+  static int16_t clamp16(float v) {
+    return (int16_t)constrain(v, -32768.f, 32767.f);
+  }
+
 public:
+  // core1. COMPASSCAL: discard the hard-iron offset in effect and recalibrate from zero (the calibrator is otherwise always
+  // running; this is for the bench). Progress is published in MotionFrame::compassCal; core0 persists (compassCalLoop).
+  void restartCompassCalibration() {
+    if (!hasMagnetometer) {
+      logf("compass cal: no magnetometer");
+      return;
+    }
+    logf("compass cal: restarting from zero");
+    calibrator.restart(*this);
+  }
+
   static Euler eulerFromQuaternion(const Quaternion &q) {
     // https://en.wikipedia.org/w/index.php?title=Conversion_between_quaternions_and_Euler_angles&section=8#Source_code_2
     double q0 = q.w, q1 = q.x, q2 = q.y, q3 = q.z;
@@ -425,6 +626,16 @@ public:
   bool init(const MotionSensorPlacement &placement) {
     logf("motionManager INIT");
     this->placement = placement;
+#if MOTION_HW_BMI270_MMC5603
+    for (int i = 0; i < 3; ++i) {
+      magTempSlopePkg[i] = 0;
+      for (int k = 0; k < 3; ++k) magTempSlopePkg[i] += placement.mag.m[k][i] * placement.magTempSlopeUTperC[k];
+    }
+    if (placement.magTempSlopeUTperC[0] != 0 || placement.magTempSlopeUTperC[1] != 0 || placement.magTempSlopeUTperC[2] != 0) {
+      logf("  mag thermal compensation [%.2f %.2f %.2f]uT/degC (package frame), offset defined at %.0fdegC",
+           magTempSlopePkg[0], magTempSlopePkg[1], magTempSlopePkg[2], placement.magTempRefC);
+    }
+#endif
     bool ok = initHardware();
     return ok;
   }
@@ -451,6 +662,12 @@ public:
     frame.hasAccelGyro = false;
     frame.hasMag = false;
     readHardware();
+    calibrator.loop(*this, hasMagnetometer);
+#if MOTION_HW_BMI270_MMC5603
+    frame.magInitRetries = magRetries;
+#endif
+    frame.compassCal = calibrator.status();
+    frame.magCalibrated = calibrator.calibrated();
     MotionFrame out = frame;
     localizeMotionFrame(out);
     finishFrame(out);
@@ -466,5 +683,3 @@ MotionManager &MotionManager::manager() {
   }
   return *_singleton;
 }
-
-#endif

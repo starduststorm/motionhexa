@@ -179,10 +179,12 @@
 
 #endif // pinout.
 
-#define AUTO_BRIGHTNESS_CAPABLE (HARDWARE_VERSION >= 6)
+#define HAS_AUTO_BRIGHTNESS (HARDWARE_VERSION >= 6)
 
 #ifndef PHOTOSENSOR_COUNT
 #define PHOTOSENSOR_COUNT 1
 #endif
+
+#define HAS_MOTION (HARDWARE_VERSION >= 1)
 
 #endif
