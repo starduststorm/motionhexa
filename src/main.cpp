@@ -1,4 +1,5 @@
 #define DEBUG 0
+#define LOG_BOOT_CAPTURE_BYTES 3072 // keep the boot log for HWTEST (nothing is listening on Serial that early)
 #define WAIT_FOR_SERIAL 0
 #define PERF_TIMING 1 // log detailed per-frame phase timing
 
@@ -88,6 +89,7 @@ FFTProcessing fftProcessing(audioInput, 10, 128);
 
 IndexedPatternRunner *indexedRunner; // main pattern runner
 std::shared_ptr<PatternRunner> powerOnOffRunner;
+std::shared_ptr<PatternRunner> lowBatteryRunner; // refused power-on indication; owns the panel until it powers us off
 
 RP2040Updater *updater;
 
@@ -141,6 +143,7 @@ bool _gCore1DataGetNext = true; // prevent core1 from doing multiple motion read
 volatile bool compassCalRequested = false; // core0 -> core1: COMPASSCAL, discard the hard-iron offset and recalibrate from zero (core1 owns the sensors)
 volatile bool magSetResetRequested = false; // core0 -> core1: MAGSET bench diagnostic (v7 MMC5603NJ)
 volatile bool i2cScanRequested = false;      // core0 -> core1: I2CSCAN bench diagnostic, lists ACKing addresses on Wire
+void hwTestCore1();                          // hwtest.h: the HWTEST self-test's share of core1 (it owns Wire)
 
 void getAsyncData(MotionFrame *motionFrameRef, BatteryData *batteryDataRef) {
   assert(0 == get_core_num(), "getAGMT not on core0");
@@ -238,6 +241,9 @@ void loop1() {
       MotionManager::manager().i2cScan();
     }
 #endif
+#if HARDWARE_VERSION >= 5
+    hwTestCore1();
+#endif
     MotionFrame motionFrame = MotionManager::manager().loop();
 #if !HAS_MOTION
     synthesizeMotionFrame(motionFrame);
@@ -283,6 +289,45 @@ void stopHexa() {
   // so always power off in this case to reset state, rather than checking vbus.
   powerOff();
 }
+
+// animated power off from the running state (long press, low battery)
+void beginPowerOff() {
+  if (patternManager.hasTestRunner()) {
+    // special case test runner since the power off animation will not run
+    powerOff();
+  } else if (!powerOnOffRunner) {
+    powerOnOffRunner = patternManager.runOneShotPattern([](PatternRunner&) {
+      return new PowerOnOffAnimation(false);
+    }, 0xFF, 0xFF, [](PatternRunner&) {
+      stopHexa();
+      powerOnOffRunner.reset();
+    });
+    powerOnOffRunner->animateDim = true;
+  }
+}
+
+#if HARDWARE_VERSION >= 7
+// Low battery at power-on: drop whatever the power-on sequence got to, pulse the indication, power off.
+// (powerOff() idles dark for as long as the button stays held.)
+void refuseStartForLowBattery() {
+  lowBatteryRunner = patternManager.runOneShotPattern([](PatternRunner&) {
+    return new LowBatteryIndicator();
+  }, 0xFF, 0xFF, [](PatternRunner&) {
+    ctx.leds.fill_solid(CRGB::Black);
+    FastLED.show();
+    stopHexa();
+    lowBatteryRunner.reset(); // still here: VBUS arrived, or the LOWBATT bench command while plugged in
+  });
+  if (powerOnOffRunner) {
+    // its completion sees lowBatteryRunner and stands down
+    patternManager.removeRunner(powerOnOffRunner);
+  }
+  if (powerState.isRunning()) {
+    indexedRunner->stop();
+    powerState.setRunning(false);
+  }
+}
+#endif
 #endif
 
 void startupCompleted() {
@@ -292,6 +337,8 @@ void startupCompleted() {
 }
 
 #include "bench.h"
+#include "hwtest.h"
+const char *hardwareVersionString = "";
 
 /* ------ Setup ------------------------------------------------------------------------------------------------------------ */
 
@@ -350,7 +397,12 @@ void setup() {
 #endif
   pinMode(VBUS_SENSOR_PIN, INPUT_PULLDOWN);
   
+#if HARDWARE_VERSION >= 7
+  // v7 pulls GPOUT up to the gauge's own 1.8V regulator output (R6); our 3.3V pull-up on top would back-feed that rail
+  pinMode(GPOUT_PIN, INPUT);
+#else
   pinMode(GPOUT_PIN, INPUT_PULLUP);
+#endif
 #endif
 #if HARDWARE_VERSION >= 4
 #ifdef EN_BOOST_PIN
@@ -445,20 +497,7 @@ void setup() {
   mainButton->onLongPress([]() {
     logf("Long press! isHexaRunning = %i", powerState.isRunning());
     if (powerState.isRunning()) {
-      bool usbPower = digitalRead(VBUS_SENSOR_PIN);
-      // turn off
-      if (patternManager.hasTestRunner()) {
-        // special case test runner since the power off animation will not run
-        powerOff();
-      } else if (!powerOnOffRunner) {
-        powerOnOffRunner = patternManager.runOneShotPattern([](PatternRunner&) {
-          return new PowerOnOffAnimation(false);
-        }, 0xFF, 0xFF, [](PatternRunner&) {
-          stopHexa();
-          powerOnOffRunner.reset();
-        });
-        powerOnOffRunner->animateDim = true;
-      }
+      beginPowerOff();
     }
   });
 #endif
@@ -487,9 +526,9 @@ void setup() {
   audioInput.subscribe();
 
 #if MINI_VERSION
-  const char* hardwareVersionString = "mini" xstr(MINI_VERSION);
+  hardwareVersionString = "mini" xstr(MINI_VERSION);
 #else
-  const char* hardwareVersionString = (v6Hardware ? "6" : xstr(HARDWARE_VERSION));
+  hardwareVersionString = (v6Hardware ? "6" : xstr(HARDWARE_VERSION));
 #endif
   updater = new RP2040Updater("motionhexa", SOFTWARE_VERSION, hardwareVersionString, [](void) {
     patternManager.runOneShotPattern<BlinkIdentifyPattern>(0xFE, 0xFF);
@@ -535,7 +574,9 @@ void loop() {
 #endif
 #endif
 #if HARDWARE_VERSION >= 4
-  if (!powerState.isRunning()) {
+  if (lowBatteryRunner) {
+    // refusing to start; the indication's completion powers off
+  } else if (!powerState.isRunning()) {
     if (powerOnOffRunner) {
       PowerOnOffAnimation *pattern = (PowerOnOffAnimation *)powerOnOffRunner->pattern;
       assert(pattern, "PowerOnOffAnimation exists but no pattern?");
@@ -550,12 +591,20 @@ void loop() {
           pattern->setPoweringOn(isButtonPressed);
         }
       }
+#if HARDWARE_VERSION >= 7
+    } else if (!lowBattery.startResolved(isVBUSPowered)) {
+      // hold the power-on animation for the first gauge sample: a flat cell gets the low battery indication instead
+#endif
     } else if (isButtonPressed && !patternManager.hasTestRunner()) {
       // we need to pause button events here since we don't know how many times it will be pressed and released before the animation is done
       mainButton->pauseEvents = true;
       powerOnOffRunner = patternManager.runOneShotPattern([](PatternRunner&) {
         return new PowerOnOffAnimation(true);
       }, 0xFF, 0xFF, [](PatternRunner&) {
+        if (lowBatteryRunner) {
+          powerOnOffRunner.reset();
+          return;
+        }
         if (!powerState.isRunning()) { // we might have called it good early
           bool isButtonPressed = mainButton->isButtonPressed();
           if (isButtonPressed) {
@@ -577,7 +626,7 @@ void loop() {
     }
   }
 
-  if (!isButtonPressed && !isVBUSPowered && !powerState.isRunning() && !powerOnOffRunner) {
+  if (!isButtonPressed && !isVBUSPowered && !powerState.isRunning() && !powerOnOffRunner && !lowBatteryRunner) {
     // unplugged USB while not drawing patterns or released button early during power on
     logf("No USB, no button, and no intent to run. Powering off...");
     powerOff();
@@ -596,6 +645,19 @@ void loop() {
 
   getAsyncData(&MotionManager::motionFrame, &batteryData);
   powerState.update(isVBUSPowered, batteryData);
+#if HARDWARE_VERSION >= 7
+  if (!lowBatteryRunner) {
+    LowBatteryMonitor::Verdict lowBatteryVerdict = lowBattery.update(isVBUSPowered, batteryData);
+    if (lowBatteryVerdict == LowBatteryMonitor::shutdown && powerState.isRunning() && !powerOnOffRunner) {
+      logf("Low battery (%umV). Powering off...", batteryData.voltage);
+      beginPowerOff();
+    } else if (lowBatteryVerdict == LowBatteryMonitor::refuseStart) {
+      // powering on from a flat cell: say so rather than start what we can't sustain
+      logf("Low battery (%umV), not starting", batteryData.voltage);
+      refuseStartForLowBattery();
+    }
+  }
+#endif
 
   Compass::update(MotionManager::motionFrame);
 
@@ -605,6 +667,17 @@ void loop() {
   char *serialLine = readSerialLine();
   updater->loop(serialLine);
   benchLoop(serialLine);
+#if HARDWARE_VERSION >= 5
+  if (serialLine && strcmp(serialLine, kHWTestCommand) == 0 && !hwTest.active()) {
+    hwTest.begin(hardwareVersionString);
+  }
+  if (hwTest.active()) {
+    // the self-test owns the panel for its few seconds
+    hwTest.loop(MotionManager::motionFrame, batteryData, isVBUSPowered, isButtonPressed);
+    fc.loop();
+    return;
+  }
+#endif
 
 #if PHOTO_BENCH
   photoBench->tempK = batteryData.temperature;

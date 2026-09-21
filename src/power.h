@@ -7,6 +7,13 @@
 #include "pinout.h"
 
 const int kFullCharge = 95; // %, limit for charging ui
+// The gauge's soc can't be relied on to reach kFullCharge (its capacity learning lags a new cell, and the charger quits at
+// its own C/10 regardless), so the charge also counts as complete when the gauge says so (FC) or the charger has stopped
+// pushing current into a cell that is near the top. 
+const int16_t kChargeIdleMA = 50;
+const uint16_t kChargeIdleMinMV = 4000; // below this, no current means a charger that isn't running, not one that finished
+const unsigned long kChargeIdleHoldMS = 60000;
+const uint16_t kGaugeFlagFullCharge = 1 << 9; // FLAGS FC, BQ27421 and BQ27427
 
 // v5/v6 charger (LP28013HQVF-435) floats at 4.35V but the cells are 4.2V; v7's LY4176D terminates on its own.
 #define SOFTWARE_CHARGE_LIMITER (HARDWARE_VERSION >= 5 && HARDWARE_VERSION < 7)
@@ -55,6 +62,10 @@ struct BatteryData {
   bool gaugingReady() {
     return sampled && fullCapacity != 0;
   }
+  // A dead i2c bus reads all 1s (soc 65535%, 65535mV), which must never pass for a full battery.
+  bool plausible() {
+    return stateOfCharge <= 100 && voltage > 2000 && voltage < 4600;
+  }
 };
 const unsigned int BATTERY_CAPACITY = 2000;
 BatteryData batteryData = {0};
@@ -70,7 +81,7 @@ uint16_t batterySenseMV() {
 }
 // core0 samples the sense pin here so core1's battery log can print it next to the gauge voltage
 volatile uint16_t lastBatterySenseMV = 0;
-#endif
+#endif // SOFTWARE_CHARGE_LIMITER
 
 class PowerManager {
   bool runningState = 0;
@@ -79,6 +90,7 @@ class PowerManager {
   unsigned long lastChargingChange=0; // ms
   int knownChargePercent = 0;
   unsigned long lastFullChargeChange=0; // ms
+  unsigned long chargeIdleSince = 0;    // ms, 0 when the charger is (or may be) still pushing current
 
   void setCharging(bool charging) {
     if (chargingState != charging) {
@@ -120,12 +132,21 @@ public:
     } else if (batteryData.gaugingReady()) {
       setCharging(batteryInitialized && batteryData.batteryDetected());
     }
-    if (!batteryData.gaugingReady()) {
+    if (!batteryData.gaugingReady() || !batteryData.plausible()) {
       return;
     }
 
+    bool chargeIdle = vbusPowered && batteryData.voltage >= kChargeIdleMinMV && batteryData.current < kChargeIdleMA;
+    if (!chargeIdle) {
+      chargeIdleSince = 0;
+    } else if (chargeIdleSince == 0) {
+      chargeIdleSince = millis();
+    }
+    bool chargerDone = chargeIdleSince != 0 && millis() - chargeIdleSince >= kChargeIdleHoldMS;
+    bool gaugeFull = vbusPowered && (batteryData.flags & kGaugeFlagFullCharge);
+
     // ChargeController's software cutoff is authoritative for "full"
-    int chargePercent = batteryData.softFull ? 100 : batteryData.stateOfCharge;
+    int chargePercent = (batteryData.softFull || chargerDone || gaugeFull) ? 100 : batteryData.stateOfCharge;
     if (chargePercent >= kFullCharge && knownChargePercent < kFullCharge) {
       logdf("Reached Full Charge!");
       lastFullChargeChange = millis();
@@ -156,7 +177,7 @@ volatile bool batteryResetRequested = false;
 // Versioning lasts while BQ2742* is powered, mismatch triggers a reset+reconfigure.
 // Bump the generation whenever the config values in initializeBattery() change.
 // Older firmware wrote a plain 2000 (at the wrong offset on the BQ27421); ROM default is 1340.
-const uint16_t kGaugeConfigGeneration = 2; // 2: BQ27427 current polarity
+const uint16_t kGaugeConfigGeneration = 3; // 2: BQ27427 current polarity, 3: BQ27427 SLEEP disabled
 uint16_t targetDesignCapacity() { return BATTERY_CAPACITY + kGaugeConfigGeneration; }
 
 // Reads the marker without disturbing the gauge. Returns 0 on error.
@@ -189,10 +210,12 @@ uint16_t readGaugeDesignCapacity(uint16_t deviceType) {
 // Configures the gauge on the first battery connection (ITPOR) or a config-generation change;
 // otherwise a few reads confirm the marker and the running gauge is left alone. The config path
 // blocks core1 for ~1.5s (mostly the gauge's soft reset on exitConfig), so should be a rare init path.
+volatile uint16_t gaugeDeviceTypeRead = 0; // last DEVICE_TYPE the gauge answered with (0xFFFF/0 = no answer), for HWTEST
 bool initializeBattery() {
   bool success = false;
 #if HARDWARE_VERSION >= 5
   uint16_t deviceType = lipo.deviceType();
+  gaugeDeviceTypeRead = deviceType;
   logdf("coulomb counter deviceType = %X", deviceType);
 
   if (deviceType != kBQ27421DeviceType && deviceType != kBQ27427DeviceType) {
@@ -227,7 +250,8 @@ bool initializeBattery() {
   }
 
   unsigned long configStart = millis();
-  btlogf("[t=%lu] initializeBattery: entering full config path", configStart);
+  // always logged: this path costs the gauge its learned state, so the boot log should say why it was taken
+  logf("gauge: full config path (itpor %i, flags %04X, status %04X, chem %04X)", itpor, lipo.flags(), lipo.status(), (uint16_t)lipo.chemID());
 
   // BQ27427 defaults to the 4.35V chem profile; our cells are 4.2V.
   if (deviceType == kBQ27427DeviceType && (uint16_t)lipo.chemID() != kBQ27427ChemID4V2) {
@@ -250,6 +274,17 @@ bool initializeBattery() {
     logf("gauge: BQ27427 current polarity bit %i (want %i)%s", polarity, kBQ27427ChargePositivePolarity,
          polaritySuccess ? "" : " - write FAILED");
     success &= polaritySuccess;
+  }
+  if (deviceType == kBQ27427DeviceType) {
+    // v7 pulls GPOUT up to the gauge's own 1.8V regulator output (R6, 10k), and GPOUT runs to an RP2350 pin. Whenever that
+    // pin isn't high-Z (pad pull-down during reset/BOOTSEL, its protection diode with +3V3 off) R6 loads the regulator,
+    // and a gauge in SLEEP power-on-resets under it: ROM defaults, learned state gone, SoC re-guessed from OCV at every
+    // power-on. Bench 2026-09-19 (scripts/swd/gauge_reset/): driving GPOUT low reset 3 of 3 sleeping gauges within seconds
+    // and never an awake one. So don't let it sleep (~50uA instead of ~9uA); the real fix is R6 to +3V3 or unpopulated.
+    uint16_t opConfigBefore = lipo.operationConfig();
+    bool sleepSuccess = lipo.setSleepEnabled(false);
+    logf("gauge: SLEEP disabled = %i (OpConfig %04X -> %04X)", sleepSuccess, opConfigBefore, lipo.operationConfig());
+    success &= sleepSuccess;
   }
   delay(5); // Hack: I don't know why a delay is required here but exitConfig fails without this
   success &= lipo.exitConfig(true); // soft reset: gauge re-inits from a fresh OCV estimate
@@ -488,14 +523,108 @@ struct VbusSense {
 VbusSense vbusSense;
 #endif
 
+#if HARDWARE_VERSION >= 7
+// Intentional low-battery shutdown at 3.3V rather than waiting for system failure
+// since on the v7s it tends to result in glitches rather than plain shutoff like the v6s.
+const uint16_t kLowBatteryShutdownMV = 3200;
+const uint16_t kLowBatteryStartMV = 3300;
+// Wait ms for first power status sample before drawing boot animation
+const unsigned long kLowBatteryStartWaitMS = 150;
+const uint16_t kLowBatteryWatchMV = 3500;
+const unsigned long kLowBatteryPollMS = 1000;
+const unsigned long kLowBatteryShutdownHoldMS = 5000; // continuously below for this long (3 fast polls), so one load-step sample can't trip it
+
+class LowBatteryMonitor {
+  unsigned long belowSince = 0;
+  bool startChecked = false;
+public:
+  enum Verdict : uint8_t { ok, refuseStart, shutdown };
+  static bool plausibleVoltage(uint16_t mv) {
+    return mv > 2000 && mv < 4600; // filters 0 / 0xFFFF from failed i2c reads
+  }
+  // Whether the power-on check has had its say, so main can hold the power-on animation until it's known to be wanted
+  bool startResolved(bool vbusPowered) {
+    return startChecked || vbusPowered || millis() > kLowBatteryStartWaitMS;
+  }
+  // refuseStart: the first gauge sample after boot found the cell too flat to start from (reported once)
+  // shutdown: the cell has sat under the shutdown voltage for the hold time while running from it
+  Verdict update(bool vbusPowered, BatteryData &bd) {
+    if (!bd.gaugingReady() || !plausibleVoltage(bd.voltage)) {
+      belowSince = 0;
+      return ok;
+    }
+    bool firstSample = !startChecked;
+    if (firstSample) {
+      logf("[t=%lu] low battery start check: %umV%s", millis(), bd.voltage, vbusPowered ? " (on VBUS)" : "");
+    }
+    startChecked = true;
+    if (vbusPowered) {
+      belowSince = 0;
+      return ok;
+    }
+    if (firstSample && bd.voltage < kLowBatteryStartMV) {
+      logf("low battery: %umV at power-on, under %umV", bd.voltage, kLowBatteryStartMV);
+      return refuseStart;
+    }
+    if (bd.voltage >= kLowBatteryShutdownMV) {
+      belowSince = 0;
+      return ok;
+    }
+    if (belowSince == 0) {
+      belowSince = millis();
+      logf("low battery: %umV, under %umV", bd.voltage, kLowBatteryShutdownMV);
+    }
+    return millis() - belowSince >= kLowBatteryShutdownHoldMS ? shutdown : ok;
+  }
+};
+LowBatteryMonitor lowBattery;
+
+class LowBatteryIndicator : public Pattern {
+  static const int ringRadius = 2;
+  const unsigned long pulseDuration = 450;
+  const int pulseCount = 2;
+public:
+  void update() {
+    ctx.leds.fill_solid(CRGB::Black);
+    unsigned long t = runTime();
+    if (t >= pulseCount * pulseDuration) {
+      stop();
+      return;
+    }
+    CRGB color = CHSV(0, 0xFF, ease8InOutQuad(triwave8(0xFF * (t % pulseDuration) / pulseDuration)));
+    color.nscale8(0x7F);
+    // walk the ring: one spoke of ringRadius steps, rotated onto each of the six sides
+    Axial center = axial.axialFromPixelIndex(kHexaCenterIndex);
+    for (int step = 0; step < ringRadius; ++step) {
+      Axial ax(ringRadius - step, step); // from the +q corner toward the +r corner; s = -ringRadius throughout
+      for (int side = 0; side < 6; ++side) {
+        auto pxOpt = axial.indexAtAxial(center.q() + ax.q(), center.r() + ax.r());
+        if (pxOpt) {
+          ctx.leds[pxOpt.value()] = color;
+        }
+        // rotate to next side
+        ax = Axial(-ax.r(), -ax.s());
+      }
+    }
+  }
+  const char *description() {
+    return "LowBatteryIndicator";
+  }
+};
+#endif
+
 bool sampleBattery(BatteryData &out) {
   assert(1 == get_core_num(), "sampleBattery not on core1");
 #if HARDWARE_VERSION >= 5
   // TODO: fetch only the data items we'll actually use, for perf
   BatteryData bd = {0};
   bd.stateOfCharge = lipo.soc(FILTERED);
-  bd.stateOfHealth = lipo.soh(PERCENT);
   bd.voltage = lipo.voltage();
+  if (!bd.plausible()) {
+    // failed reads (seen on v7: SDA held low for minutes mid-charge), don't block core1
+    return false;
+  }
+  bd.stateOfHealth = lipo.soh(PERCENT);
   bd.currentCapacity = lipo.capacity(REMAIN);
   bd.fullCapacity = lipo.capacity(FULL);
   bd.powerDraw = lipo.power();
@@ -566,8 +695,10 @@ bool battery_step_core1(unsigned long motionStartedAt, BatteryData &bd) {
   // sampling both want ~1s resolution. slow polls when unplugged or battery full.
   unsigned long batteryPollInterval = (digitalRead(VBUS_SENSOR_PIN) && !chargeController.isFull()) ? 1000 : 5000;
 #else
-  // charger terminates on its own; polls only feed soc/ui
-  const unsigned long batteryPollInterval = 5000;
+  // charger terminates on its own; polls feed soc/ui, and LowBatteryMonitor once the cell is nearly flat
+  static uint16_t lastPolledMV = 0;
+  bool watchingLowBattery = lastPolledMV != 0 && lastPolledMV < kLowBatteryWatchMV && !digitalRead(VBUS_SENSOR_PIN);
+  const unsigned long batteryPollInterval = watchingLowBattery ? kLowBatteryPollMS : 5000;
 #endif
   if (lastBatteryPoll != 0 && millis() - lastBatteryPoll < batteryPollInterval) {
     return false;
@@ -589,13 +720,36 @@ bool battery_step_core1(unsigned long motionStartedAt, BatteryData &bd) {
   bool sampled = false;
   CORE1_STEP("sampleBattery", sampled = sampleBattery(bd));
   lastBatteryPoll = millis();
+  static uint16_t failedSamples = 0;
   if (!sampled) {
+    // detect failures and publish empthy samples
+    const uint16_t kFailedSamplesBeforeUnknown = 3;
+    failedSamples++;
+#if SOFTWARE_CHARGE_LIMITER
+    chargeController.update(bd); // implausible voltage: stops the charge it can no longer supervise
+#endif
+    if (failedSamples == 1 || failedSamples % 60 == 0) {
+      logf("[t=%lu] gauge read failed (x%u): soc %u, %umV", millis(), failedSamples, bd.stateOfCharge, bd.voltage);
+    }
+    if (failedSamples == kFailedSamplesBeforeUnknown) {
+      bd = {0};
+      bd.sampled = true;
+#if HARDWARE_VERSION >= 7
+      bd.presence = batteryPresence.current();
+#endif
+      return true;
+    }
     return false;
+  }
+  if (failedSamples) {
+    logf("[t=%lu] gauge reads recovered after %u failed samples", millis(), failedSamples);
+    failedSamples = 0;
   }
 #if SOFTWARE_CHARGE_LIMITER
   chargeController.update(bd);
   bd.print(lastBatterySenseMV);
 #else
+  lastPolledMV = LowBatteryMonitor::plausibleVoltage(bd.voltage) ? bd.voltage : 0;
   bd.print();
 #endif
   return true;

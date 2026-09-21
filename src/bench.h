@@ -26,11 +26,36 @@ static inline void benchLoop(char *serialLine) {
       Serial.flush();
       delay(50);
       powerOff();
+#if HARDWARE_VERSION >= 7
+    } else if (strncmp(serialLine, "GPOUTLOW ", 9) == 0) {
+      // diagnostic: load the gauge's 1.8V regulator through R6 (GPOUT's 10k pull-up to gauge VDD) the way a resetting or
+      // unpowered RP2350 does, without resetting anything. Watch FLAGS bit 5 (ITPOR, 0x20) in the battery log afterwards.
+      int ms = constrain(atoi(serialLine + 9), 1, 30000);
+      logf("GPOUTLOW: driving GPOUT low for %ims", ms);
+      pinMode(GPOUT_PIN, OUTPUT);
+      digitalWrite(GPOUT_PIN, LOW);
+      unsigned long start = millis();
+      while (millis() - start < (unsigned long)ms) { watchdog_update(); delay(10); }
+      pinMode(GPOUT_PIN, INPUT);
+      logf("GPOUTLOW: released");
+#endif
+    } else if (strcmp(serialLine, "REBOOT") == 0) {
+      logf("REBOOT requested");
+      Serial.flush();
+      delay(50);
+      watchdog_reboot(0, 0, 0);
     } else if (strcmp(serialLine, "POWERON") == 0) {
       logf("POWERON requested");
       if (!powerState.isRunning()) {
         startupCompleted();
       }
+#if HARDWARE_VERSION >= 7
+    } else if (strcmp(serialLine, "LOWBATT") == 0) {
+      logf("LOWBATT: showing the refused power-on indication");
+      if (!lowBatteryRunner) {
+        refuseStartForLowBattery();
+      }
+#endif
     } else if (strcmp(serialLine, kBatteryResetCommand) == 0) {
       logf("BATRESET requested");
       batteryResetRequested = true;
