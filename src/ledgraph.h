@@ -37,7 +37,7 @@ typedef enum : uint8_t {
 Graph ledgraph;
 constexpr uint16_t kHexaCenterIndex = LED_COUNT/2;
 constexpr uint8_t kMeridian = (3 + sqrt(12*LED_COUNT-3))/6 * 2 - 1; // 19
-const float pixelSpacing = 3.9;
+constexpr float pixelSpacing = 3.9;
 
 // serpentine rows on hexa v1-v6 (and mini v1); hexa v7 and mini v2 are row-major
 constexpr bool kZigZagPixelWiring = (HARDWARE_VERSION > 0 && HARDWARE_VERSION < 7) || (MINI_VERSION == 1);

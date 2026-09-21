@@ -426,6 +426,11 @@ public:
 };
 
 // special case the single ball physics since we can do nice floating point math for a single particle
+//
+// The ball lives in the hexa's own (accelerating, rotating) frame, so everything the hexa does reaches it as a pseudo-force.
+// Those are applied at true physical scale (inertiaScale 1: one pixel pitch of hexa travel is one pixel of ball travel), which
+// is what gives it mass: shove or spin the hexa and the ball stays put in the room while the walls come to it; flick it into
+// a wall and it leaves with the hexa's velocity. Gravity is scaled separately and much weaker, to keep tilt playable.
 class LargeBouncyBall : public Pattern {
   struct Ball {
     vectorf pos;
@@ -436,8 +441,24 @@ class LargeBouncyBall : public Pattern {
 public:
   Ball p;
   unsigned long boomStart = 0;
-  // hit brightness and bounce elasticity tuned as per-frame displacement
+  // hit brightness tuned as per-frame displacement
   static constexpr float kTunedFrameMS = 5.5f;
+
+  // 1g in px/ms^2 at true scale: one rect unit is one pixel pitch
+  static constexpr float kGToPxPerMsSq = 9.80665f / (pixelSpacing * 1e-3f) * 1e-6f;
+  // fractions of physical scale
+  static constexpr float gravityScale = 0.11f; // tilt; the old tuning (1g = 1/3600 px/ms^2)
+  static constexpr float inertiaScale = 1.0f;  // linear acceleration, centrifugal, Euler, Coriolis
+  // ball-bearing friction: barely any drag, plus a rolling resistance that lets it come to rest on a near-level hexa
+  static constexpr float viscousPerSecond = 0.25f;
+  static constexpr float rollingResistance = 6e-6f; // px/ms^2; holds the ball still inside ~1.2deg of tilt at gravityScale
+  // Walls return 0.9 of the normal speed, rising to 1.08 for hits between these speeds (px/ms): hit a wall hard enough and the
+  // ball goes supercritical and eventually escapes. Set above what tilt alone or an ordinary flick reaches.
+  static constexpr float wallBonusStartSpeed = 0.35f;
+  static constexpr float wallBonusFullSpeed = 0.7f;
+
+  GravityTracker gravityTracker;
+  float lastGyrZ = 0; // rad/ms
 
   void stellate(float radius, float bright) {
     for (PixelIndex px = 0; px < LED_COUNT; ++px) {
@@ -451,7 +472,7 @@ public:
     }
   }
 
-  void sideHit(Ball &p, int w, uint8_t hue, unsigned long elapsed) {
+  void sideHit(Ball &p, int w, uint8_t hue) {
     assert(hexaSide(w).size() == 10,"hexa side size");
     uint8_t hitSpeed = constrain(2000 * p.velocity.length()*kTunedFrameMS - 100, 0, 0xFF);
     for (PixelIndex px : hexaSide(w)) {
@@ -459,7 +480,7 @@ public:
     }
   }
 
-  uint8_t sideCollision(Ball &p, unsigned long elapsed) {
+  uint8_t sideCollision(Ball &p) {
     static const float sideR = kMeridian/2.f - 2;
     const linef urLine(kSqrtThree,   1, -sideR*kSqrtThree);
     const linef uLine (0,            1, -sideR*kSqrtThree/2);
@@ -470,7 +491,8 @@ public:
 
     // u,ur,dr,d,dl,ul order, matches clockwise from px 0 hexaSide order
     const linef lines[] = {uLine, urLine, drLine, dLine, dlLine, ulLine};
-    const float elasticity = 0.95f + constrain(p.velocity.length()*kTunedFrameMS/6 - 0.019, 0, 0.09f);
+    const float wallBonus = constrain((p.velocity.length() - wallBonusStartSpeed) / (wallBonusFullSpeed - wallBonusStartSpeed), 0.0f, 1.0f);
+    const float elasticity = 0.95f + 0.09f * wallBonus;
 
     uint8_t sidesHit = 0;
     // Iterate to handle corner collision
@@ -504,12 +526,26 @@ public:
     return sidesHit;
   }
 
-  unsigned long lastUpdate = 0;
+  unsigned long lastUpdateMicros = 0;
   virtual void update() {
     ctx.fadeToBlackBy16(12 * 180 * 256 / 1000);
 
-    int32_t elapsed = (lastUpdate > 0 ? millis() - lastUpdate : 1);
-    lastUpdate = millis();
+    // float ms from micros() (frames are ~1.4ms)
+    unsigned long nowMicros = micros();
+    const bool firstUpdate = (lastUpdateMicros == 0);
+    float elapsed = (firstUpdate ? 1.0f : (nowMicros - lastUpdateMicros) * 1e-3f);
+    lastUpdateMicros = nowMicros;
+    const MotionFrame &motion = MotionManager::motionFrame;
+    const bool resync = (firstUpdate || elapsed > 50 || boomStart != 0);
+    if (resync) {
+      // stalled, or not simulating: the gravity estimate has missed rotation, start it over
+      elapsed = min(elapsed, 1.0f);
+      gravityTracker.reset();
+    }
+    gravityTracker.update(motion, elapsed * 1e-3f);
+    const float gyrZ = motion.gyr.z / (MotionManager::gyrToRadScale * 1000.0f); // rad/ms
+    const float gyrZDelta = (resync ? 0 : gyrZ - lastGyrZ);
+    lastGyrZ = gyrZ;
 
     if (boomStart != 0) {
       unsigned long boomRuntime = millis() - boomStart;
@@ -546,33 +582,55 @@ public:
       return;
     }
     
-    PixelIndex px = pxopt.value();
-    const MotionFrame &motion = MotionManager::motionFrame;
-    vectorf accelVector = accelerationAtPixelIndex(px, motion);
+    // Acceleration of the ball relative to the hexa, rect coordinates, px/ms^2. Motion-frame x/y read directly as "the direction
+    // things fall" in pixel geometry (see MotionFrame), for the pseudo-force of a shove as much as for gravity.
+    const vectorf &gravity = gravityTracker.gravity;
+    vectorf linear = gravityTracker.linear(motion);
+    float ax = kGToPxPerMsSq * (gravityScale * gravity.x + inertiaScale * linear.x);
+    float ay = kGToPxPerMsSq * (gravityScale * gravity.y + inertiaScale * linear.y);
 
-    const float accelPreScale = 3600; // tuned
-    vectorf scaledAccel = accelVector * elapsed / accelPreScale / MotionManager::accelToGScale;
-    p.velocity.x += scaledAccel.x;
-    p.velocity.y += scaledAccel.y;
+    // The accelerometer reports the hexa's motion at its own position; the ball is somewhere else on a rotating body.
+    // r is ball from sensor, in pixels. Centrifugal: w^2 * r.
+    static const float sensorX = kHexaMotionPlacement.position.x / (pixelSpacing * 1000.0f);
+    static const float sensorY = kHexaMotionPlacement.position.y / (pixelSpacing * 1000.0f);
+    float rx = p.pos.x - sensorX, ry = p.pos.y - sensorY;
+    ax += inertiaScale * gyrZ * gyrZ * rx;
+    ay += inertiaScale * gyrZ * gyrZ * ry;
 
-    // Coriolis: deflects ball path during rotation
-    const float coriolisScale = 1.0f;
-    const float coriolisK = coriolisScale / (MotionManager::gyrToRadScale * 1000.0f);
-    float coriolisF = motion.gyr.z * elapsed * coriolisK;
-    p.velocity.x +=  coriolisF * p.velocity.y;
-    p.velocity.y += -coriolisF * p.velocity.x;
+    // Coriolis, -2w x v: turns the velocity through -2w*dt without changing its length. Half before the other forces and half
+    // after; doing it all at one end is a first-order error that shows up as the ball wandering when a shove meets a spin.
+    const float theta = inertiaScale * gyrZ * elapsed;
+    const float cosT = 1.0f - theta * theta / 2, sinT = theta;
+    auto coriolisHalfTurn = [&]() {
+      float vx = p.velocity.x, vy = p.velocity.y;
+      p.velocity.x =  cosT * vx + sinT * vy;
+      p.velocity.y = -sinT * vx + cosT * vy;
+    };
+    coriolisHalfTurn();
 
-    // Friction: linear approximation of exp(-k*dt)
-    const float frictionCoeff = 0.9f;
-    const float frictionK = frictionCoeff / 1000.0f;
-    float dampFactor = max(0.0f, 1.0f - elapsed * frictionK);
-    p.velocity.x *= dampFactor;
-    p.velocity.y *= dampFactor;
+    p.velocity.x += ax * elapsed;
+    p.velocity.y += ay * elapsed;
+
+    // Euler: spin the hexa up and the ball stays behind. -(dw/dt) x r integrates over the frame to -dw x r, so the change in
+    // rate is applied directly rather than differentiating the gyro.
+    p.velocity.x += inertiaScale * gyrZDelta *  ry;
+    p.velocity.y += inertiaScale * gyrZDelta * -rx;
+
+    coriolisHalfTurn();
+
+    // Friction: viscous as a linear approximation of exp(-k*dt), then rolling resistance as a constant deceleration that
+    // stops the ball rather than reversing it
+    float dampFactor = max(0.0f, 1.0f - elapsed * viscousPerSecond / 1000.0f);
+    float speed = p.velocity.length();
+    float rolledSpeed = max(0.0f, speed * dampFactor - rollingResistance * elapsed);
+    float speedFactor = (speed > 0 ? rolledSpeed / speed : 0.0f);
+    p.velocity.x *= speedFactor;
+    p.velocity.y *= speedFactor;
 
     p.pos += p.velocity * elapsed;
-    uint8_t sidesHit = sideCollision(p, elapsed);
+    uint8_t sidesHit = sideCollision(p);
 
-    uint8_t hue = constrain(3000 * p.velocity.length() - 30, 0, 224);
+    uint8_t hue = constrain(1500 * p.velocity.length() - 30, 0, 224);
     
     // 16-mult integer optimizations
     int16_t bx16 = (int16_t)(p.pos.x * 16);
@@ -596,7 +654,7 @@ public:
     }
     for (int i = 0; i < 6; ++i) {
       if (sidesHit & (1 << i)) {
-        sideHit(p, i, hue, elapsed);
+        sideHit(p, i, hue);
       }
     }
   }

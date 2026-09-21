@@ -53,6 +53,9 @@ struct Quaternion {
 // internally before returning. quat/euler describe device orientation relative to a gravity-up world frame in those same axes.
 struct MotionFrame {
   vector16 acc;
+  // The same accelerometer reading in g, float, out to the sensor's own full scale (BMI270: ±16g) where acc saturates at ±4g.
+  // For consumers that integrate impulses (a flick peaks well past 4g, and a clipped peak leaves a phantom net velocity).
+  vectorf accG;
   vector16 gyr;
   vector16 mag;
   Euler euler;
@@ -113,6 +116,12 @@ struct AxisRotation {
     return vector16(saturate16(m[0][0]*x + m[0][1]*y + m[0][2]*z),
                     saturate16(m[1][0]*x + m[1][1]*y + m[1][2]*z),
                     saturate16(m[2][0]*x + m[2][1]*y + m[2][2]*z));
+  }
+
+  vectorf apply(const vectorf &v) const {
+    return vectorf(m[0][0]*v.x + m[0][1]*v.y + m[0][2]*v.z,
+                   m[1][0]*v.x + m[1][1]*v.y + m[1][2]*v.z,
+                   m[2][0]*v.x + m[2][1]*v.y + m[2][2]*v.z);
   }
 
   // A rotation by theta about axis n, viewed from the rotated frame, is the same angle about the rotated axis: the vector part
@@ -273,6 +282,7 @@ private:
     ICM_20948_AGMT_t agmt = icm.getAGMT();
     // ICM DMP config is ±4g / ±2000dps, i.e. exactly the MotionFrame scales, so raw LSBs pass through
     frame.acc = vector16(agmt.acc.axes.x, agmt.acc.axes.y, agmt.acc.axes.z);
+    frame.accG = vectorf(agmt.acc.axes.x / accelToGScale, agmt.acc.axes.y / accelToGScale, agmt.acc.axes.z / accelToGScale);
     frame.gyr = vector16(agmt.gyr.axes.x, agmt.gyr.axes.y, agmt.gyr.axes.z);
     frame.hasAccelGyro = true;
     frame.tempC = agmt.tmp.val / 333.87f + 21.0f; // datasheet: 333.87 LSB/degC, 21degC offset
@@ -381,12 +391,13 @@ private:
     hasIMU = (err == BMI2_OK);
     logf("  BMI270 init = %i (err %i)", hasIMU, err);
     if (hasIMU) {
-      // ±4g / ±2000dps: same full scale as the ICM config so clipping behavior matches. ODR comfortably above our frame rate.
+      // ±16g so MotionFrame::accG carries a whole flick; MotionFrame::acc still clamps at the ICM-era ±4g so clipping behavior
+      // there matches. ±2000dps as on the ICM. ODR comfortably above our frame rate.
       bmi2_sens_config configs[2];
       configs[0].type = BMI2_ACCEL;
       configs[1].type = BMI2_GYRO;
       if (imu.getConfigs(configs, 2) == BMI2_OK) {
-        configs[0].cfg.acc.range = BMI2_ACC_RANGE_4G;
+        configs[0].cfg.acc.range = BMI2_ACC_RANGE_16G;
         configs[0].cfg.acc.odr = BMI2_ACC_ODR_400HZ;
         configs[0].cfg.acc.bwp = BMI2_ACC_NORMAL_AVG4;
         configs[0].cfg.acc.filter_perf = BMI2_PERF_OPT_MODE;
@@ -456,6 +467,7 @@ private:
       if (imu.getSensorData() == BMI2_OK) {
         // SparkFun driver hands back g and dps; rescale to MotionFrame LSB units
         frame.acc = vector16(clamp16(imu.data.accelX * accelToGScale), clamp16(imu.data.accelY * accelToGScale), clamp16(imu.data.accelZ * accelToGScale));
+        frame.accG = vectorf(imu.data.accelX, imu.data.accelY, imu.data.accelZ);
         constexpr float dpsToLSB = gyrToRadScale * M_PI / 180.0;
         frame.gyr = vector16(clamp16(imu.data.gyroX * dpsToLSB), clamp16(imu.data.gyroY * dpsToLSB), clamp16(imu.data.gyroZ * dpsToLSB));
         frame.hasAccelGyro = true;
@@ -647,6 +659,7 @@ public:
   // motion frame. loop() calls this before any software fusion runs, so fused orientation comes out in hexa axes too.
   void localizeMotionFrame(MotionFrame &frame) const {
     frame.acc = placement.accelGyro.apply(frame.acc);
+    frame.accG = placement.accelGyro.apply(frame.accG);
     frame.gyr = placement.accelGyro.apply(frame.gyr);
     frame.mag = placement.mag.apply(frame.mag);
     frame.quat = placement.accelGyro.apply(frame.quat);
@@ -686,3 +699,47 @@ MotionManager &MotionManager::manager() {
   }
   return *_singleton;
 }
+
+
+// Splits the accelerometer reading into gravity and linear acceleration, both in g, motion frame. The gravity estimate is
+// carried through rotation by the gyro and pulled back toward the accelerometer only while it reads about 1g and the device
+// is barely rotating, so a flick, shove or spin lands in linear() instead of being mistaken for a tilt. It tracks the measured vector rather than a unit one, so
+// accelerometer offset ends up in gravity and linear() settles to exactly zero at rest.
+struct GravityTracker {
+  vectorf gravity;
+  bool seeded = false;
+  static constexpr float kCorrectionTau = 0.5f; // s; how quickly a wrong estimate (gyro error after a violent move) bleeds off
+  static constexpr float kTrustBandG = 0.08f;   // |acc| this far from 1g means it isn't showing us gravity, so ignore it
+  static constexpr float kTrustGyroRad = 2.0f;  // rad/s; likewise while rotating this fast (the accelerometer sits off-center)
+
+  void reset() { seeded = false; }
+
+  void update(const MotionFrame &motion, float dtSeconds) {
+    const vectorf &a = motion.accG;
+    if (!seeded) {
+      gravity = a;
+      seeded = true;
+      return;
+    }
+    // a world-fixed vector seen from the rotating body: dg/dt = -w x g. First order, so restore the norm afterwards.
+    float wx = motion.gyr.x / MotionManager::gyrToRadScale, wy = motion.gyr.y / MotionManager::gyrToRadScale, wz = motion.gyr.z / MotionManager::gyrToRadScale;
+    float gx = gravity.x, gy = gravity.y, gz = gravity.z;
+    float normBefore = sqrtf(gx*gx + gy*gy + gz*gz);
+    float rx = gx + (gy*wz - gz*wy) * dtSeconds;
+    float ry = gy + (gz*wx - gx*wz) * dtSeconds;
+    float rz = gz + (gx*wy - gy*wx) * dtSeconds;
+    float normAfter = sqrtf(rx*rx + ry*ry + rz*rz);
+    float renorm = (normAfter > 0.0001f ? normBefore / normAfter : 1.0f);
+    rx *= renorm; ry *= renorm; rz *= renorm;
+
+    float accMag = sqrtf(a.x*a.x + a.y*a.y + a.z*a.z);
+    float gyrMag = sqrtf(wx*wx + wy*wy + wz*wz);
+    float trust = constrain(1.0f - fabsf(accMag - 1.0f) / kTrustBandG, 0.0f, 1.0f) * constrain(1.0f - gyrMag / kTrustGyroRad, 0.0f, 1.0f);
+    float k = min(1.0f, trust * dtSeconds / kCorrectionTau);
+    gravity = vectorf(rx + (a.x - rx) * k, ry + (a.y - ry) * k, rz + (a.z - rz) * k);
+  }
+
+  vectorf linear(const MotionFrame &motion) const {
+    return vectorf(motion.accG.x - gravity.x, motion.accG.y - gravity.y, motion.accG.z - gravity.z);
+  }
+};
