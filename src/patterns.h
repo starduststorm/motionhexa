@@ -833,64 +833,6 @@ public:
 
 /* ------------------------------------------------------------------------------- */
 
-class SoundPattern : public Pattern, public FFTReceiver {
-public:
-  unsigned long lastLevelThreshChange{0};
-  int minFFTLevelThreshold{3};
-  int fftLevelThreshold{minFFTLevelThreshold};
-  int autoGainAdjustmentInterval{600};
-
-  SoundPattern() : FFTReceiver(fftProcessing) {
-    // stop main loop from lowering framerate when we have nothing to draw, since that results in visibly-delayed response to sounds
-    fc.takeFPSAssertion(); 
-  }
-  ~SoundPattern() {
-    fc.releaseFPSAssertion();
-  }
-  void autoGainUpdate() {
-    FFTFrame frame = fftProcessing.getDataFrame();
-    unsigned long mils = millis();
-
-    int maxFrameValue = 0;
-    int32_t sumFrameValue = 0;
-    for (int i = 0 ; i < frame.size; ++i) {
-      if (frame.smoothSpectrum[i] > maxFrameValue) {
-        maxFrameValue = frame.smoothSpectrum[i];
-      }
-      sumFrameValue += frame.smoothSpectrum[i];
-    }
-    int avgFrameValue = sumFrameValue/frame.size;
-
-    int litCount{0};
-    for (int i = 0 ; i < LED_COUNT; ++i) {
-      litCount += ctx.leds[i] ? 1 : 0;
-    }
-    /* latch-ditch auto gain:
-     * slowly adjust threshold for drawing if to approach the average levels
-     * quickly move threshold for drawing if we're over- or under-drawing
-     * temporarily adjust thresholds at a fast interval at the start of pattern running to find a baseline
-    */
-   bool overDrawing = litCount > 95*LED_COUNT/100;
-   bool underDrawing = litCount < 2*LED_COUNT/10;
-   int adjustmentInterval = (runTime() > 3000 ? autoGainAdjustmentInterval : autoGainAdjustmentInterval/6);
-   if ((overDrawing || fftLevelThreshold < avgFrameValue) && mils - lastLevelThreshChange > adjustmentInterval) {
-      fftLevelThreshold++;
-      if (overDrawing) {
-        fftLevelThreshold += max(0, (maxFrameValue - fftLevelThreshold) / 20);
-      }
-      // logf("SoundPattern litCount = %i, frame value avg=%i,max=%i, fftLevelThreshold up to %i", litCount, avgFrameValue, maxFrameValue, fftLevelThreshold);
-      lastLevelThreshChange = mils;
-    } else if (fftLevelThreshold > minFFTLevelThreshold && (underDrawing || fftLevelThreshold > avgFrameValue) && mils - lastLevelThreshChange > adjustmentInterval) {
-      fftLevelThreshold--;
-      if (underDrawing) {
-        fftLevelThreshold = max(minFFTLevelThreshold, fftLevelThreshold + min(0, (maxFrameValue - fftLevelThreshold) / 10));
-      }
-      // logf("SoundPattern litCount = %i, frame value avg=%i,max=%i, fftLevelThreshold down to %i", litCount, avgFrameValue, maxFrameValue, fftLevelThreshold);
-      lastLevelThreshChange = mils;
-    }
-  }
-};
-
 class SoundDroplets : public SoundPattern, public PaletteRotation<CRGBPalette256> {
   HexaShells shells;
   CRGB cs[LED_COUNT] = {0}; // scratch space
@@ -899,8 +841,14 @@ class SoundDroplets : public SoundPattern, public PaletteRotation<CRGBPalette256
 public:
   int dropletSize;
 
-  SoundDroplets(int size) : dropletSize(size) {
+  SoundDroplets(int size) : SoundPattern(fftProcessing), dropletSize(size) {
     minBrightness = 20;
+    // stop main loop from lowering framerate when we have nothing to draw, since that results in visibly-delayed response to sounds
+    fc.takeFPSAssertion();
+  }
+
+  ~SoundDroplets() {
+    fc.releaseFPSAssertion();
   }
 
   void flowDroplets(int i, int i2) {
@@ -1030,7 +978,7 @@ public:
 
   int bitLoudZoom = 70;
 
-  SoundBits() : particles(ledgraph, ctx, 0, 0, 1200, {clockwise, counterclockwise}) {
+  SoundBits() : SoundPattern(fftProcessing), particles(ledgraph, ctx, 0, 0, 1200, {clockwise, counterclockwise}) {
     minBrightness = 20;
     particles.setFadeUpDistance(1);
     particles.handleUpdateParticle = [this](Particle &bit, uint8_t index) {
@@ -1043,6 +991,11 @@ public:
         bit.speed = max(0, (int)bit.speed - speedDecaySteps);
       }
     };
+    // stop main loop from lowering framerate when we have nothing to draw, since that results in visibly-delayed response to sounds
+    fc.takeFPSAssertion();
+  }
+  ~SoundBits() {
+    fc.releaseFPSAssertion();
   }
 
   vector32 gyrAccum32;
