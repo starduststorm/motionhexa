@@ -18,6 +18,9 @@
 #include "particles.h"
 #include <phaser.h>
 
+// Pattern override for brightness - reset by main each frame
+int16_t patternBrightnessOverride = -1;
+
 struct HexaShells {
   vector<vector<std::optional<PixelIndex> > > shells;
 
@@ -448,14 +451,22 @@ public:
   static constexpr float kGToPxPerMsSq = 9.80665f / (pixelSpacing * 1e-3f) * 1e-6f;
   // fractions of physical scale
   static constexpr float gravityScale = 0.11f; // tilt; the old tuning (1g = 1/3600 px/ms^2)
-  static constexpr float inertiaScale = 1.0f;  // linear acceleration, centrifugal, Euler, Coriolis
+  static constexpr float inertiaScale = 0.5f;  // linear acceleration, centrifugal, Euler, Coriolis
   // ball-bearing friction: barely any drag, plus a rolling resistance that lets it come to rest on a near-level hexa
-  static constexpr float viscousPerSecond = 0.25f;
+  static constexpr float viscousPerSecond = 0.45f;
   static constexpr float rollingResistance = 6e-6f; // px/ms^2; holds the ball still inside ~1.2deg of tilt at gravityScale
-  // Walls return 0.9 of the normal speed, rising to 1.08 for hits between these speeds (px/ms): hit a wall hard enough and the
-  // ball goes supercritical and eventually escapes. Set above what tilt alone or an ordinary flick reaches.
-  static constexpr float wallBonusStartSpeed = 0.35f;
-  static constexpr float wallBonusFullSpeed = 0.7f;
+  // Walls dampen until a critical collision speed, when they start boosting
+  static constexpr float wallBonusStartSpeed = 0.096f;
+  static constexpr float wallBonusFullSpeed = 0.6f;
+
+  // even more supercritical
+  static constexpr unsigned long kSupercriticalMS = 500;
+  static constexpr uint8_t kSupercriticalBrightness = 60;
+  static constexpr float kSupercriticalSpeed = wallBonusFullSpeed*1.2;
+  static constexpr unsigned long kSupercriticalFadeMS = 120; // tail of the stellation over which the brightness ramps back down
+  unsigned long superStart = 0;
+  uint8_t superBaseBrightness = 0; // brightness when the ball escaped; the ramp starts here
+  uint8_t superBrightness = 0;     // brightness through the boom
 
   GravityTracker gravityTracker;
   float lastGyrZ = 0; // rad/ms
@@ -480,19 +491,44 @@ public:
     }
   }
 
-  uint8_t sideCollision(Ball &p) {
-    static const float sideR = kMeridian/2.f - 2;
-    const linef urLine(kSqrtThree,   1, -sideR*kSqrtThree);
-    const linef uLine (0,            1, -sideR*kSqrtThree/2);
-    const linef ulLine(-kSqrtThree,  1, -sideR*kSqrtThree);
-    const linef dlLine(-kSqrtThree, -1, -sideR*kSqrtThree);
-    const linef dLine (0,           -1, -sideR*kSqrtThree/2);
-    const linef drLine(kSqrtThree,  -1, -sideR*kSqrtThree);
+  // Walls in rect units, A*x + B*y + C > 0 is outside. u,ur,dr,d,dl,ul order, matches clockwise from px 0 hexaSide order
+  static constexpr float kSideR = kMeridian/2.f - 2;
+  static constexpr float kInradius = kSideR * kSqrtThree / 2; // every wall's normalized distance from center
+  static const linef *walls() {
+    static const linef lines[] = {
+      linef(0,            1, -kSideR*kSqrtThree/2), // u
+      linef(kSqrtThree,   1, -kSideR*kSqrtThree),   // ur
+      linef(kSqrtThree,  -1, -kSideR*kSqrtThree),   // dr
+      linef(0,           -1, -kSideR*kSqrtThree/2), // d
+      linef(-kSqrtThree, -1, -kSideR*kSqrtThree),   // dl
+      linef(-kSqrtThree,  1, -kSideR*kSqrtThree),   // ul
+    };
+    return lines;
+  }
 
-    // u,ur,dr,d,dl,ul order, matches clockwise from px 0 hexaSide order
-    const linef lines[] = {uLine, urLine, drLine, dLine, dlLine, ulLine};
+  // Pull an escaped ball back along its ray to the center until it sits just inside the walls. A ball that went
+  // non-finite goes back to the center instead.
+  void projectInside(Ball &b) {
+    if (!isfinite(b.pos.x) || !isfinite(b.pos.y) || !isfinite(b.velocity.x) || !isfinite(b.velocity.y)) {
+      b.pos = vectorf(0, 0);
+      b.velocity = vectorf(0, 0);
+      return;
+    }
+    float reach = 0; // hexagonal norm of the position: how far out along the most-violated wall normal
+    for (int w = 0; w < 6; ++w) {
+      const linef &l = walls()[w];
+      reach = max(reach, (l.A * b.pos.x + l.B * b.pos.y) / sqrtf(l.A * l.A + l.B * l.B));
+    }
+    const float limit = kInradius * 0.9f;
+    if (reach > limit) {
+      b.pos *= limit / reach;
+    }
+  }
+
+  uint8_t sideCollision(Ball &p) {
+    const linef *lines = walls();
     const float wallBonus = constrain((p.velocity.length() - wallBonusStartSpeed) / (wallBonusFullSpeed - wallBonusStartSpeed), 0.0f, 1.0f);
-    const float elasticity = 0.95f + 0.09f * wallBonus;
+    const float elasticity = 0.94f + 0.082f * wallBonus;
 
     uint8_t sidesHit = 0;
     // Iterate to handle corner collision
@@ -549,6 +585,7 @@ public:
 
     if (boomStart != 0) {
       unsigned long boomRuntime = millis() - boomStart;
+      patternBrightnessOverride = superBrightness; // the flash gets the supercritical brightness too
       auto p = Phaser()
         .anim(250, [this](Phase ph) {
           ctx.leds.fill_solid(CRGB::Black);
@@ -557,6 +594,11 @@ public:
           float p = ph.progress();
           float expand = (1.0f - p) * (1.0f - p);
           stellate(24.0f * expand, 1.0f);
+          // ramp down brightness
+          unsigned long remaining = ph.duration - ph.elapsed;
+          if (remaining < kSupercriticalFadeMS) {
+            patternBrightnessOverride = superBaseBrightness + (int)(superBrightness - superBaseBrightness) * (int)remaining / (int)kSupercriticalFadeMS;
+          }
         })
         .complete([this](Phase) {
           boomStart = 0;
@@ -568,19 +610,37 @@ public:
       };
     }
 
-    // update ball position from velocity and elapsed time
-    std::optional<PixelIndex> pxopt = axial.indexAtRect(p.pos);
-    if (!pxopt.has_value()) {
-      logf("You win! Ball at pos (%f, %f) is out of bounds!", p.pos.x, p.pos.y);
-      ctx.leds.fill_solid(CRGB::Black);
-      boomStart = millis();
-
-      p.pos.x = 0;
-      p.pos.y = 0;
-      p.velocity.x = 0;
-      p.velocity.y = 0;
-      return;
+    // ball escaped. start boom!
+    if (!axial.indexAtRect(p.pos).has_value()) {
+      if (superStart == 0) {
+        logf("You win! Ball at pos (%f, %f) escaped at %f px/ms", p.pos.x, p.pos.y, p.velocity.length());
+        superStart = millis();
+        superBaseBrightness = FastLED.getBrightness();
+        superBrightness = superBaseBrightness;
+      }
+      projectInside(p);
     }
+    if (superStart != 0) {
+      unsigned long superRuntime = millis() - superStart;
+      if (superRuntime >= kSupercriticalMS) {
+        ctx.leds.fill_solid(CRGB::Black);
+        boomStart = millis();
+        superStart = 0;
+        p.pos = vectorf(0, 0);
+        p.velocity = vectorf(0, 0);
+        patternBrightnessOverride = superBrightness;
+        return;
+      }
+      const uint8_t target = max(superBaseBrightness, kSupercriticalBrightness);
+      superBrightness = superBaseBrightness + (uint8_t)((target - superBaseBrightness) * superRuntime / kSupercriticalMS);
+      patternBrightnessOverride = superBrightness;
+      // cap the runaway speed so a frame's travel stays well inside the hexa and the wall reflection can do its job
+      float speed = p.velocity.length();
+      if (speed > kSupercriticalSpeed) {
+        p.velocity *= kSupercriticalSpeed / speed;
+      }
+    }
+
     
     // Acceleration of the ball relative to the hexa, rect coordinates, px/ms^2. Motion-frame x/y read directly as "the direction
     // things fall" in pixel geometry (see MotionFrame), for the pseudo-force of a shove as much as for gravity.
@@ -629,8 +689,11 @@ public:
 
     p.pos += p.velocity * elapsed;
     uint8_t sidesHit = sideCollision(p);
+    if (superStart != 0) {
+      projectInside(p); // the reflection gives up after three walls; must not escape again
+    }
 
-    uint8_t hue = constrain(1500 * p.velocity.length() - 30, 0, 224);
+    uint8_t hue = constrain(1000 * p.velocity.length() - 30, 0, 224);
     
     // 16-mult integer optimizations
     int16_t bx16 = (int16_t)(p.pos.x * 16);

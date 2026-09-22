@@ -739,12 +739,18 @@ void loop() {
 #endif
 
 #if AUTO_BRIGHTNESS
-  // baselines ambient at boot while the pixels are off, then updates opportunistically
-  autoBrightness->loop(ctx.leds, autoBrightness->brightness(), batteryData.temperature);
-  FastLED.setBrightness(autoBrightness->brightness());
+  // baselines ambient at boot while the pixels are off, then updates opportunistically. It is told the brightness the
+  // panel was actually shown at, which a pattern override may have set above its own level.
+  autoBrightness->loop(ctx.leds, FastLED.getBrightness(), batteryData.temperature);
+  uint8_t frameBrightness = autoBrightness->brightness();
 #else
-  FastLED.setBrightness(kDefaultBrightness);
+  uint8_t frameBrightness = kDefaultBrightness;
 #endif
+  if (patternBrightnessOverride >= 0) {
+    frameBrightness = patternBrightnessOverride;
+    patternBrightnessOverride = -1;
+  }
+  FastLED.setBrightness(frameBrightness);
 
   if (pixelsHavePower || fc.hasFPSAssertion()) {
     PERF_MARK();
