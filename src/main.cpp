@@ -458,7 +458,9 @@ void setup() {
   patternManager.registerPattern<TriangleSpin>();
   patternManager.registerPattern<CompassPattern>();
 #endif
+#if HAS_MICROPHONE
   patternManager.registerPattern<SparkleDroplets>();
+#endif
   patternManager.registerPattern<BlobDroplets>();
   patternManager.registerPattern<SoundBits>();
   
