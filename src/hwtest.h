@@ -6,11 +6,15 @@
 // log, so limits can move without reflashing and the raw numbers accumulate into a per-part spread across units.
 // While it runs it owns the panel: dark, then full red / green / blue / white, so a person can spot dead pixels and the
 // photosensors can confirm the pixel rail actually lights (lit vs dark counts).
+// Once the host has judged the run it sends back "HWTEST RESULT PASS|WARN|FAIL", and the unit blinks a small hexagon in
+// the middle of the panel green / yellow / red a few times (or until the next serial command), so a person working a
+// rack of units can see which one to pull, then goes back to running normally.
 // Include after bench.h's dependencies (power.h, MotionManager.h, audioInput, updater) in main.cpp.
 
 #if HARDWARE_VERSION >= 5
 
 const char *kHWTestCommand = "HWTEST";
+const char *kHWTestResultCommand = "HWTEST RESULT ";
 
 // core0 -> core1 -> core0: the parts of the test that need Wire, which core1 owns
 struct HWTestBusReport {
@@ -54,8 +58,13 @@ class HWTest {
   // whole-panel fills are the heaviest thing this board ever draws and intake units sit on USB with flat cells:
   // ~0.25A for a primary, ~0.35A for white
   static const uint8_t kColorBrightness = 12, kWhiteBrightness = 6;
+  // result hexagon: 19 pixels, so it can be brighter than the fills
+  static const unsigned long kResultBlinkMS = 1000, kResultMS = 3 * kResultBlinkMS;
+  static const uint8_t kResultRadius = 2, kResultBrightness = 48;
   unsigned long startedAt = 0;
   bool running = false;
+  CRGB resultColor = CRGB::Black; // black: no result showing
+  unsigned long resultAt = 0;
   // motion
   uint32_t imuFrames = 0, magFirstCount = 0, magLastCount = 0, magFrames = 0;
   double accSumG = 0, magSumUT = 0;
@@ -133,8 +142,42 @@ class HWTest {
     logf("HWTEST END ms=%lu", millis() - startedAt);
   }
 
+  void showResult() {
+    unsigned long t = millis() - resultAt;
+    if (t >= kResultMS) {
+      resultColor = CRGB::Black;
+      return;
+    }
+    bool on = t % kResultBlinkMS < kResultBlinkMS * 2 / 3;
+    for (PixelIndex px = 0; px < LED_COUNT; ++px) {
+      Axial ax = axial.axialFromPixelIndex(px); // the center pixel is (0,0)
+      int ring = max(abs(ax.q()), max(abs(ax.r()), abs(ax.q() + ax.r())));
+      ctx.leds[px] = on && ring <= kResultRadius ? resultColor : CRGB::Black;
+    }
+#ifdef LED_LINE_0_PWR_PIN
+    digitalWrite(LED_LINE_0_PWR_PIN, true);
+#endif
+    FastLED.setBrightness(kResultBrightness);
+    FastLED.show();
+  }
+
 public:
-  bool active() { return running; }
+  bool active() { return running || resultColor != CRGB(CRGB::Black); }
+
+  // every serial line: HWTEST starts a run, HWTEST RESULT <result> shows the host's result, anything else clears it
+  void command(const char *line, const char *hardwareVersion) {
+    if (running) return;
+    resultColor = CRGB::Black;
+    if (strcmp(line, kHWTestCommand) == 0) {
+      begin(hardwareVersion);
+    } else if (strncmp(line, kHWTestResultCommand, strlen(kHWTestResultCommand)) == 0) {
+      const char *result = line + strlen(kHWTestResultCommand);
+      resultColor = strcmp(result, "PASS") == 0 ? CRGB::Green : strcmp(result, "WARN") == 0 ? CRGB::Yellow : CRGB::Red;
+      resultColor.scale8(0x20);
+      resultAt = millis();
+      logf("HWTEST RESULT %s", result);
+    }
+  }
 
   void begin(const char *hardwareVersion) {
     char serialNumber[2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1];
@@ -151,7 +194,7 @@ public:
     digitalWrite(PHOTOSENSOR_POWER_PIN, true);
 #endif
     logf("HWTEST BEGIN sn=%s fw=%s hw=%s uptime_ms=%lu watchdog_reboot=%i", serialNumber, SOFTWARE_VERSION, hardwareVersion, millis(),
-         watchdog_caused_reboot());
+         watchdog_enable_caused_reboot()); // not watchdog_caused_reboot(): the bootrom reboots through the watchdog after a UF2 flash
 #if LOG_BOOT_CAPTURE_BYTES
     // what was logged before anyone was listening, a line at a time
     char line[200];
@@ -171,6 +214,10 @@ public:
 
   // core0, every frame while active, in place of the pattern pipeline
   void loop(const MotionFrame &mf, BatteryData &bd, bool vbus, bool button) {
+    if (!running) {
+      showResult();
+      return;
+    }
     unsigned long t = millis() - startedAt;
     const CRGB colors[] = {CRGB::Red, CRGB::Green, CRGB::Blue, CRGB::White};
     unsigned long panelMS = kDarkMS + ARRAY_SIZE(colors) * kColorMS;

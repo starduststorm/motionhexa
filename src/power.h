@@ -38,7 +38,7 @@ struct BatteryData {
   uint8_t sampled;          // filled from a gauge read (vs. the zeroed initial value)
   uint16_t controlStatus;   // CONTROL_STATUS, for the log
   int16_t current;          // mA, average; positive = charging
-  uint8_t presence;         // BatteryPresence verdict (v7+), see below
+  uint8_t presence;         // BatteryPresence result (v7+), see below
   void print(uint16_t senseMV = 0) {
     logf("battery: %s, soc: %u%%, soh: %u%%, voltage: %umV, sense: %umV, capacity: %umAh / %umAh, power: %imW, current: %imA, temp: %uK, flags: %X, status: %X%s%s",
       batteryDetected()?"yes":"no", stateOfCharge, stateOfHealth, voltage, senseMV, currentCapacity, fullCapacity, powerDraw, current, temperature, flags,
@@ -47,7 +47,7 @@ struct BatteryData {
   enum : uint8_t { presenceUnknown = 0, presenceYes = 1, presenceNo = 2 };
   bool batteryDetected() {
 #if HARDWARE_VERSION >= 7
-    // v7: Can't use BAT_DET since it relies on the thermistor pin, so check the inferred verdict from BatteryPresence (core1)
+    // v7: Can't use BAT_DET since it relies on the thermistor pin, so check the inferred result from BatteryPresence (core1)
     return presence == presenceYes;
 #else
     // Issue: almost always detects a battery, presumably mistaking the lipo charger, powering the load, as a battery
@@ -402,7 +402,7 @@ ChargeController chargeController;
 //             or the reading jumping between samples (measured 4327 -> 4549mV sample to sample with no cell; a cell under
 //             our <1A load moves a few tens of mV at most, ~50mV for a full pixel-load step at ~100mOhm pack).
 //   cell:     voltage in the cell range and steady between samples.
-// Two consecutive agreeing votes flip the verdict; a single ambiguous or contradicting sample holds it. A first sample that
+// Two consecutive agreeing votes flip the result; a single ambiguous or contradicting sample holds it. A first sample that
 // is unambiguous decides immediately so the charging ui isn't delayed by a whole poll interval.
 class BatteryPresence {
   static const uint16_t kNoCellMV = 4270;      // above the 4.2V termination + margin
@@ -411,41 +411,41 @@ class BatteryPresence {
   static const uint16_t kJitterNoCellMV = 120; // sample-to-sample swing that no cell produces
   static const uint16_t kJitterCellMV = 60;    // sample-to-sample swing consistent with a cell
   uint16_t lastVoltage = 0;
-  uint8_t verdict = BatteryData::presenceUnknown;
-  uint8_t pendingVerdict = BatteryData::presenceUnknown;
+  uint8_t result = BatteryData::presenceUnknown;
+  uint8_t pendingResult = BatteryData::presenceUnknown;
   uint8_t pendingVotes = 0;
 
   void vote(uint8_t v) {
     if (v == BatteryData::presenceUnknown) { pendingVotes = 0; return; }
-    if (v == verdict) { pendingVotes = 0; return; }
-    if (v == pendingVerdict) {
+    if (v == result) { pendingVotes = 0; return; }
+    if (v == pendingResult) {
       pendingVotes++;
     } else {
-      pendingVerdict = v;
+      pendingResult = v;
       pendingVotes = 1;
     }
     // first decision is immediate, later flips need agreement
-    if (verdict == BatteryData::presenceUnknown || pendingVotes >= 2) {
+    if (result == BatteryData::presenceUnknown || pendingVotes >= 2) {
       logf("battery presence: %s (voltage %umV, current %imA)", v == BatteryData::presenceYes ? "cell detected" : "no cell", lastVoltage, lastCurrent);
-      verdict = v;
+      result = v;
       pendingVotes = 0;
     }
   }
   int16_t lastCurrent = 0;
 public:
-  uint8_t current() { return verdict; }
-  // returns the verdict after folding in this sample
+  uint8_t current() { return result; }
+  // returns the result after folding in this sample
   uint8_t update(const BatteryData &bd, bool vbusPowered) {
     lastCurrent = bd.current;
     if (!vbusPowered) {
       // nothing but a cell can be powering us
       lastVoltage = bd.voltage;
       vote(BatteryData::presenceYes);
-      return verdict;
+      return result;
     }
     if (bd.voltage == 0 || bd.voltage == 0xFFFF) {
       // failed read, no information
-      return verdict;
+      return result;
     }
     uint16_t jitter = lastVoltage ? (uint16_t)abs((int)bd.voltage - (int)lastVoltage) : 0;
     bool haveHistory = lastVoltage != 0;
@@ -458,7 +458,7 @@ public:
     } else {
       vote(BatteryData::presenceUnknown); // 4230..4270mV band, or a mid-size swing: wait for the next sample
     }
-    return verdict;
+    return result;
   }
 };
 BatteryPresence batteryPresence;
@@ -538,7 +538,7 @@ class LowBatteryMonitor {
   unsigned long belowSince = 0;
   bool startChecked = false;
 public:
-  enum Verdict : uint8_t { ok, refuseStart, shutdown };
+  enum Result : uint8_t { ok, refuseStart, shutdown };
   static bool plausibleVoltage(uint16_t mv) {
     return mv > 2000 && mv < 4600; // filters 0 / 0xFFFF from failed i2c reads
   }
@@ -548,7 +548,7 @@ public:
   }
   // refuseStart: the first gauge sample after boot found the cell too flat to start from (reported once)
   // shutdown: the cell has sat under the shutdown voltage for the hold time while running from it
-  Verdict update(bool vbusPowered, BatteryData &bd) {
+  Result update(bool vbusPowered, BatteryData &bd) {
     if (!bd.gaugingReady() || !plausibleVoltage(bd.voltage)) {
       belowSince = 0;
       return ok;

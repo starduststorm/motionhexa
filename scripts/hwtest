@@ -2,16 +2,17 @@
 """Unit intake: flash every board that shows up in BOOTSEL, then run the firmware's HWTEST self-test on every hexa that
 shows up on USB serial, judge it, and log it per chip serial number.
 
-    ./hwtest v7                  build env v7, flash boards as they appear in bootloader mode, test units as they boot
-    ./hwtest v7 --no-build       reuse .pio/build/v7/firmware.uf2
-    ./hwtest --no-flash          only test (units already running a firmware with HWTEST)
-    ./hwtest --new-only ...      leave alone the units that are already plugged in when this starts
-    ./hwtest v7 --reflash        also kick the hexas that are already running into the bootloader (1200-baud touch),
+    scripts/hwtest v7                  build env v7, flash boards as they appear in bootloader mode, test units as they boot
+    scripts/hwtest v7 --no-build       reuse .pio/build/v7/firmware.uf2
+    scripts/hwtest --no-flash          only test (units already running a firmware with HWTEST)
+    scripts/hwtest --new-only ...      leave alone the units that are already plugged in when this starts
+    scripts/hwtest v7 --reflash        also kick the hexas that are already running into the bootloader (1200-baud touch),
                                  so they get this build and then the test
-    ./hwtest ... --for 60        stop after that many seconds (and print today's report) instead of waiting for ^C
-    ./hwtest report              the spread across units: what failed on how many, de-duplicated by serial number
-    ./hwtest report --all        ...counting every run rather than each unit's latest
+    scripts/hwtest ... --for 60        stop after that many seconds (and print today's report) instead of waiting for ^C
+    scripts/hwtest report              the spread across units: what failed on how many, de-duplicated by serial number
+    scripts/hwtest report --all        ...counting every run rather than each unit's latest
 
+Each unit then blinks the verdict: a small hexagon, green PASS / yellow WARN / red FAIL (or ERROR).
 Several units at once is fine. The firmware (src/hwtest.h) only measures and prints "HWTEST <section> key=value" lines;
 the limits live here (LIMITS / judge()), so they can be tuned against the accumulated log without reflashing anything.
 Every run appends one JSON record to hwtest_results/results.jsonl and its raw transcript to hwtest_results/raw/.
@@ -21,6 +22,7 @@ Flashing is ./autoflash's: copy the .uf2 onto any volume with an INFO_UF2.TXT.
 import argparse, datetime, json, os, re, shutil, statistics, subprocess, sys, threading, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)  # repo root (platformio.ini)
 try:
     import serial
     from serial.tools import list_ports
@@ -37,12 +39,14 @@ BOOT_SETTLE_S = 1.5          # from the serial port appearing to sending HWTEST
 TEST_TIMEOUT_S = 12.0
 POLL_S = 0.5
 GONE_TIMEOUT_S = 8.0
+JUST_FLASHED_S = 30.0        # a unit this soon after any flash (and up this briefly) was probably the one flashed
+last_flash = [-1e9]          # time.monotonic() of the last successful flash
 
 # Expected parts per hardware version: i2c address -> name, gauge DEVICE_TYPE, magnetometer product id
 EXPECT = {
     "7": dict(i2c={0x30: "mag", 0x55: "gauge"}, gauge_type=0x427, mag_id=0x10, photosensors=3),
-    "6": dict(i2c={0x55: "gauge"}, gauge_type=0x421, mag_id=None, photosensors=1),
-    "5": dict(i2c={0x55: "gauge"}, gauge_type=0x421, mag_id=None, photosensors=0),
+    "6": dict(i2c={0x55: "gauge", 0x68: "imu"}, gauge_type=0x421, mag_id=None, photosensors=1),
+    "5": dict(i2c={0x55: "gauge", 0x68: "imu"}, gauge_type=0x421, mag_id=None, photosensors=0),
 }
 LIMITS = dict(
     acc_g=(0.90, 1.10),          # at rest
@@ -82,10 +86,10 @@ def resolve_image(target, build):
         if not os.path.isfile(target):
             sys.exit(f"hwtest: no such file: {target}")
         return os.path.abspath(target)
-    uf2 = os.path.join(HERE, ".pio", "build", target, "firmware.uf2")
+    uf2 = os.path.join(ROOT, ".pio", "build", target, "firmware.uf2")
     if build:
         log(f"building env `{target}`")
-        rc = subprocess.call([find_pio(), "run", "-e", target], cwd=HERE)
+        rc = subprocess.call([find_pio(), "run", "-e", target], cwd=ROOT)
         if rc != 0:
             sys.exit(f"hwtest: build of env `{target}` failed (exit {rc})")
     if not os.path.isfile(uf2):
@@ -163,6 +167,7 @@ def flash(vol, image):
     while time.monotonic() < deadline:
         if not os.path.isdir(vol):
             log(f"{vol}: flashed, board rebooted")
+            last_flash[0] = time.monotonic()
             return True
         time.sleep(0.2)
     log(f"{vol}: still mounted after {GONE_TIMEOUT_S:.0f}s -- the bootloader ignored the image (wrong chip family?)")
@@ -172,13 +177,13 @@ def flash(vol, image):
 def firmware_identity(image):
     ident = {}
     try:
-        rev = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=HERE, capture_output=True, text=True).stdout.strip()
-        dirty = subprocess.run(["git", "status", "--porcelain", "src", "lib"], cwd=HERE, capture_output=True, text=True).stdout.strip()
+        rev = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+        dirty = subprocess.run(["git", "status", "--porcelain", "src", "lib"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
         ident["git"] = rev + ("+dirty" if dirty else "")
     except OSError:
         pass
     if image:
-        ident["image"] = os.path.relpath(image, HERE)
+        ident["image"] = os.path.relpath(image, ROOT)
         ident["image_built"] = datetime.datetime.fromtimestamp(os.path.getmtime(image)).isoformat(timespec="seconds")
     return ident
 
@@ -232,17 +237,20 @@ def run_test(port):
         ser.close()
 
 
-def judge(s, boot):
+def judge(s, boot, just_flashed=False):
     """(failures, warnings) as lists of (flag, detail). Flags are stable names: the report counts them across units."""
     fail, warn = [], []
     begin = s.get("begin", {})
     expect = EXPECT.get(str(begin.get("hw")), EXPECT["7"])
+    # the v5/v6 BQ27421 runs off the cell, so without one it's simply not there: a warning, not a failure (v7 fails)
+    gauge_optional = str(begin.get("hw")) in ("5", "6")
     rng = lambda v, lim: isinstance(v, (int, float)) and lim[0] <= v <= lim[1]
 
     bad_boot = [l for l in boot if BOOT_LOG_BAD.search(l)]
     if bad_boot:
         warn.append(("boot_log", "; ".join(bad_boot[:4])))
-    if begin.get("watchdog_reboot"):
+    # the UF2 bootrom reboots through the watchdog without clearing the previous firmware's watchdog_enable marker
+    if begin.get("watchdog_reboot") and not (just_flashed and begin.get("uptime_ms", 1e9) < JUST_FLASHED_S * 1000):
         warn.append(("watchdog_reboot", "last reset was the watchdog"))
 
     i2c = s.get("i2c", {})
@@ -255,7 +263,10 @@ def judge(s, boot):
     if i2c.get("sda") and i2c.get("scl"):
         for addr, name in expect["i2c"].items():
             if addr not in acks:
-                fail.append((f"{name}_no_ack", f"nothing at i2c 0x{addr:02x}"))
+                if name == "gauge" and gauge_optional:
+                    warn.append(("gauge_absent", f"nothing at i2c 0x{addr:02x} (no cell?)"))
+                else:
+                    fail.append((f"{name}_no_ack", f"nothing at i2c 0x{addr:02x}"))
         extra = [a for a in acks if a not in expect["i2c"]]
         if extra:
             warn.append(("i2c_unexpected_device", ",".join(f"0x{a:02x}" for a in extra)))
@@ -265,7 +276,9 @@ def judge(s, boot):
             fail.append(("gauge_bad_type", f"device type 0x{i2c.get('gauge_type', 0):x}"))
 
     g = s.get("gauge", {})
-    if not g.get("init"):
+    if not g.get("init") and gauge_optional and 0x55 not in acks:
+        pass  # gauge_absent above
+    elif not g.get("init"):
         fail.append(("gauge_init_failed", f"boot device type 0x{g.get('boot_type', 0):x}"))
     elif not g.get("sampled") or not g.get("plausible"):
         fail.append(("gauge_no_sample", f"{g.get('mv')}mV soc {g.get('soc')}"))
@@ -329,16 +342,31 @@ def judge(s, boot):
     return fail, warn
 
 
+def send_verdict(port, verdict):
+    """the unit blinks a green/yellow/red hexagon for PASS/WARN/FAIL until its next serial command"""
+    started = time.monotonic()
+    try:
+        with serial.Serial(port, 115200, timeout=0.25, write_timeout=2) as ser:
+            ser.write(f"\nHWTEST RESULT {'FAIL' if verdict == 'ERROR' else verdict}\n".encode())
+    except (serial.SerialException, OSError) as e:  # SerialTimeoutException included
+        log(f"{port}: couldn't send the verdict to the unit: {e}")
+    if time.monotonic() - started > 1:
+        log(f"{port}: sending the result took {time.monotonic() - started:.1f}s")
+
+
 def test_unit(port, info, ident):
     time.sleep(BOOT_SETTLE_S)
     started = time.time()
     sections, boot, transcript, error = run_test(port)
+    seconds = round(time.time() - started, 1)  # the test alone, not the verdict send below
     sn = sections.get("begin", {}).get("sn") or info.serial_number or "unknown"
     sn = str(sn).upper()
-    fail, warn = ([], []) if error else judge(sections, boot)
+    just_flashed = time.monotonic() - last_flash[0] < JUST_FLASHED_S
+    fail, warn = ([], []) if error else judge(sections, boot, just_flashed)
     verdict = "ERROR" if error else ("FAIL" if fail else ("WARN" if warn else "PASS"))
+    send_verdict(port, verdict)
     record = dict(time=datetime.datetime.now().isoformat(timespec="seconds"), sn=sn, port=port, verdict=verdict, error=error,
-                  seconds=round(time.time() - started, 1), failures=[list(f) for f in fail], warnings=[list(w) for w in warn],
+                  seconds=seconds, failures=[list(f) for f in fail], warnings=[list(w) for w in warn],
                   measurements=sections, boot_log=boot, **ident)
     os.makedirs(os.path.join(RESULTS_DIR, "raw"), exist_ok=True)
     with print_lock:

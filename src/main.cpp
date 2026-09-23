@@ -650,11 +650,11 @@ void loop() {
   powerState.update(isVBUSPowered, batteryData);
 #if HARDWARE_VERSION >= 7
   if (!lowBatteryRunner) {
-    LowBatteryMonitor::Verdict lowBatteryVerdict = lowBattery.update(isVBUSPowered, batteryData);
-    if (lowBatteryVerdict == LowBatteryMonitor::shutdown && powerState.isRunning() && !powerOnOffRunner) {
+    LowBatteryMonitor::Result lowBatteryResult = lowBattery.update(isVBUSPowered, batteryData);
+    if (lowBatteryResult == LowBatteryMonitor::shutdown && powerState.isRunning() && !powerOnOffRunner) {
       logf("Low battery (%umV). Powering off...", batteryData.voltage);
       beginPowerOff();
-    } else if (lowBatteryVerdict == LowBatteryMonitor::refuseStart) {
+    } else if (lowBatteryResult == LowBatteryMonitor::refuseStart) {
       // powering on from a flat cell: say so rather than start what we can't sustain
       logf("Low battery (%umV), not starting", batteryData.voltage);
       refuseStartForLowBattery();
@@ -671,11 +671,10 @@ void loop() {
   updater->loop(serialLine);
   benchLoop(serialLine);
 #if HARDWARE_VERSION >= 5
-  if (serialLine && strcmp(serialLine, kHWTestCommand) == 0 && !hwTest.active()) {
-    hwTest.begin(hardwareVersionString);
+  if (serialLine) {
+    hwTest.command(serialLine, hardwareVersionString);
   }
   if (hwTest.active()) {
-    // the self-test owns the panel for its few seconds
     hwTest.loop(MotionManager::motionFrame, batteryData, isVBUSPowered, isButtonPressed);
     fc.loop();
     return;
