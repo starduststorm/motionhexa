@@ -327,14 +327,7 @@ public:
         nextActionMS = now + periodMS;
 #if AUTO_BRIGHTNESS
         if (!ab) { logf("AMB: no estimator"); return; }
-        rowReset();
-        rowAdd("AMB t=%5.1fs ambient=%6.1f sensors", (now - jobStart) / 1000.0, ab->ambient16() / 16.0);
-        for (int s = 0; s < ab->sensors(); ++s) {
-          rowAdd(" [raw %.1f panel %.1f est %.1f%s%s]", ab->sensorRaw16(s) / 16.0, ab->sensorPanel16(s) / 16.0,
-                 ab->sensorEstimate16(s) / 16.0, ab->sensorClean(s) ? " clean" : "", ab->sensorBlind(s) ? " BLIND" : "");
-        }
-        rowAdd(" brightness=%i cap=%i gauge=%uK die=%0.1fC", ab->brightness(), ab->thermalCeiling(), tempK, analogReadTemp());
-        rowEmit();
+        ab->logDiagnostics(tempK);
 #endif
         break;
       }

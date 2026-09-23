@@ -1,8 +1,29 @@
 #ifndef BENCH_H
 #define BENCH_H
 
+#if AUTO_BRIGHTNESS
+static bool autoBrightnessLogging = false;
+#endif
+
 static inline void benchLoop(char *serialLine) {
   if (serialLine) {
+#if AUTO_BRIGHTNESS
+    // photosensor / auto-brightness diagnostics:
+    //   AB            toggle a diagnostics line every 500 ms (per-sensor counts, estimate, brightness, thermal cap)
+    //   AB FAKE <n>   feed the controller a synthetic ambient of n ADC counts; AB FAKE -1 releases it
+    //   AB THERM 0|1  run without / with the thermal ceiling
+    if (strcmp(serialLine, "AB") == 0) {
+      autoBrightnessLogging = !autoBrightnessLogging;
+      logf("AB logging %s", autoBrightnessLogging ? "on" : "off");
+    } else if (strncmp(serialLine, "AB FAKE ", 8) == 0) {
+      float counts = atof(serialLine + 8);
+      autoBrightness->injectedAmbient16 = (counts < 0 ? -1 : (int32_t)(counts * 16));
+      logf("AB FAKE %.1f counts", counts);
+    } else if (strncmp(serialLine, "AB THERM ", 9) == 0) {
+      autoBrightness->thermalEnabled = atoi(serialLine + 9) != 0;
+      logf("AB THERM %i", autoBrightness->thermalEnabled ? 1 : 0);
+    } else
+#endif
     if (strcmp(serialLine, "COMPASSCAL") == 0) {
       logf("COMPASSCAL: discarding the hard-iron offset in effect; tumble the device through every orientation");
       compassCalRequested = true;
@@ -71,6 +92,16 @@ static inline void benchLoop(char *serialLine) {
     }
 #endif
   }
+
+#if AUTO_BRIGHTNESS
+  if (autoBrightnessLogging) {
+    static unsigned long lastLog = 0;
+    if (millis() - lastLog >= 500) {
+      lastLog = millis();
+      autoBrightness->logDiagnostics(batteryData.temperature);
+    }
+  }
+#endif
 
   if (compassLogging) {
     static unsigned long lastCompassLog = 0;

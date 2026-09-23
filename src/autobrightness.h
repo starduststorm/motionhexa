@@ -49,8 +49,9 @@ struct NearPixel {
 #if HARDWARE_VERSION >= 7
 #define AB_SENSOR_TAU_MS 15    // the phototransistor's own lag, measured with PB STEP
 #define AB_COUNTS_PER_DRIVE 3  // ADC counts per unit of FastLED drive (pwm*current) at the nearest pixel
-#define AB_DARK_COUNTS 11      // ~4 counts above the dark floor (measured 0-7 counts across units)
-#define AB_BRIGHT_COUNTS 115   // the level mapped to maxBrightness; bright desk lighting free-runs at 15
+#define AB_DARK_COUNTS 10      // at or below this the room is dark (dark floor 4-7 counts across units)
+#define AB_BRIGHT_COUNTS 158   // the level mapped to maxBrightness
+#define AB_CURVE_OFFSET_COUNTS 8 // the log curve runs on counts above this; see curveOffsetCounts
 // Sensor 0 / GPIO26 / Q3: logical top-left corner, next to px 0 and 10.
 static const NearPixel kNearPixels0[] = {
   {10, AB_RING0}, {0, AB_RING0},
@@ -80,8 +81,9 @@ static const uint8_t kNearPixelCount[] = {
 // v6's front end is more sensitive (~1.5x the counts per unit drive) and much faster than v7's.
 #define AB_SENSOR_TAU_MS 3
 #define AB_COUNTS_PER_DRIVE 4
-#define AB_DARK_COUNTS 20      // dark floor measured ~13 counts
-#define AB_BRIGHT_COUNTS 180   // v7 anchor scaled by the front-end sensitivity; unverified
+#define AB_DARK_COUNTS 16      // dark floor measured 13.2 counts; v7 anchors scaled by the front-end sensitivity, unverified
+#define AB_BRIGHT_COUNTS 238
+#define AB_CURVE_OFFSET_COUNTS 13
 // single phototransistor near px 9/10 (logical top-right corner)
 static const NearPixel kNearPixels0[] = {
   {10, AB_RING0}, {9, AB_RING0},
@@ -99,24 +101,32 @@ public:
 
   // ---- brightness envelope ----
   uint8_t minBrightness = 2;     // floor for a properly dark room
-  uint8_t maxBrightness = 20;    // ceiling in bright ambient; deliberately far below what the panel can do
+  uint8_t maxBrightness = 30;    // ceiling in bright ambient; deliberately far below what the panel can do
   uint8_t sustainBrightness = 15; // the level the panel can hold indefinitely; the rolloff plateaus
                                   // here rather than ramping straight past it. Measured: brightness 15
                                   // in open air settles around 50C gauge / 55C die, which prior
                                   // full-case revisions ran continuously without trouble.
-  uint8_t thermalFloor = 2;      // brightness the thermal rolloff bottoms out at
+  uint8_t thermalFloor = 5;      // brightness the thermal rolloff bottoms out at
   uint8_t criticalBrightness = 1; // and past the critical temperature, below even that
 
   // ---- ambient -> brightness curve ----
   // Ambient is in ADC counts with the panel off. At or below darkCounts the room counts as dark and
-  // we sit at minBrightness; at brightCounts we reach maxBrightness. In between it is logarithmic,
-  // which is roughly how the eye reads it. Both are population anchors: any given unit's sensors
-  // read up to ~2-3x off them, accepted as a few steps of per-unit bias.
+  // we sit at minBrightness; at brightCounts we reach maxBrightness. In between it is logarithmic
+  // in the counts above curveOffsetCounts. A plain log of the raw count is too flat at the dark
+  // end: the sensors' dark floor eats most of the few counts that separate rooms the eye sees as
+  // very different. Measured on one v7 in an office (floor ~4 counts): lights off 10.3, lit but
+  // dim 14.5, desk lamp 38.8; the plain log put the dim room at 6 of 30, one step above dark.
+  // With the offset those land at 2-3 / 10 / 19, which is what those rooms want. All three are
+  // population anchors: any given unit's sensors read up to ~2-3x off them in gain and a few
+  // counts off in floor, accepted as a few steps of per-unit bias.
   uint16_t darkCounts = AB_DARK_COUNTS;
   uint16_t brightCounts = AB_BRIGHT_COUNTS;
-  // Deadband around each step, as a percentage. The output is quantised to whole brightness levels,
-  // so without this the estimate sitting near a boundary would toggle across it.
-  uint8_t hysteresisPct = 15;
+  uint16_t curveOffsetCounts = AB_CURVE_OFFSET_COUNTS;
+  // Deadband around each step, as a percentage of one step's width on the curve. The output is
+  // quantised to whole brightness levels, so without this the estimate sitting near a boundary
+  // would toggle across it. (As a percentage of counts it was worth 1.5 steps near the dark end
+  // and a fraction of one near the bright end.)
+  uint8_t hysteresisStepPct = 50;
 
   // ---- thermal limiting ----
   // Scale brightness down to manage heat. We'll use the fuel gauge sensor and the RP2350's own die sensor,
@@ -133,12 +143,15 @@ public:
   unsigned dieSampleMS = 1000;  // reading it costs a 1ms stall on core0, so keep it infrequent
 
   // ---- dynamics ----
-  // Deliberately slow: the boot baseline is the anchor and live updates only nudge it. A brightness
+  // The boot baseline sets the starting brightness outright: the first ambient reading snaps the
+  // output to its level on the curve (under the thermal ceiling) instead of ramping up from
+  // minBrightness, so a short session in a lit room is not spent mostly dim.
+  // After that, deliberately slow: the boot baseline is the anchor and live updates only nudge it. A brightness
   // change in the room has to persist for several seconds (rise) to half a minute (fall) before the
   // panel follows, and updates only land on clean frames anyway, which stretches these further.
   unsigned updateIntervalMS = 10;
-  unsigned riseTauMS = 5000;        // ambient filter, getting brighter
-  unsigned fallTauMS = 30000;       // ambient filter, getting darker
+  unsigned riseTauMS = 3000;        // ambient filter, getting brighter
+  unsigned fallTauMS = 6000;       // ambient filter, getting darker
   unsigned debounceMS = 700;        // a change of direction must hold this long before we act on it
   unsigned riseSlewMS = 250;        // then one step at a time
   unsigned fallSlewMS = 500;
@@ -194,6 +207,7 @@ private:
 
   uint32_t ambientFilt16 = 0;
   bool haveAmbient = false;
+  bool snapped = false;   // output has been set from the boot baseline
 
   // Filter states carry kFiltShift fractional bits on top of counts*16. Without them the
   // truncating step in iir() either strands the filter short of its target or, with the minimum
@@ -213,6 +227,7 @@ private:
   static const int kMaxLevels = 64;
   uint32_t stepAt[kMaxLevels] = {0};
   int levelCount = 0;
+  uint32_t hystMul1024 = 1024;  // one deadband's worth of ambient ratio, x1024
 
   // diagnostics
   uint32_t panel16[kMaxSensors] = {0};
@@ -277,6 +292,23 @@ public:
   uint32_t ambientFiltered16() const { return ambientFilt16; }
   uint8_t brightness() const { return current; }
   uint8_t thermalCeiling() const { return thermalCap; }
+
+  // One line of everything the estimator knows, in ADC counts: each sensor's raw reading, what the
+  // panel is predicted to contribute to it, its held estimate and whether it was trusted this frame.
+  void logDiagnostics(uint16_t tempK) const {
+    char line[256];
+    int n = snprintf(line, sizeof(line), "AB ambient=%.1f sensors", lastAmbient16 / 16.0);
+    for (int s = 0; s < sensorCount && n < (int)sizeof(line); ++s) {
+      n += snprintf(line + n, sizeof(line) - n, " [raw %.1f panel %.1f est %.1f%s%s]", raw16[s] / 16.0,
+                    sensorPanel16(s) / 16.0, sensorEstimate16(s) / 16.0, clean[s] ? " clean" : "",
+                    sensorBlind(s) ? " BLIND" : "");
+    }
+    if (n < (int)sizeof(line)) {
+      snprintf(line + n, sizeof(line) - n, " brightness=%i cap=%i curve=%i gauge=%uK die=%.1fC", current, thermalCap,
+               haveAmbient ? levelFor(ambientFilt16) : -1, tempK, dieC);
+    }
+    logf("%s", line);
+  }
 
   // How much of each sensor's reading the panel is probably responsible for right now, in counts*16:
   // each nearby pixel's drive (FastLED's own APA102-HD split into an 8-bit PWM value and a 5-bit
@@ -373,12 +405,14 @@ public:
   void configure() {
     levelCount = min(kMaxLevels, (int)maxBrightness - (int)minBrightness + 1);
     if (levelCount < 1) levelCount = 1;
-    const float dark = (float)darkCounts * kReadSamples;
-    const float bright = (float)max(brightCounts, (uint16_t)(darkCounts + 1)) * kReadSamples;
+    const float offset = (float)min(curveOffsetCounts, (uint16_t)(darkCounts - 1)) * kReadSamples;
+    const float dark = (float)darkCounts * kReadSamples - offset;
+    const float bright = (float)max(brightCounts, (uint16_t)(darkCounts + 1)) * kReadSamples - offset;
+    const float perStep = (levelCount > 1) ? powf(bright / dark, 1.0f / (levelCount - 1)) : 1.0f;
     for (int i = 0; i < levelCount; ++i) {
-      float t = (levelCount > 1) ? (float)i / (levelCount - 1) : 0.0f;
-      stepAt[i] = (uint32_t)(dark * powf(bright / dark, t) + 0.5f);
+      stepAt[i] = (uint32_t)(offset + dark * powf(perStep, i) + 0.5f);
     }
+    hystMul1024 = (uint32_t)(powf(perStep, hysteresisStepPct / 100.0f) * 1024 + 0.5f);
   }
 
   uint32_t stepThreshold(int b) const {
@@ -386,6 +420,13 @@ public:
     if (i <= 0) return 0;
     if (i >= levelCount) return 0xFFFFFFFF;
     return stepAt[i];
+  }
+
+  // Brightness the curve puts an ambient level (counts*16) at, with no hysteresis.
+  uint8_t levelFor(uint32_t ambient) const {
+    int i = 0;
+    while (i + 1 < levelCount && ambient >= stepAt[i + 1]) ++i;
+    return minBrightness + i;
   }
 
   // Piecewise rolloff, in whatever temperature unit the breakpoints are expressed in.
@@ -469,6 +510,17 @@ public:
     }
     if (!controlOutput) return;
 
+    // Boot: the first ambient reading is the panel-off baseline; go straight to its level.
+    if (!snapped && (haveAmbient || allBlind())) {
+      snapped = true;
+      uint8_t want = allBlind() ? fallbackBrightness : levelFor(ambientFilt16);
+      want = min(want, thermalCap);
+      if (logChanges) {
+        logf("autobrightness: boot ambient=%.1f counts -> %i (thermal cap %i)", ambientFilt16 / 16.0, want, thermalCap);
+      }
+      current = want;
+      return;
+    }
     // Schmitt trigger around the current step: going up has to clear the next threshold by the
     // deadband, coming down has to fall below this one by it.
     uint8_t want = current;
@@ -478,9 +530,9 @@ public:
       uint32_t up = stepThreshold(current + 1);
       uint32_t down = stepThreshold(current);
       if (current < maxBrightness && up != 0xFFFFFFFF &&
-          ambientFilt16 >= (uint64_t)up * (100 + hysteresisPct) / 100) {
+          ambientFilt16 >= (uint64_t)up * hystMul1024 / 1024) {
         want = current + 1;
-      } else if (current > minBrightness && ambientFilt16 < (uint64_t)down * 100 / (100 + hysteresisPct)) {
+      } else if (current > minBrightness && ambientFilt16 < (uint64_t)down * 1024 / hystMul1024) {
         want = current - 1;
       }
     } else {
@@ -513,8 +565,8 @@ public:
     lastSlew = now;
     uint8_t next = current + dir;
     if (logChanges) {
-      logf("autobrightness: ambient=%li filt=%lu target=%i thermal=%i : %i->%i",
-           (long)lastAmbient16, (unsigned long)ambientFilt16, want, thermalCap, current, next);
+      logf("autobrightness: ambient=%.1f counts target=%i thermal=%i : %i->%i",
+           ambientFilt16 / 16.0, want, thermalCap, current, next);
     }
     current = next;
   }
