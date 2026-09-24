@@ -22,6 +22,7 @@ const unsigned long kStallLogMS = 15; // ~3 motion frames' worth
 #include "Wire.h"
 
 #include "pinout.h"
+#include "hwdetect.h"
 
 #define FASTLED_USE_PROGMEM 1
 #define FASTLED_USE_GLOBAL_BRIGHTNESS 1
@@ -207,6 +208,11 @@ void hard_reset_check_core1() {
 bool core1_separate_stack = true;
 static unsigned long motionStartedAt = 0;
 
+// read flash info before usb or core1 come up
+void initVariant() {
+  detectHardwareRevision();
+}
+
 void setup1() {
   assert(1 == get_core_num(), "setup1 not on core1");
 
@@ -215,7 +221,11 @@ void setup1() {
 #endif
 
   unsigned long motionInitStart = millis();
-  MotionManager::manager().init(kHexaMotionPlacement);
+  MotionSensorPlacement placement = kHexaMotionPlacement;
+#if HARDWARE_VERSION >= 7
+  if (v8Hardware) placement.magPosition = kHexaV8MagPosition;
+#endif
+  MotionManager::manager().init(placement);
   motionStartedAt = millis();
   btlogf("[t=%lu] core1: motion init took %lums (i2c up at t=%lu)",
          motionStartedAt, motionStartedAt - motionInitStart, motionInitStart);
@@ -337,9 +347,9 @@ void startupCompleted() {
   indexedRunner->runPatternAtIndex(0);
 }
 
+const char *hardwareVersionString = "";
 #include "bench.h"
 #include "hwtest.h"
-const char *hardwareVersionString = "";
 
 /* ------ Setup ------------------------------------------------------------------------------------------------------------ */
 
@@ -424,6 +434,8 @@ void setup() {
   v6Hardware = (digitalRead(V6_DETECTOR_PIN) != 0);
   logdf("v6Hardware = %i", v6Hardware);
 #endif
+  logf("flash JEDEC id %02x %02x %02x%s", flashJedecId.manufacturer, flashJedecId.type, flashJedecId.capacity,
+       v8Hardware ? " (RP2354A in-package W25Q16JV: v8 hardware)" : "");
 
 #if defined(LED_SERIAL_DATA)
   FastLED.addLeds<WS2812B, LED_SERIAL_DATA, GRB>(ctx.leds, LED_COUNT);
@@ -531,7 +543,7 @@ void setup() {
 #if MINI_VERSION
   hardwareVersionString = "mini" xstr(MINI_VERSION);
 #else
-  hardwareVersionString = (v6Hardware ? "6" : xstr(HARDWARE_VERSION));
+  hardwareVersionString = (v6Hardware ? "6" : v8Hardware ? "8" : xstr(HARDWARE_VERSION));
 #endif
   updater = new RP2040Updater("motionhexa", SOFTWARE_VERSION, hardwareVersionString, [](void) {
     patternManager.runOneShotPattern<BlinkIdentifyPattern>(0xFE, 0xFF);

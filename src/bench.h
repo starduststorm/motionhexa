@@ -60,6 +60,17 @@ static inline void benchLoop(char *serialLine) {
       pinMode(GPOUT_PIN, INPUT);
       logf("GPOUTLOW: released");
 #endif
+    } else if (strcmp(serialLine, "HW") == 0) {
+      // the boot-time hardware tell (hwdetect.h); the boot log line is gone before USB is up
+      logf("HW: version=%s, flash JEDEC id %02x %02x %02x", hardwareVersionString, 
+        flashJedecId.manufacturer, flashJedecId.type, flashJedecId.capacity);
+#if LOG_BOOT_CAPTURE_BYTES
+    } else if (strcmp(serialLine, "BOOTLOG") == 0) {
+      // everything logged before anyone was listening on USB (LOG_BOOT_CAPTURE_BYTES)
+      logf("BOOTLOG %u bytes:", (unsigned)strlen(bootLog()));
+      Serial.print(bootLog());
+      logf("BOOTLOG END");
+#endif
     } else if (strcmp(serialLine, "REBOOT") == 0) {
       logf("REBOOT requested");
       Serial.flush();

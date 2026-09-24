@@ -50,9 +50,11 @@ const MotionSensorPlacement kHexaMotionPlacement = {
   // Net: a reflection of the accel-style map, consistent with Memsic drawing +Z into the package.
   .mag = AxisRotation::axes(Axis::Y, Axis::X, Axis::Z).rotatedAboutZ(60),
   .position = UMPoint::fromMM(2.449, 17.808),
-  .magTempSlopeUTperC = {0.81f, -0.81f, 4.65f}, // bench. FIXME: test multiple units to confirm
+  .magPosition = UMPoint::fromMM(18.644, 32.191), // v7
+  .magTempSlopeUTperC = {0.81f, -0.81f, 4.65f}, // bench on v7. FIXME: test multiple units to confirm; re-check on v8, the mag moved 0.54mm
   .magTempRefC = 40,
 };
+const UMPoint kHexaV8MagPosition = UMPoint::fromMM(18.376, 31.727);
 #else
 const MotionSensorPlacement kHexaMotionPlacement = {
   .accelGyro = AxisRotation::axes(Axis::Y, Axis::X, -Axis::Z),

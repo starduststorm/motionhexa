@@ -149,6 +149,8 @@ struct MotionSensorPlacement {
   // Accel/gyro position relative to the center of the pixel array, in micrometers. In pixel geometry axes rather than motion
   // axes, since what consumes it (accelerationAtPixelIndex) works in pixel positions.
   UMPoint position;
+  // Magnetometer position, same frame as `position`
+  UMPoint magPosition;
   // Temperature coefficient of the board's hard iron, uT per degC, motion frame (what the COMPASS log shows), applied as
   // bias(T) = bias + slope * (T - magTempRefC) with T the IMU die temperature. Something near the v7 magnetometer is
   // thermally magnetic: 5uT/degC, linear over 30-47degC. All zero = no compensation. The stored hard-iron
