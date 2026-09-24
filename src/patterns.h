@@ -172,12 +172,28 @@ public:
 };
 
 
+// Framerate-invariant wrapped output motion integrator
+struct MotionIntegrator {
+  const int32_t scale, period, baselineFPS;
+  int32_t value = 0; // [0, period)
+  int32_t carry = 0; // sub-unit remainder in 1/(1000*scale) units, [0, 1000*scale)
+  MotionIntegrator(int32_t scale, int32_t period, int32_t baselineFPS) : scale(scale), period(period), baselineFPS(baselineFPS) {}
+  void step(int32_t sample, int32_t frameMS) {
+    // frameMS*baselineFPS/1000 baseline frames elapsed, sample/scale per baseline frame. |sample| <= 32767, frameMS <= 100: fits int32.
+    const int32_t unit = 1000 * scale;
+    carry += sample * frameMS * baselineFPS;
+    int32_t whole = carry / unit;
+    if (carry < 0 && carry % unit != 0) --whole; // floor, so carry stays non-negative
+    carry -= whole * unit;
+    value = mod_wrap(value + whole, period);
+  }
+};
+
 /* Concept
   PulseHexa except each shell is a looped palette which rotates as you rotate the hexagon.
   Hexa zooms in and out with motion along z axis?
   in any case add parameters and link them to motion
 */
-// FIXME: this has a continuity issue where the animation jumps across some probably modulus overflow OH or in the accAccum??
 class MotionHexa : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
   HexaShells hexaShells;
@@ -186,38 +202,40 @@ public:
     maxColorJump = 30;
   }
 
-  vector32 gyrAccum32;
-  vector32 accAccum32;
-  // sub-frame remainders so integration is framerate-invariant without losing precision at short frames
-  vector32 gyrCarry;
-  vector32 accCarry;
-
   static constexpr int32_t kBaselineFPS = 90;
-  static void accumulate(vector32 &accum, vector32 &carry, const vector16 &sample, int32_t frameMS) {
-    carry += vector32(sample) * (frameMS * kBaselineFPS);
-    accum.x += carry.x / 1000; carry.x %= 1000;
-    accum.y += carry.y / 1000; carry.y %= 1000;
-    accum.z += carry.z / 1000; carry.z %= 1000;
+  static constexpr int32_t accScale = 1000;
+  static constexpr int32_t gyrScale = 200;
+
+  // One integrator per motion term, each wrapped at a common multiple of the moduli update() derives from it:
+  //   gyr.x: bandIndex = 2x walks 6 bands of 4096 (period 12288 in x) and phases a beatsin16 (65536)
+  //   gyr.y: s*y/8 mod 0x200         gyr.z: z/2 mod 0x200         acc.x: x/4 mod 256
+  //   acc.y: bands*y/shellSize mod 256 for every shell size, so 256 * lcm(shell sizes)
+  MotionIntegrator gyrX{gyrScale, 3 * 65536, kBaselineFPS};
+  MotionIntegrator gyrY{gyrScale, 8 * 0x200, kBaselineFPS};
+  MotionIntegrator gyrZ{gyrScale, 2 * 0x200, kBaselineFPS};
+  MotionIntegrator accX{accScale, 4 * 256, kBaselineFPS};
+  MotionIntegrator accY{accScale, twistPeriod(hexaShells), kBaselineFPS};
+
+  static int32_t twistPeriod(const HexaShells &shells) {
+    int64_t l = 1;
+    for (auto &shell : shells.shells) {
+      int64_t n = shell.size(), a = l, b = n;
+      while (b) { int64_t t = a % b; a = b; b = t; }
+      l = l / a * n;
+    }
+    return (int32_t)min<int64_t>(256 * l, INT32_MAX / 2); // 3870720 for the 10-shell hexa
   }
 
   void update() {
-    // tuned against MotionFrame's fixed scales (8192 LSB/g, 16.4 LSB/dps)
-    const int accScale = 1000;
-    const int gyrScale = 200;
     const MotionFrame &motion = MotionManager::motionFrame;
-    // frameTime() wall clock (0 is a sub-ms frame)
-    // clamp long stalls so a hitch doesn't slam the accumulators.
+    // clamp long stalls to not jump the animation
     int32_t frameMS = constrain((int32_t)frameTime(), 0, 100);
-    accumulate(gyrAccum32, gyrCarry, motion.gyr, frameMS);
-    accumulate(accAccum32, accCarry, motion.acc, frameMS);
-    vector32 gyrAccum = gyrAccum32 / gyrScale;
-    vector32 accAccum = accAccum32 / accScale;
-    // logf("gyr = (%i, %i, %i), gyrAccum = (%i, %i, %i), accel = (%i, %i, %i), accelAccum = (%i, %i, %i)", 
-    //         motion.gyr.x/gyrScale, motion.gyr.y/gyrScale, motion.gyr.z/gyrScale,
-    //         gyrAccum.x, gyrAccum.y, gyrAccum.z,
-    //         motion.acc.x/accScale, motion.acc.y/accScale, motion.acc.z/accScale,
-    //         accAccum.x, accAccum.y, accAccum.z);
-    
+    gyrX.step(motion.gyr.x, frameMS);
+    gyrY.step(motion.gyr.y, frameMS);
+    gyrZ.step(motion.gyr.z, frameMS);
+    accX.step(motion.acc.x, frameMS);
+    accY.step(motion.acc.y, frameMS);
+
     int shellCount = hexaShells.shells.size();
 
     // frame-constant terms
@@ -225,18 +243,18 @@ public:
     const unsigned long rt = runTime();
     CRGBPalette256 &palette = getPalette(); // also advances palette rotation once per frame instead of per pixel
 
-    const int32_t bandIndex = gyrAccum.x*2;
-    const int32_t bandRotate = accAccum.x;
-    const int32_t bandTwist = accAccum.y;//gyrAccum.z*2;
-    const int32_t bandThing = 0;//accAccum.x;
+    const int32_t bandIndex = gyrX.value * 2 + INT16_MAX;
+    const int32_t bandRotate = accX.value;
+    const int32_t bandTwist = accY.period - accY.value;
     const int bandCounts[] = {0, 1, 2, 3, 6, 9}; // i like this somewhat better than arbitrary band counts
-    int32_t bands = bandCounts[((int32_t)(bandIndex+INT16_MAX) / (1<<12)) % ARRAY_SIZE(bandCounts)];
-    int32_t withinBand = (int32_t)(bandIndex+INT16_MAX-(1<<11)) % (1<<12);
+    int32_t bands = bandCounts[(bandIndex / (1<<12)) % ARRAY_SIZE(bandCounts)];
+    int32_t withinBand = (bandIndex - (1<<11)) % (1<<12);
     uint8_t bandFadeIn = 0xFF - cos8(0xFF*withinBand / (1<<12));
 
-    const int32_t gyrRotate = (gyrAccum.z/2) % 0x200;
-    const int32_t evolve = (mils/100)%0x200;
-    const int32_t shellHBeat = beatsin16(3, 0, 0x200, 0, gyrAccum.x);
+    const int32_t gyrRotate = gyrZ.value / 2; // getMirroredPaletteColor wraps at 0x200
+    const int32_t evolve = (mils/100) % 0x200;
+    const int32_t evolveTwist = (mils/500) % 0x200; // reduced before the per-shell multiply so s*mils can't overflow
+    const int32_t shellHBeat = beatsin16(3, 0, 0x200, 0, gyrX.value);
 
     for (int s = 0 ; s < shellCount; ++s) {
       auto &shell = hexaShells.shells[s];
@@ -251,7 +269,7 @@ public:
         shellBrightness = (rt > s * shellFadeTime ? min(0xFF, 0xFF * (rt - s*shellFadeTime) / (fadeOverlap * shellFadeTime)) : 0);
       }
 
-      int32_t twistFactor = (s * gyrAccum.y/8 + s * mils/500) % 0x200;
+      int32_t twistFactor = (s * gyrY.value / 8 + s * evolveTwist) % 0x200;
       int32_t shellH = 0x200 * s/shellCount * shellHBeat / 0x200;
 
       for (int si = 0; si < shellSize; ++si) {
@@ -259,18 +277,12 @@ public:
         if (!pxOpt.has_value()) continue;
         PixelIndex px = pxOpt.value();
 
-        uint8_t brightness = lerp8by8(sin8(-bandRotate/4 + bands*(0xFF*si - bandTwist) / shellSize - 0xFF * (s-bandThing)/shellCount), 0xFF, bandFadeIn);
+        uint8_t brightness = lerp8by8(sin8(-bandRotate/4 + bands*(0xFF*si + bandTwist) / shellSize - 0xFF*s/shellCount), 0xFF, bandFadeIn);
 
         brightness = scale8(brightness, brightness);
         int32_t radialH =  0x200 * si / shellSize;
         CRGB c = PaletteRotation<CRGBPalette256>::getMirroredPaletteColor(palette, gyrRotate + radialH + twistFactor + shellH + evolve);
 
-        // improvement: do this in certain accelerometer conditions
-        // if (si%2) {
-        //   brightness = scale8(brightness, beatsin8(10));
-        // } else {
-        //   brightness = scale8(brightness, beatsin8(10, 0, 0xFF, 0, 0x7F));
-        // }
         c.nscale8(brightness);
         if (shellBrightness != 0xFF) {
           c.nscale8(shellBrightness);
@@ -1061,9 +1073,8 @@ public:
     fc.releaseFPSAssertion();
   }
 
-  vector32 gyrAccum32;
-  vector32 gyrCarry;
-  static constexpr int32_t kBaselineFPS = 36;
+  static constexpr int32_t kBaselineFPS = 90;
+  MotionIntegrator gyrShell{200, (int32_t)shells.shells.size(), kBaselineFPS};
   unsigned long lastSpawnCheck = 0;
   int speedDecaySteps = 0;
   BaselineStepper decayStepper;
@@ -1071,12 +1082,12 @@ public:
   void update() {
     unsigned long mils = millis();
 
-    // framerate-invariant integration, see MotionHexa::accumulate. frameMS 0 means a sub-ms frame.
+    // framerate-invariant integration, see MotionIntegrator. frameMS 0 means a sub-ms frame.
     int32_t frameMS = constrain((int32_t)frameTime(), 0, 100);
     speedDecaySteps = decayStepper.steps(125);
 
     const MotionFrame &motion = MotionManager::motionFrame;
-    MotionHexa::accumulate(gyrAccum32, gyrCarry, vector16(motion.gyr.x/100, motion.gyr.y/100, motion.gyr.z/100), frameMS); // drop low order noisy data
+    gyrShell.step(motion.gyr.x/100, frameMS); // drop low order noisy data
 
     FFTFrame frame = spectrumFrame();
     if (mils - lastSpawnCheck >= 10) {
@@ -1086,7 +1097,7 @@ public:
       for (int s = 0 ; s < min(frame.size, shells.shells.size()); ++s) {
         int32_t level = frame.spectrum[s] - fftLevelThreshold;
         if (level > 0 && particles.particles.size() < 255) {
-          int shellNum = (s + millis()/1000 + random8()%2 + gyrAccum32.x/200) % shells.shells.size();
+          int shellNum = (s + mils/1000 + random8()%2 + gyrShell.value) % shells.shells.size();
           int indexInShell = random16()%shells.shells[shellNum].size();
 
           unsigned maxlifespan = 300;
