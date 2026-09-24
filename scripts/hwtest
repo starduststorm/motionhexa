@@ -54,7 +54,7 @@ LIMITS = dict(
     imu_frames=50, mag_samples=100, mic_samples=2000,
     field_ut=(5, 400),           # uncalibrated: earth field plus the board's hard iron
     temp_c=(5, 75),
-    gauge_mv=(2500, 4400),
+    gauge_mv=(2500, 4500),       # no cell: the gauge reads the charger's open BAT node, ~4390-4410 mV on USB
     mic_rms_silent=2.0, mic_rms_saturated=12000, mic_mean_abs=8000,
     photo_lit_delta=4,           # counts the white fill must add over dark
 )
@@ -290,7 +290,7 @@ def judge(s, boot, just_flashed=False):
         if not rng(g.get("temp_k", 0) - 273, LIMITS["temp_c"]):
             warn.append(("gauge_temp_implausible", f"{g.get('temp_k', 0) - 273}C"))
         if g.get("presence") == 2:
-            fail.append(("battery_absent", f"{g.get('mv')}mV, no cell detected"))
+            warn.append(("battery_absent", f"{g.get('mv')}mV, no cell detected"))
 
     imu = s.get("imu", {})
     if not imu.get("present"):
