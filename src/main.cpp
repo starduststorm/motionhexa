@@ -252,7 +252,7 @@ void loop1() {
       MotionManager::manager().i2cScan();
     }
 #endif
-#if HARDWARE_VERSION >= 5
+#if HAS_HWTEST
     hwTestCore1();
 #endif
     MotionFrame motionFrame = MotionManager::manager().loop();
@@ -584,6 +584,10 @@ void loop() {
 #if HARDWARE_VERSION > 2
   bool isButtonPressed = mainButton->isButtonPressed();
   isVBUSPowered = digitalRead(VBUS_SENSOR_PIN);
+#else
+  const bool isButtonPressed = false; // no button (minihexa)
+#endif
+#if HARDWARE_VERSION > 2
 #if HARDWARE_VERSION >= 5
   isVBUSPowered = vbusSense.update(isVBUSPowered);
 #endif
@@ -682,7 +686,7 @@ void loop() {
   char *serialLine = readSerialLine();
   updater->loop(serialLine);
   benchLoop(serialLine);
-#if HARDWARE_VERSION >= 5
+#if HAS_HWTEST
   if (serialLine) {
     hwTest.command(serialLine, hardwareVersionString);
   }

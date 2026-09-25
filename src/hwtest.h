@@ -10,8 +10,10 @@
 // the middle of the panel green / yellow / red a few times (or until the next serial command), so a person working a
 // rack of units can see which one to pull, then goes back to running normally.
 // Include after bench.h's dependencies (power.h, MotionManager.h, audioInput, updater) in main.cpp.
+// A minihexa has none of the parts (no i2c, gauge, imu, mic, photosensors, button): its test is the panel fills, the boot
+// log and the serial round trip, so intake still gets a verdict per unit instead of a timeout.
 
-#if HARDWARE_VERSION >= 5
+#if HAS_HWTEST
 
 const char *kHWTestCommand = "HWTEST";
 const char *kHWTestResultCommand = "HWTEST RESULT ";
@@ -31,6 +33,7 @@ HWTestBusReport hwTestBus;
 void hwTestCore1() {
   assert(1 == get_core_num(), "hwTestCore1 not on core1");
   if (!hwTestBus.requested) return;
+#if HAS_BATTERY
   hwTestBus.sda = gpio_get(SDA);
   hwTestBus.scl = gpio_get(SCL);
   hwTestBus.ackCount = 0;
@@ -48,6 +51,7 @@ void hwTestCore1() {
 #endif
     hwTestBus.gaugeDeviceType = lipo.deviceType();
   }
+#endif
   hwTestBus.requested = false;
   hwTestBus.done = true;
 }
@@ -115,6 +119,7 @@ class HWTest {
   }
 
   void report(const MotionFrame &mf, BatteryData &bd, bool vbus, bool button) {
+#if HAS_BATTERY
     char scan[48] = "";
     for (int i = 0, n = 0; i < hwTestBus.ackCount; ++i) n += snprintf(scan + n, sizeof(scan) - n, "%s0x%02x", i ? "," : "", hwTestBus.acks[i]);
     logf("HWTEST i2c report=%i sda=%u scl=%u scan=%s mag_ack=%i mag_id=0x%02x gauge_type=0x%x", hwTestBus.done, hwTestBus.sda, hwTestBus.scl,
@@ -122,10 +127,13 @@ class HWTest {
     logf("HWTEST gauge init=%i boot_type=0x%x sampled=%u ready=%i plausible=%i mv=%u soc=%u ma=%i temp_k=%u flags=0x%x status=0x%x full_mah=%u presence=%u",
          powerState.batteryInitialized, gaugeDeviceTypeRead, bd.sampled, bd.gaugingReady(), bd.sampled && bd.plausible(), bd.voltage, bd.stateOfCharge,
          bd.current, bd.temperature, bd.flags, bd.controlStatus, bd.fullCapacity, bd.presence);
+#endif
+#if HAS_MOTION
     logf("HWTEST imu present=%i frames=%lu acc_g=%.3f acc_min_g=%.3f acc_max_g=%.3f gyr_max_dps=%.2f temp_c=%.1f", MotionManager::manager().hasSensor(),
          imuFrames, imuFrames ? accSumG / imuFrames : 0.0, accMinG, accMaxG, gyrMaxDps, mf.tempC);
     logf("HWTEST mag present=%i init_retries=%u frames=%lu samples=%lu field_ut=%.1f calibrated=%i", MotionManager::manager().hasMagSensor(),
          mf.magInitRetries, magFrames, magLastCount - magFirstCount, magFrames ? magSumUT / magFrames : 0.0, mf.magCalibrated);
+#endif
 #if HAS_MICROPHONE
     double mean = micSamples ? micSum / micSamples : 0;
     logf("HWTEST mic samples=%lu min=%li max=%li mean=%.1f rms=%.1f", micSamples, micMin, micMax, mean,
@@ -138,7 +146,11 @@ class HWTest {
     }
     logf("HWTEST photo n_dark=%u n_lit=%u%s", photoDarkN, photoLitN, photo);
 #endif
+#ifdef GPOUT_PIN
     logf("HWTEST io vbus=%i button=%i gpout=%i", vbus, button, digitalRead(GPOUT_PIN));
+#else
+    logf("HWTEST io vbus=%i button=%i", vbus, button);
+#endif
     logf("HWTEST END ms=%lu", millis() - startedAt);
   }
 
@@ -221,7 +233,11 @@ public:
     unsigned long t = millis() - startedAt;
     const CRGB colors[] = {CRGB::Red, CRGB::Green, CRGB::Blue, CRGB::White};
     unsigned long panelMS = kDarkMS + ARRAY_SIZE(colors) * kColorMS;
+#if HAS_BATTERY
     bool gaugeSettled = bd.sampled && (bd.gaugingReady() || !powerState.batteryInitialized);
+#else
+    bool gaugeSettled = true;
+#endif
     if (t >= panelMS && hwTestBus.done && (gaugeSettled || t >= kGaugeWaitMS)) {
       ctx.leds.fill_solid(CRGB::Black);
       FastLED.show();
@@ -253,5 +269,5 @@ public:
 };
 HWTest hwTest;
 
-#endif // HARDWARE_VERSION >= 5
+#endif // HAS_HWTEST
 #endif

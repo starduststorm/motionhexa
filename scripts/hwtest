@@ -12,7 +12,9 @@ shows up on USB serial, judge it, and log it per chip serial number.
     scripts/hwtest report              the spread across units: what failed on how many, de-duplicated by serial number
     scripts/hwtest report --all        ...counting every run rather than each unit's latest
 
-Each unit then blinks the verdict: a small hexagon, green PASS / yellow WARN / red FAIL (or ERROR).
+Each unit then blinks the result: a small hexagon, green PASS / yellow WARN / red FAIL (or ERROR).
+minihexas (env mini_v2) run the same flow; with no i2c, gauge, imu, mic, photosensors or button, their test is the panel fills
+(watched by a person), the boot log and the serial round trip -- the point is one logged result per unit, not a timeout.
 Several units at once is fine. The firmware (src/hwtest.h) only measures and prints "HWTEST <section> key=value" lines;
 the limits live here (LIMITS / judge()), so they can be tuned against the accumulated log without reflashing anything.
 Every run appends one JSON record to hwtest_results/results.jsonl and its raw transcript to hwtest_results/raw/.
@@ -42,12 +44,16 @@ GONE_TIMEOUT_S = 8.0
 JUST_FLASHED_S = 30.0        # a unit this soon after any flash (and up this briefly) was probably the one flashed
 last_flash = [-1e9]          # time.monotonic() of the last successful flash
 
-# Expected parts per hardware version: i2c address -> name, gauge DEVICE_TYPE, magnetometer product id
+# Expected parts per hardware version (the firmware's hw= string): i2c address -> name, gauge DEVICE_TYPE, magnetometer
+# product id, photosensor count, and which sections the firmware reports at all (a minihexa has none of it: it is judged
+# on the boot log and the serial round trip, and the person on the panel fills)
 EXPECT = {
-    "7": dict(i2c={0x30: "mag", 0x55: "gauge"}, gauge_type=0x427, mag_id=0x10, photosensors=3),
-    "6": dict(i2c={0x55: "gauge", 0x68: "imu"}, gauge_type=0x421, mag_id=None, photosensors=1),
-    "5": dict(i2c={0x55: "gauge", 0x68: "imu"}, gauge_type=0x421, mag_id=None, photosensors=0),
+    "7": dict(i2c={0x30: "mag", 0x55: "gauge"}, gauge_type=0x427, mag_id=0x10, photosensors=3, imu=True, mic=True, vbus=True),
+    "6": dict(i2c={0x55: "gauge", 0x68: "imu"}, gauge_type=0x421, mag_id=None, photosensors=1, imu=True, mic=True, vbus=True),
+    "5": dict(i2c={0x55: "gauge", 0x68: "imu"}, gauge_type=0x421, mag_id=None, photosensors=0, imu=True, mic=True, vbus=True),
+    "mini2": dict(i2c=None, gauge_type=None, mag_id=None, photosensors=0, imu=False, mic=False, vbus=False),
 }
+EXPECT["mini1"] = EXPECT["mini2"]
 LIMITS = dict(
     acc_g=(0.90, 1.10),          # at rest
     moved_dps=8.0,               # above this the unit was being handled: accel limit becomes a warning
@@ -254,13 +260,16 @@ def judge(s, boot, just_flashed=False):
         warn.append(("watchdog_reboot", "last reset was the watchdog"))
 
     i2c = s.get("i2c", {})
-    if not i2c.get("report"):
+    acks = []
+    if expect["i2c"] is None:
+        pass  # no i2c parts on this board: the firmware doesn't scan or report the bus
+    elif not i2c.get("report"):
         fail.append(("i2c_no_report", "core1 never answered"))
-    for line in ("sda", "scl"):
+    for line in ("sda", "scl") if expect["i2c"] is not None else ():
         if i2c.get("report") and not i2c.get(line):
             fail.append((f"i2c_{line}_stuck_low", "bus line held low at idle"))
     acks = [int(a, 16) for a in str(i2c.get("scan", "")).split(",") if a.startswith("0x")]
-    if i2c.get("sda") and i2c.get("scl"):
+    if expect["i2c"] is not None and i2c.get("sda") and i2c.get("scl"):
         for addr, name in expect["i2c"].items():
             if addr not in acks:
                 if name == "gauge" and gauge_optional:
@@ -276,7 +285,9 @@ def judge(s, boot, just_flashed=False):
             fail.append(("gauge_bad_type", f"device type 0x{i2c.get('gauge_type', 0):x}"))
 
     g = s.get("gauge", {})
-    if not g.get("init") and gauge_optional and 0x55 not in acks:
+    if expect["gauge_type"] is None:
+        pass  # no gauge on this board
+    elif not g.get("init") and gauge_optional and 0x55 not in acks:
         pass  # gauge_absent above
     elif not g.get("init"):
         fail.append(("gauge_init_failed", f"boot device type 0x{g.get('boot_type', 0):x}"))
@@ -293,7 +304,9 @@ def judge(s, boot, just_flashed=False):
             warn.append(("battery_absent", f"{g.get('mv')}mV, no cell detected"))
 
     imu = s.get("imu", {})
-    if not imu.get("present"):
+    if not expect["imu"]:
+        pass  # no imu on this board
+    elif not imu.get("present"):
         fail.append(("imu_no_response", ""))
     elif imu.get("frames", 0) < LIMITS["imu_frames"]:
         fail.append(("imu_no_data", f"{imu.get('frames')} frames"))
@@ -318,7 +331,9 @@ def judge(s, boot, just_flashed=False):
                 warn.append(("mag_field_implausible", f"{mag.get('field_ut')}uT" + (" (calibrated)" if mag.get("calibrated") else "")))
 
     mic = s.get("mic", {})
-    if mic.get("samples", 0) < LIMITS["mic_samples"]:
+    if not expect["mic"]:
+        pass  # no microphone on this board
+    elif mic.get("samples", 0) < LIMITS["mic_samples"]:
         fail.append(("mic_no_data", f"{mic.get('samples')} samples"))
     elif mic.get("min") == mic.get("max"):
         fail.append(("mic_stuck", f"every sample {mic.get('min')}"))
@@ -335,21 +350,23 @@ def judge(s, boot, just_flashed=False):
                 warn.append((f"photo{n}_no_light_response", f"dark {photo.get(f'dark{n}')} lit {photo.get(f'lit{n}')}"))
 
     io = s.get("io", {})
-    if io and not io.get("vbus"):
+    if not io:
+        fail.append(("io_no_report", "no io line"))
+    if expect["vbus"] and io and not io.get("vbus"):
         fail.append(("vbus_sense_low", "on USB but VBUS sense reads 0"))
     if io.get("button"):
         fail.append(("button_stuck", "reads pressed"))
     return fail, warn
 
 
-def send_verdict(port, verdict):
+def send_result(port, result):
     """the unit blinks a green/yellow/red hexagon for PASS/WARN/FAIL until its next serial command"""
     started = time.monotonic()
     try:
         with serial.Serial(port, 115200, timeout=0.25, write_timeout=2) as ser:
-            ser.write(f"\nHWTEST RESULT {'FAIL' if verdict == 'ERROR' else verdict}\n".encode())
+            ser.write(f"\nHWTEST RESULT {'FAIL' if result == 'ERROR' else result}\n".encode())
     except (serial.SerialException, OSError) as e:  # SerialTimeoutException included
-        log(f"{port}: couldn't send the verdict to the unit: {e}")
+        log(f"{port}: couldn't send the result to the unit: {e}")
     if time.monotonic() - started > 1:
         log(f"{port}: sending the result took {time.monotonic() - started:.1f}s")
 
@@ -358,14 +375,14 @@ def test_unit(port, info, ident):
     time.sleep(BOOT_SETTLE_S)
     started = time.time()
     sections, boot, transcript, error = run_test(port)
-    seconds = round(time.time() - started, 1)  # the test alone, not the verdict send below
+    seconds = round(time.time() - started, 1)  # the test alone, not the result send below
     sn = sections.get("begin", {}).get("sn") or info.serial_number or "unknown"
     sn = str(sn).upper()
     just_flashed = time.monotonic() - last_flash[0] < JUST_FLASHED_S
     fail, warn = ([], []) if error else judge(sections, boot, just_flashed)
-    verdict = "ERROR" if error else ("FAIL" if fail else ("WARN" if warn else "PASS"))
-    send_verdict(port, verdict)
-    record = dict(time=datetime.datetime.now().isoformat(timespec="seconds"), sn=sn, port=port, verdict=verdict, error=error,
+    result = "ERROR" if error else ("FAIL" if fail else ("WARN" if warn else "PASS"))
+    send_result(port, result)
+    record = dict(time=datetime.datetime.now().isoformat(timespec="seconds"), sn=sn, port=port, result=result, error=error,
                   seconds=seconds, failures=[list(f) for f in fail], warnings=[list(w) for w in warn],
                   measurements=sections, boot_log=boot, **ident)
     os.makedirs(os.path.join(RESULTS_DIR, "raw"), exist_ok=True)
@@ -374,8 +391,8 @@ def test_unit(port, info, ident):
             f.write(json.dumps(record) + "\n")
     with open(os.path.join(RESULTS_DIR, "raw", f"{sn}_{datetime.datetime.now():%Y%m%d_%H%M%S}.log"), "w") as f:
         f.write("\n".join(transcript) + "\n")
-    color = {"PASS": "\033[32m", "WARN": "\033[33m", "FAIL": "\033[31m", "ERROR": "\033[35m"}[verdict] if sys.stdout.isatty() else ""
-    lines = [f"{color}{verdict}\033[0m" if color else verdict, f"unit {sn[-6:]} ({port.rsplit('usbmodem', 1)[-1]}, {record['seconds']}s)"]
+    color = {"PASS": "\033[32m", "WARN": "\033[33m", "FAIL": "\033[31m", "ERROR": "\033[35m"}[result] if sys.stdout.isatty() else ""
+    lines = [f"{color}{result}\033[0m" if color else result, f"unit {sn[-6:]} ({port.rsplit('usbmodem', 1)[-1]}, {record['seconds']}s)"]
     detail = [f"   error: {error}"] if error else []
     detail += [f"   FAIL {flag}: {d}" for flag, d in fail] + [f"   warn {flag}: {d}" for flag, d in warn]
     log(" ".join(lines) + ("\n" + "\n".join(detail) if detail else ""))
@@ -465,8 +482,8 @@ def report(args):
         print("no results" + (f" since {args.since}" if getattr(args, "since", None) else ""))
         return
     runs = len(records)
-    errors = [r for r in records if r["verdict"] == "ERROR"]
-    tested = [r for r in records if r["verdict"] != "ERROR"]
+    errors = [r for r in records if r["result"] == "ERROR"]
+    tested = [r for r in records if r["result"] != "ERROR"]
     if not args.all:
         latest = {}
         for r in tested:  # file order is time order
@@ -476,7 +493,7 @@ def report(args):
     n = len(tested)
     print(f"{n} {'runs' if args.all else 'units'} ({runs} runs logged" + ("" if args.all else f", {repeat} repeat runs folded into each unit's latest")
           + (f", {len(errors)} runs with no test response" if errors else "") + ")")
-    counts = {v: sum(r["verdict"] == v for r in tested) for v in ("PASS", "WARN", "FAIL")}
+    counts = {v: sum(r["result"] == v for r in tested) for v in ("PASS", "WARN", "FAIL")}
     print(f"  pass {counts['PASS']}   warnings only {counts['WARN']}   fail {counts['FAIL']}\n")
     for kind, title in (("failures", "failures"), ("warnings", "warnings")):
         flags = {}
@@ -488,17 +505,24 @@ def report(args):
             for flag, hits in sorted(flags.items(), key=lambda kv: -len(kv[1])):
                 print(f"  {len(hits):3d} of {n}  {flag:28s} " + ", ".join(sn[-6:] for sn, _ in hits[:8]) + (" ..." if len(hits) > 8 else ""))
             print()
-    print("spread (min / median / max):")
-    for label, section, key in (("cell mV", "gauge", "mv"), ("accel |g|", "imu", "acc_g"), ("imu temp C", "imu", "temp_c"), ("mag field uT", "mag", "field_ut"),
-                                ("mic rms", "mic", "rms"), ("mic mean", "mic", "mean"), ("photo0 lit-dark", "photo", None), ("test seconds", None, "seconds")):
-        vals = []
-        for r in tested:
-            m = r["measurements"].get(section, {}) if section else r
-            v = (m.get("lit0", 0) - m.get("dark0", 0)) if (section == "photo" and m.get("n_lit")) else (m.get(key) if key else None)
-            if isinstance(v, (int, float)):
-                vals.append(v)
-        if vals:
-            print(f"  {label:16s} {min(vals):9.2f} {statistics.median(vals):9.2f} {max(vals):9.2f}   (n={len(vals)})")
+    # one spread per hardware version: a minihexa has none of the parts, and a mixed bench would otherwise pool v7 gauge
+    # readings with v6 ones (and print a mini's rack as n=1 rows from the one hexa beside it)
+    by_hw = {}
+    for r in tested:
+        by_hw.setdefault(str(r["measurements"].get("begin", {}).get("hw", "?")), []).append(r)
+    for hw, units in sorted(by_hw.items()):
+        print(f"spread, hw {hw} (min / median / max, {len(units)} {'runs' if args.all else 'units'}):")
+        for label, section, key in (("cell mV", "gauge", "mv"), ("accel |g|", "imu", "acc_g"), ("imu temp C", "imu", "temp_c"), ("mag field uT", "mag", "field_ut"),
+                                    ("mic rms", "mic", "rms"), ("mic mean", "mic", "mean"), ("photo0 lit-dark", "photo", None), ("test seconds", None, "seconds")):
+            vals = []
+            for r in units:
+                m = r["measurements"].get(section, {}) if section else r
+                v = (m.get("lit0", 0) - m.get("dark0", 0)) if (section == "photo" and m.get("n_lit")) else (m.get(key) if key else None)
+                if isinstance(v, (int, float)):
+                    vals.append(v)
+            if vals:
+                print(f"  {label:16s} {min(vals):9.2f} {statistics.median(vals):9.2f} {max(vals):9.2f}   (n={len(vals)})")
+        print()
 
 
 def main():
