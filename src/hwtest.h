@@ -205,7 +205,7 @@ public:
     pinMode(PHOTOSENSOR_POWER_PIN, OUTPUT);
     digitalWrite(PHOTOSENSOR_POWER_PIN, true);
 #endif
-    logf("HWTEST BEGIN sn=%s fw=%s hw=%s uptime_ms=%lu watchdog_reboot=%i", serialNumber, SOFTWARE_VERSION, hardwareVersion, millis(),
+    logf("HWTEST BEGIN sn=%s fw=%s hw=%s uptime_ms=%lu watchdog_reboot=%i", serialNumber, FW_VERSION, hardwareVersion, millis(),
          watchdog_enable_caused_reboot()); // not watchdog_caused_reboot(): the bootrom reboots through the watchdog after a UF2 flash
 #if LOG_BOOT_CAPTURE_BYTES
     // what was logged before anyone was listening, a line at a time

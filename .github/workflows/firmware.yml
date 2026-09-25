@@ -1,3 +1,17 @@
+# Firmware release build, shared verbatim by starduststorm device repos (motionhexa, penta, helixloop, ...).
+#
+# Push a tag fw-v<version> (fw-v1.3, fw-v1.4-rc1) to publish a GitHub release the Newer Glow updater can install.
+# Every platformio.ini env with a `custom_release_hw = <rev> [<rev> ...]` option is built, and its UF2 is uploaded
+# once per listed hardware revision as
+#
+#   <repo>-<version>-hw<rev>.uf2
+#
+# Newer Glow sends IDENTIFY, reads `hw=<rev>` and `v<version>` from the reply, and downloads the asset for that
+# revision. The version is stamped into the firmware from the tag (lib/dustlib/scripts/fw_version.py), so the
+# version a device reports and the asset name always agree. Tags with a `-` suffix publish as prereleases.
+#
+# workflow_dispatch builds the same assets as workflow artifacts without releasing, versioned by git describe.
+
 name: firmware
 
 on:
@@ -13,22 +27,82 @@ concurrency:
   group: firmware-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  PLATFORMIO_VERSION: '6.1.19'
+
 jobs:
-  build:
-    name: build (${{ matrix.env }})
+  plan:
+    name: plan
     runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Version from tag
+        id: version
+        if: startsWith(github.ref, 'refs/tags/fw-v')
+        run: |
+          version="${GITHUB_REF_NAME#fw-v}"
+          if ! [[ "$version" =~ ^[0-9]+(\.[0-9]+)*(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::tag $GITHUB_REF_NAME is not fw-v<digits>[.<digits>...][-<prerelease>]"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install platformio==$PLATFORMIO_VERSION
+
+      - name: Envs with custom_release_hw
+        id: plan
+        run: |
+          pio project config --json-output > config.json
+          python3 - <<'EOF'
+          import json, os, re, sys
+          envs = []
+          for section, options in json.load(open("config.json")):
+              if not section.startswith("env:"):
+                  continue
+              hw = dict(options).get("custom_release_hw")
+              if not hw:
+                  continue
+              revs = hw.split() if isinstance(hw, str) else [str(r) for r in hw]
+              bad = [r for r in revs if not re.fullmatch(r"[a-z0-9]+", r)]
+              if bad:
+                  sys.exit(f"::error::{section}: custom_release_hw revisions must be [a-z0-9]+, got {bad}")
+              envs.append({"env": section[4:], "hw": " ".join(revs)})
+          if not envs:
+              sys.exit("::error::no platformio.ini env sets custom_release_hw; nothing to release")
+          revs = [r for e in envs for r in e["hw"].split()]
+          dupes = sorted({r for r in revs if revs.count(r) > 1})
+          if dupes:
+              sys.exit(f"::error::hardware revisions {dupes} are claimed by more than one env")
+          print(json.dumps(envs, indent=2))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write("matrix=" + json.dumps({"include": envs}) + "\n")
+          EOF
+
+  build:
+    name: build (${{ matrix.env }} → hw ${{ matrix.hw }})
+    runs-on: ubuntu-22.04
+    needs: plan
     strategy:
       fail-fast: false
-      matrix:
-        env: [v5]
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
 
     steps:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
+          # git describe needs history and tags for untagged (workflow_dispatch) builds
+          fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
@@ -43,29 +117,43 @@ jobs:
           key: pio-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini') }}
 
       - name: Install PlatformIO
-        run: |
-          python -m pip install --upgrade pip
-          pip install platformio==6.1.19
+        run: pip install platformio==$PLATFORMIO_VERSION
 
       - name: Build firmware
+        env:
+          # empty on workflow_dispatch: fw_version.py falls back to git describe
+          FW_VERSION: ${{ needs.plan.outputs.version }}
         run: pio run -e ${{ matrix.env }}
 
-      - name: Stage UF2 artifact
+      - name: Stage UF2 per hardware revision
         run: |
+          header=.pio/build/${{ matrix.env }}/fw_version/fw_version.h
+          version=$(sed -n 's/^#define FW_VERSION "\(.*\)"$/\1/p' "$header")
+          if [ -z "$version" ]; then
+            echo "::error::no FW_VERSION in $header; is pre:lib/dustlib/scripts/fw_version.py in extra_scripts?"
+            exit 1
+          fi
+          if [ -n "${{ needs.plan.outputs.version }}" ] && [ "$version" != "${{ needs.plan.outputs.version }}" ]; then
+            echo "::error::firmware reports $version but the tag says ${{ needs.plan.outputs.version }}"
+            exit 1
+          fi
           mkdir -p dist
-          cp .pio/build/${{ matrix.env }}/firmware.uf2 dist/firmware-${{ matrix.env }}.uf2
+          for hw in ${{ matrix.hw }}; do
+            cp .pio/build/${{ matrix.env }}/firmware.uf2 "dist/${{ github.event.repository.name }}-$version-hw$hw.uf2"
+          done
+          ls -l dist
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
           name: firmware-${{ matrix.env }}
-          path: dist/firmware-${{ matrix.env }}.uf2
+          path: dist/*.uf2
           if-no-files-found: error
 
   release:
     name: publish release
     runs-on: ubuntu-22.04
-    needs: build
+    needs: [plan, build]
     if: startsWith(github.ref, 'refs/tags/fw-v')
     steps:
       - uses: actions/download-artifact@v5
@@ -76,10 +164,15 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
           shopt -s failglob
+          prerelease=()
+          [[ "$VERSION" == *-* ]] && prerelease=(--prerelease)
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "$GITHUB_REF_NAME" \
+            --title "${{ github.event.repository.name }} $VERSION" \
+            --verify-tag \
             --generate-notes \
+            "${prerelease[@]}" \
             artifacts/*.uf2

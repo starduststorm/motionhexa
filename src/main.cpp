@@ -12,8 +12,7 @@ const unsigned long kStallLogMS = 15; // ~3 motion frames' worth
 #define btlogf(format, ...)
 #endif
 
-// manually-bumped versioning
-#define SOFTWARE_VERSION "1.1"
+#include <fw_version.h> // FW_VERSION, generated from the fw-v* tag by lib/dustlib/scripts/fw_version.py
 
 #include <Arduino.h>
 #include <SPI.h>
@@ -92,7 +91,7 @@ IndexedPatternRunner *indexedRunner; // main pattern runner
 std::shared_ptr<PatternRunner> powerOnOffRunner;
 std::shared_ptr<PatternRunner> lowBatteryRunner; // refused power-on indication; owns the panel until it powers us off
 
-RP2040Updater *updater;
+NewerGlowUpdater *updater;
 
 static bool serialTimeout = false;
 static unsigned long setupDoneTime;
@@ -545,7 +544,7 @@ void setup() {
 #else
   hardwareVersionString = (v6Hardware ? "6" : v8Hardware ? "8" : xstr(HARDWARE_VERSION));
 #endif
-  updater = new RP2040Updater("motionhexa", SOFTWARE_VERSION, hardwareVersionString, [](void) {
+  updater = new NewerGlowUpdater("motionhexa", FW_VERSION, hardwareVersionString, [](void) {
     patternManager.runOneShotPattern<BlinkIdentifyPattern>(0xFE, 0xFF);
   });
 
