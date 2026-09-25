@@ -373,16 +373,33 @@ class BouncyPixels : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
   const PixelIndex pixelCount;
   PixelPhysics<LED_COUNT> physics;
+  GravityTracker gravityTracker;
+  unsigned long lastUpdateMicros = 0;
   int fadeDown = 0xFF;
-  BouncyPixels(PixelIndex pixelCount, uint8_t accelScaling, uint8_t elasticity, uint8_t elasticityMultiplier=1) : physics(hexGrid, pixelCount, accelScaling, elasticity, elasticityMultiplier), pixelCount(pixelCount) {
+  BouncyPixels(PixelIndex pixelCount, PixelPhysicsTuning tuning) : pixelCount(pixelCount), physics(hexGrid, kHexaMotionPlacement.position, pixelCount, tuning) {
     minBrightness = 15;
   }
 
   virtual void update() {
     ctx.leds.fadeToBlackBy(fadeDown);
-    physics.update([](PixelIndex index) {
-      return accelerationAtPixelIndex(index, MotionManager::motionFrame);
-    });
+    const MotionFrame &motion = MotionManager::motionFrame;
+
+    unsigned long nowMicros = micros();
+    float dtSeconds = (lastUpdateMicros == 0 ? 1e-3f : (nowMicros - lastUpdateMicros) * 1e-6f);
+    if (lastUpdateMicros == 0 || dtSeconds > 0.05f) {
+      // stalled: the gravity estimate has missed rotation, start it over
+      gravityTracker.reset();
+      dtSeconds = 1e-3f;
+    }
+    lastUpdateMicros = nowMicros;
+    gravityTracker.update(motion, dtSeconds);
+
+    PixelPhysics<LED_COUNT>::Motion m;
+    m.gravityG = gravityTracker.gravity;
+    m.linearG = gravityTracker.linear(motion);
+    m.gyroZ = motion.gyr.z / MotionManager::gyrToRadScale;
+    physics.update(m);
+
     int i = 0;
     for (PixelPhysics<LED_COUNT>::Particle *p : physics.particles) {
       CRGB color = getShiftingPaletteColor(0xFF * i++ / physics.particles.size());
@@ -397,7 +414,7 @@ public:
 
 class TriBounce : public BouncyPixels {
 public:
-  TriBounce() : BouncyPixels(3, 70, 0xFF, 2) {
+  TriBounce() : BouncyPixels(3, PixelPhysicsTuning{.gravityScale = 0.08f, .inertiaScale = 0.5f, .viscousPerSecond = 0.0f, .elasticity = 0xFF, .elasticityMultiplier = 2}) {
   }
   void update() {
     BouncyPixels::update();
@@ -414,7 +431,7 @@ public:
 
 class PixelDust : public BouncyPixels {
 public:
-  PixelDust() : BouncyPixels(60, 70, 0xF4) {
+  PixelDust() : BouncyPixels(60, PixelPhysicsTuning{.gravityScale = 0.08f, .inertiaScale = 0.5f, .viscousPerSecond = 0.0f, .elasticity = 0xF4, .friction = 0.15f}) {
   }
   const char *description() {
     return "PixelDust";
@@ -423,7 +440,7 @@ public:
 
 class PixelSand : public BouncyPixels {
 public:
-  PixelSand() : BouncyPixels(60, 70, 0xC0) {
+  PixelSand() : BouncyPixels(60, PixelPhysicsTuning{.gravityScale = 0.08f, .inertiaScale = 0.5f, .viscousPerSecond = 3.0f, .elasticity = 0xC0, .friction = 0.5f}) {
   }
   const char *description() {
     return "PixelSand";
@@ -432,20 +449,16 @@ public:
 
 class RandomDust : public BouncyPixels {
 public:
-  RandomDust() : BouncyPixels(random8(100)+1, random8(20), random8(255)) {
-    logf("RandomDust chose pixelCount=%i, accelScaling=%i, elasticity=%i", physics.particles.size(), physics.accelScaling, physics.elasticity);
+  RandomDust() : BouncyPixels(random8(100)+1, PixelPhysicsTuning{.gravityScale = random8(20) * (0.08f / 70), .inertiaScale = 0.5f, .viscousPerSecond = random8(8) * 0.5f, .elasticity = random8(255)}) {
+    logf("RandomDust chose pixelCount=%i, gravityScale=%f, viscousPerSecond=%f, elasticity=%i", physics.particles.size(), physics.tuning.gravityScale, physics.tuning.viscousPerSecond, physics.tuning.elasticity);
   }
   const char *description() {
     return "RandomDust";
   }
 };
 
-// special case the single ball physics since we can do nice floating point math for a single particle
-//
-// The ball lives in the hexa's own (accelerating, rotating) frame, so everything the hexa does reaches it as a pseudo-force.
-// Those are applied at true physical scale (inertiaScale 1: one pixel pitch of hexa travel is one pixel of ball travel), which
-// is what gives it mass: shove or spin the hexa and the ball stays put in the room while the walls come to it; flick it into
-// a wall and it leaves with the hexa's velocity. Gravity is scaled separately and much weaker, to keep tilt playable.
+/* ------------------------------------------------------------------------------- */
+
 class LargeBouncyBall : public Pattern {
   struct Ball {
     vectorf pos;

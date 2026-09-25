@@ -11,7 +11,7 @@
 // rack of units can see which one to pull, then goes back to running normally.
 // Include after bench.h's dependencies (power.h, MotionManager.h, audioInput, updater) in main.cpp.
 // A minihexa has none of the parts (no i2c, gauge, imu, mic, photosensors, button): its test is the panel fills, the boot
-// log and the serial round trip, so intake still gets a verdict per unit instead of a timeout.
+// log and the serial round trip, so intake still gets a result per unit instead of a timeout.
 
 #if HAS_HWTEST
 

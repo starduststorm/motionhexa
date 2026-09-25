@@ -147,7 +147,7 @@ struct MotionSensorPlacement {
   // magnetometer package axes -> motion frame. Its own entry since on some revisions it is a separate part at its own angle.
   AxisRotation mag;
   // Accel/gyro position relative to the center of the pixel array, in micrometers. In pixel geometry axes rather than motion
-  // axes, since what consumes it (accelerationAtPixelIndex) works in pixel positions.
+  // axes, since what consumes it (PixelPhysics) works in pixel positions.
   UMPoint position;
   // Magnetometer position, same frame as `position`
   UMPoint magPosition;

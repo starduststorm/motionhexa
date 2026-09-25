@@ -38,27 +38,27 @@ struct vectorT {
   template<typename T2>
   vectorT(const vectorT<T2> &other) : x(other.x), y(other.y), z(other.z) {}
   
-  float dot(const vectorT<float> &other) {
+  float dot(const vectorT<float> &other) const {
     return x*other.x + y*other.y + z*other.z;
   }
 
   // vector16 dot should be int32
   template<typename T2>
-  int32_t dot(const vectorT<T2> &other) {
+  int32_t dot(const vectorT<T2> &other) const {
     return x*other.x + y*other.y + z*other.z;
   }
   
-  const vectorT<T> operator-() {
+  const vectorT<T> operator-() const {
     return vectorT<T>(-x, -y, -z);
   }
 
   template<typename T2>
-  const vectorT<T> operator+(const vectorT<T2> &other) {
+  const vectorT<T> operator+(const vectorT<T2> &other) const {
     return vectorT<T>(x+other.x, y+other.y, z+other.z);
   }
 
   template<typename T2>
-  const vectorT<T> operator-(const vectorT<T2> &other) {
+  const vectorT<T> operator-(const vectorT<T2> &other) const {
     return vectorT<T>(x-other.x, y-other.y, z-other.z);
   }
   virtual const vectorT<T> operator*(const T multiplier) const {
@@ -429,20 +429,21 @@ private:
     edges.clear();
   }
 public:
-  inline UMPoint position(T index) {
+  inline UMPoint position(T index) const {
     assert(spacing != 0, "geometry disabled");
     if (spacing == 0) {
       return UMPoint(0,0);
     }
     return positions[index];
   }
+  float pitchMM() const { return spacing; }
   vector<HexNode *> nodes;
   vector<UMPoint> positions;
 
-  T valueCount() {
+  T valueCount() const {
     return _valueCount;
   }
-  T edgeCount() {
+  T edgeCount() const {
     return _totalCount-_valueCount;
   }
   HexGrid(T meridian, float spacing=0, bool zigzag=true) : meridian(meridian), zigzag(zigzag), spacing(spacing) {
@@ -460,26 +461,134 @@ public:
   void insetEdgeNodesBy(unsigned inset, AxialAccess &axial); // implemented in ledgraph.h yayyy
 };
 
+struct PixelPhysicsTuning {
+  float gravityScale = 0.08f;       // tilt: the gravity part of the accelerometer reading
+  float inertiaScale = 0.5f;        // the hexa's own motion: linear acceleration, centrifugal, Euler and Coriolis pseudo-forces
+  float viscousPerSecond = 0.0f;    // drag: fraction of velocity lost per second (linearized per step)
+  uint8_t elasticity = 0xF4;        // bounce off walls and other particles: restitution = 2*elasticity/255 - 1, so 0x80 is perfectly inelastic
+  uint8_t elasticityMultiplier = 1; // adds particle-to-particle bounce in case 100% isn't enough ;)
+  // Impacts slower than this (relative normal speed, mm/s) are perfectly inelastic, so a pile comes to rest instead of jostling
+  // forever on the velocity gravity feeds it every frame. Top speed is ~280 mm/s.
+  float restSpeedMMps = 35.0f;
+  // Coulomb friction in contacts: the tangential impulse is at most this times the normal impulse. Sets the angle of repose,
+  // atan(friction): without it a pile has none, its wedged particles keep shoving their supports apart and it never settles.
+  float friction = 0.15f;
+};
+
+// Integer particle simulation on the pixel grid, one particle per pixel at most.
+//
+// Each particle lives in the pointy-top hexagonal cell of its pixel, in cell units (kUnitsPerPixel per pixel pitch), and is a
+// disc one pitch across: particles in adjacent pixels touch when both sit at their cell centers, and are pushed apart (with an
+// impulse, restitution and Coulomb friction) whenever they overlap, every step, so a pile transmits force and comes to rest.
+// Crossing a cell bound moves a particle into an empty neighboring pixel, and the board's edge lines reflect it. The frame is
+// sub-stepped so a particle never moves more than a fraction of a cell between contact checks.
 template<unsigned int SIZE>
 class PixelPhysics {
 public:
+  static constexpr int32_t kUnitsPerPixel = 444;   // cell units per pixel pitch, see unitMotionAcrossBound
+
+  static constexpr int32_t kVelocityFrac = 256;    // velocity fixed point: 256 = one cell unit per kMotionDamper ms (the pre-Q8 unit)
+  static constexpr int32_t kMaxVelocity = 0xFF * kVelocityFrac; // 32 cell units/ms; per-step travel must stay well inside a cell
+  static constexpr int32_t kPosDivisor = kVelocityFrac * 1000 * kMotionDamper; // velocity·µs per cell unit
+  static constexpr int32_t kPosLimit = 320;        // sanity bound on cell position, beyond the corner walls at 294
+  static constexpr uint32_t kMaxStepUs = 8000;     // sub-step length: 256 cell units at kMaxVelocity, still short of a pitch
+  static constexpr uint32_t kMaxFrameUs = 32000;   // a longer stall is a resync, not 32+ms of motion
+  static constexpr int32_t kMaxRadialCoeff = 20000; // Q14 velocity per µm; keeps coeff × 55mm inside int32
+  static constexpr int kWallNormalShift = 8;       // wall lines are scaled to |(A,B)| = 2^8 so projections onto them are shifts
+  static constexpr int32_t kWallNormal = 1 << kWallNormalShift;
+
   struct Particle {
     PixelIndex index;
-    vector16 pos;      // pos within hexagonal inner-particle dof space in range (-255, 255)
-    vector16 velocity; // velocity in range (-255, 255)
-    vector32 acceleration; // remainder of rounded-off accel, unscaled
-    vector16 posRemainder; // sub-unit remainder of position integration, so slow particles still creep on short frames
-    Particle() : index(0), pos(0,0), velocity(0,0), acceleration(0,0), posRemainder(0,0) {};
-    Particle(PixelIndex index, vector16 pos, vector16 velocity) : index(index), pos(pos), velocity(velocity), acceleration(0,0), posRemainder(0,0) {};
+    vector16 pos;          // pos within the pixel's hexagonal cell, cell units, nominally within (-255, 255)
+    vector32 velocity;     // Q8: kVelocityFrac = one cell unit per kMotionDamper ms, clamped to ±kMaxVelocity
+    vector32 posRemainder; // sub-unit remainder of position integration, so slow particles still creep on short steps
+    Particle() : index(0), pos(0,0), velocity(0,0), posRemainder(0,0) {};
+    Particle(PixelIndex index, vector16 pos, vector32 velocity) : index(index), pos(pos), velocity(velocity), posRemainder(0,0) {};
   };
+
+  // What the hexa felt this frame, in the motion frame (which reads directly as the direction things fall across the pixel
+  // geometry, see MotionFrame). Gravity and the body's own acceleration come separately so tilt and shove scale independently.
+  struct Motion {
+    vectorf gravityG;  // gravity as seen by the body, g
+    vectorf linearG;   // the body's own acceleration, g
+    float gyroZ = 0;   // rad/s about the LED-face normal, right-handed
+  };
+
   vector<Particle *> particles;
   Particle *particleMap[SIZE] = {0}; // map from physical led index to particle
-  uint8_t accelScaling;
-  uint8_t elasticity;
-  uint8_t elasticityMultiplier; // adds particle-to-particle bounce in case 100% isn't enough ;)
+  PixelPhysicsTuning tuning;
   const HexGrid<PixelIndex> &hexGrid;
+  const UMPoint sensorPosition; // accel/gyro position in the pixel geometry, µm: the point whose acceleration the sensor reports
+private:
+  float velPerMsPerG;  // Q8 velocity gained per ms under 1g at physical scale
+  float velPerMsPerUm; // Q8 velocity per (µm × rad/ms): centrifugal and Euler terms per µm of lever arm
+  int32_t restSpeedQ8; // tuning.restSpeedMMps in Q8 velocity
+  int32_t frictionQ8;  // tuning.friction in Q8
+
+  // The board's edge, per pixel: indices into wallLines of the distinct edge lines among the pixel's neighbors, kNoWall-terminated.
+  // A side pixel has one, a corner pixel three, an interior pixel none. The edge runs through the cell at 30deg to the cell's own
+  // bounds (the walls are the sides of the board hexagon, the bounds the sides of the pixel's cell), so the wall is tested
+  // every step rather than when a bound is crossed.
+  static constexpr uint8_t kNoWall = 0xFF;
+  static constexpr int kMaxWallsPerPixel = 3;
+  vector<line32> wallLines;
+  uint8_t pixelWalls[SIZE][kMaxWallsPerPixel];
+
+  void initWalls() {
+    for (unsigned i = 0; i < SIZE; ++i) {
+      int count = 0;
+      for (int w = 0; w < kMaxWallsPerPixel; ++w) {
+        pixelWalls[i][w] = kNoWall;
+      }
+      if (i >= (unsigned)hexGrid.valueCount()) {
+        continue;
+      }
+      for (int n = 0; n < 6; ++n) {
+        typename HexGrid<PixelIndex>::HexNode *neighbor = hexGrid[i]->neighbors[n];
+        if (!neighbor || !neighbor->isEdgeNode()) {
+          continue;
+        }
+        line32 line = neighbor->edgeLine();
+        {
+          const float k = kWallNormal / sqrtf((float)line.A * line.A + (float)line.B * line.B);
+          line = line32((int32_t)lroundf(line.A * k), (int32_t)lroundf(line.B * k), (int32_t)lroundf(line.C * k));
+        }
+        uint8_t index = kNoWall;
+        for (unsigned l = 0; l < wallLines.size(); ++l) {
+          if (wallLines[l] == line) {
+            index = l;
+            break;
+          }
+        }
+        if (index == kNoWall) {
+          index = wallLines.size();
+          wallLines.push_back(line);
+        }
+        bool known = false;
+        for (int w = 0; w < count; ++w) {
+          known |= (pixelWalls[i][w] == index);
+        }
+        if (!known) {
+          assert(count < kMaxWallsPerPixel, "pixel %u has more than %i walls", i, kMaxWallsPerPixel);
+          if (count < kMaxWallsPerPixel) {
+            pixelWalls[i][count++] = index;
+          }
+        }
+      }
+    }
+  }
 public:
-  PixelPhysics(const HexGrid<PixelIndex> &hexGrid, PixelIndex particleCount, uint8_t accelScaling, uint8_t elasticity, uint8_t elasticityMultiplier=1) : hexGrid(hexGrid), accelScaling(accelScaling), elasticity(elasticity), elasticityMultiplier(elasticityMultiplier) {
+  PixelPhysics(const HexGrid<PixelIndex> &hexGrid, UMPoint sensorPosition, PixelIndex particleCount, PixelPhysicsTuning tuning)
+      : tuning(tuning), hexGrid(hexGrid), sensorPosition(sensorPosition) {
+    const float pitchUm = hexGrid.pitchMM() * 1000.0f;
+    const float unitsPerUm = kUnitsPerPixel / pitchUm;
+    velPerMsPerUm = unitsPerUm * kMotionDamper * kVelocityFrac;
+    velPerMsPerG = 9.80665f * velPerMsPerUm; // 1g = 9.80665 µm/ms²
+    // one Q8 velocity unit is (1/kVelocityFrac) cell units per kMotionDamper ms
+    const float mmPerSecPerQ8 = pitchUm / kUnitsPerPixel / kVelocityFrac / kMotionDamper; // µm/ms == mm/s
+    restSpeedQ8 = tuning.restSpeedMMps / mmPerSecPerQ8;
+    frictionQ8 = constrain(tuning.friction, 0.0f, 4.0f) * 256;
+    initWalls();
     particles.reserve(particleCount);
     for (int i = 0; i < particleCount; ++i) {
       PixelIndex index;
@@ -502,7 +611,7 @@ public:
 private:
 
   const vector16 unitMotionAcrossBound(HexagonBounding bound) {
-    // point-down bound
+    // pointy-top cell: neighbors along the row are a pitch apart, the diagonal rows a pitch at 60deg
     switch (bound) {
       case HexagonBounding::right:       return vector16( 222,  0)*2;
       case HexagonBounding::upright:    return vector16( 111,  192)*2; // 256*sqrt(3)/2 * (cos(pi/3), sin(pi/3))
@@ -516,159 +625,212 @@ private:
     }
   }
 
-  inline bool point_above_line(vector16 p, int16_t dy, int16_t dx, int16_t b) {
-    // y = dy/dx + b
-    return p.y > (dy*p.x + b*dx) / dx;
+  static inline bool point_above_line(vector16 p, int32_t dy, int32_t dx, int32_t b) {
+    // y > dy/dx * x + b, dx > 0; cross-multiplied so there is no division in the hot path
+    return (int32_t)p.y * dx > dy * p.x + b * dx;
   }
 
   HexagonBounding innerSpaceHexagonBounding(vector16 p) {
-    // check if given point is in its point-down hexagon-shaped inner particle space
+    // check if given point is in its pointy-top hexagon-shaped cell: flat sides at x=±222, sloped sides through (0,±255)
     HexagonBounding bounds = HexagonBounding::interior;
-    bool abovePosDivider = point_above_line(p,  128,222, 0); // divides plane with positive slope through origin
-    bool aboveNegDivider = point_above_line(p, -128,222, 0); // divides plane with negative slope through origin
-    
-    // FIXME: region-side-bounds are commented, need to test/confirm that this is correct
-
-    if (p.x < -222/* && abovePosDivider && !aboveNegDivider*/) bounds |= HexagonBounding::left;
-    if (p.x >  222/* && aboveNegDivider && !abovePosDivider*/) bounds |= HexagonBounding::right;
-    if ( point_above_line(p, -128,222,  255)/* && p.x>=0 &&  abovePosDivider*/) bounds |= HexagonBounding::upright;
-    if (!point_above_line(p,  128,222, -255)/* && p.x>=0 && !aboveNegDivider*/) bounds |= HexagonBounding::downright;
-    if (!point_above_line(p, -128,222, -255)/* && p.x<=0 && !abovePosDivider*/) bounds |= HexagonBounding::downleft;
-    if ( point_above_line(p,  128,222,  255)/* && p.x<=0 &&  aboveNegDivider*/) bounds |= HexagonBounding::upleft;
+    if (p.x < -222) bounds |= HexagonBounding::left;
+    if (p.x >  222) bounds |= HexagonBounding::right;
+    if ( point_above_line(p, -128,222,  255)) bounds |= HexagonBounding::upright;
+    if (!point_above_line(p,  128,222, -255)) bounds |= HexagonBounding::downright;
+    if (!point_above_line(p, -128,222, -255)) bounds |= HexagonBounding::downleft;
+    if ( point_above_line(p,  128,222,  255)) bounds |= HexagonBounding::upleft;
     return bounds;
   }
 
-  HexGrid<PixelIndex>::HexNode *dstForMotion(const Particle &p, HexagonBounding bounding) {
-    return hexGrid[p.index]->dstForMotion(bounding);
+  // |v| within ~6%, no sqrt
+  static inline int32_t approxLength(const vector32 &v) {
+    const int32_t ax = abs(v.x), ay = abs(v.y);
+    return max(ax, ay) + min(ax, ay) / 2;
   }
 
-  void updateParticleAtBound(int label, Particle &p, unsigned long elapsed, HexagonBounding checkBound) {
-    assert(checkBound != HexagonBounding::interior, "updateParticleAtBound should not get interior");
-    HexagonBounding particleContainment = innerSpaceHexagonBounding(p.pos);
-    if ((particleContainment & checkBound) != HexagonBounding::interior) {
-      plogf("Particle %i pos=(%i,%i) v=(%i,%i) crossed motion checkBound %i", label, p.pos.x, p.pos.y, p.velocity.x, p.velocity.y, checkBound);
-      HexGrid<PixelIndex>::HexNode *dst = dstForMotion(p, checkBound);
-      PixelIndex srcPixel = p.index;
-      if (dst->isDataNode()) {
-        // particle moving/colliding
-        PixelIndex dstPixel = dst->data();
-        plogf("  particle %i at index %i check dst index %i", label, srcPixel, dstPixel);
-        if (particleMap[dstPixel]) {
-          Particle &p2 = *(particleMap[dstPixel]);
-          // collision
-          plogf("  particle %i at pixel %i v=(%i,%i) collision with pixel %i v=(%i,%i)", label, srcPixel, p.velocity.x, p.velocity.y, dstPixel, p2.velocity.x, p2.velocity.y);
-          // roll back motion because otherwise p1 may have already skipped past p2
-          p.pos -= (p.velocity * elapsed) / kMotionDamper;
-          p2.pos -= (p2.velocity * elapsed) / kMotionDamper;
-          // convert p1 into p2's coordinate space
-          const vector16 pos1 = p.pos - unitMotionAcrossBound(checkBound);
-          plogf("  pre-collision points in same coordinate space: p1=(%i, %i), p2=(%i, %i)", pos1.x, pos1.y, p2.pos.x, p2.pos.y);
-          vector16 dp = p2.pos - pos1;
-          vector16 dv = p2.velocity - p.velocity;
-          plogf("    dp=(%i,%i), dv=(%i,%i)", dp.x, dp.y, dv.x, dv.y);
-          int dpDotDv = dp.dot(dv);
-          int dpDotDp = dp.dot(dp);
-          plogf("    dpDotDv=%i, dpDotDp=%i", dpDotDv, dpDotDp);
-          // assert(dpDotDp != 0, "points should not overlap");
-          if (dpDotDp != 0) {
-            vector16 dv1 = vector16(elasticityMultiplier*dp.x * dpDotDv / dpDotDp, elasticityMultiplier*dp.y * dpDotDv / dpDotDp);
-            vector16 dv2 = vector16(elasticityMultiplier*dp.x * -dpDotDv / dpDotDp, elasticityMultiplier*dp.y * -dpDotDv / dpDotDp);
-            plogf("  unscaled dv1=(%i,%i) dv2=(%i,%i)", dv1.x, dv1.y, dv2.x, dv2.y);
-            dv1 = dv1.scale8(elasticity);
-            dv2 = dv2.scale8(elasticity);
-            plogf("    scaled dv1=(%i,%i) dv2=(%i,%i)", dv1.x, dv1.y, dv2.x, dv2.y);
+  static inline void clampVelocity(vector32 &v) {
+    v.x = constrain(v.x, -kMaxVelocity, kMaxVelocity);
+    v.y = constrain(v.y, -kMaxVelocity, kMaxVelocity);
+  }
 
-            plogf("  pre-collision  p1=(%i, %i), p2=(%i, %i)", p.velocity.x, p.velocity.y, p2.velocity.x, p2.velocity.y);
-            p.velocity += dv1;
-            p2.velocity += dv2;
-            plogf("  post-collision velocities p1=(%i, %i), p2=(%i, %i)", p.velocity.x, p.velocity.y, p2.velocity.x, p2.velocity.y);
-            
-            // roll forward motion?
-            p.pos += (p.velocity * elapsed) / kMotionDamper;
-            p2.pos += (p2.velocity * elapsed) / kMotionDamper;
-          }
+  static inline void clampPosition(vector16 &pos) {
+    pos.x = constrain(pos.x, -kPosLimit, kPosLimit);
+    pos.y = constrain(pos.y, -kPosLimit, kPosLimit);
+  }
+
+  Particle *neighborParticle(const Particle &p, HexagonBounding dir) {
+    typename HexGrid<PixelIndex>::HexNode *dst = hexGrid[p.index]->dstForMotion(dir);
+    return (dst && dst->isDataNode()) ? particleMap[dst->data()] : nullptr;
+  }
+
+  // The three directions the contact pass visits, with the arithmetic of unitMotionAcrossBound(dir) folded into Q8 constants so
+  // the hot path is shifts: proj = (dp.x*cx + dp.y*cy) >> 8 is dp's component along u in cell units, push = overlap*(px,py) >> 8
+  // is u*overlap/(2*kUnitsPerPixel).
+  struct ContactDir {
+    HexagonBounding dir;
+    vector16 u;
+    int32_t cx, cy;
+    int32_t px, py;
+  };
+  static const ContactDir *contactDirs() {
+    static const ContactDir dirs[3] = {
+      {HexagonBounding::right,     vector16( 444,    0),  256,    0,  128,    0},
+      {HexagonBounding::downright, vector16( 222, -384),  128, -222,   64, -111},
+      {HexagonBounding::downleft,  vector16(-222, -384), -128, -222,  -64, -111},
+    };
+    return dirs;
+  }
+
+  // Contact between p and p2 in the adjacent pixel across cd.u (p2's center as seen from p's, |u| = kUnitsPerPixel). Discs a
+  // pitch across overlap when their centers are less than a pitch apart along u. An approaching pair exchanges the normal
+  // components of velocity (equal masses) with restitution and Coulomb friction, then the overlap is split between the two.
+  // The contact normal is u itself rather than the center-to-center line: within 30deg of it, and it keeps a resting pile
+  // division-free on the RP2040, where a division costs more than the rest of the contact.
+  void contact(Particle &p, Particle &p2, const ContactDir &cd) {
+    const vector32 dp = p2.pos - (p.pos - cd.u); // p2 from p, in one coordinate space
+    const int32_t proj = (dp.x * cd.cx + dp.y * cd.cy) >> 8;
+    const int32_t overlap = kUnitsPerPixel - proj;
+    if (overlap <= 0) {
+      return;
+    }
+    const vector32 dv = p2.velocity - p.velocity;
+    const int32_t approach = -((dv.x * cd.cx + dv.y * cd.cy) >> 8); // closing speed along û, Q8
+    plogf("  contact dp=(%i,%i), dv=(%i,%i) approach=%i overlap=%i", dp.x, dp.y, dv.x, dv.y, approach, overlap);
+    // only an approaching pair exchanges momentum
+    if (approach > 0) {
+      const vector32 dvn((-approach * cd.cx) >> 8, (-approach * cd.cy) >> 8); // the normal part of dv
+      // a slow impact sticks: 0x80 leaves both with the average normal velocity. (e is applied as e/256, so 0xFF is 99.6%)
+      const int32_t eBase = (approach < restSpeedQ8 && tuning.elasticity > 0x80 ? 0x80 : tuning.elasticity);
+      const int32_t e = eBase * tuning.elasticityMultiplier;
+      const vector32 dv1((dvn.x * e) >> 8, (dvn.y * e) >> 8);
+      p.velocity += dv1;
+      p2.velocity -= dv1;
+      if (frictionQ8 > 0) {
+        // Coulomb friction: transfer relative tangential velocity, up to friction × the normal impulse and at most the half
+        // that stops the sliding between equal masses
+        const vector32 dvt = dv - dvn;
+        const int32_t slide = approxLength(dvt);
+        const int32_t grip = (frictionQ8 * ((approach * e) >> 8)) >> 8; // friction × normal impulse, Q8
+        if (slide <= 2 * grip) {
+          // sticks: the common resting case, no division
+          p.velocity.x += dvt.x / 2;
+          p.velocity.y += dvt.y / 2;
+          p2.velocity.x -= dvt.x / 2;
+          p2.velocity.y -= dvt.y / 2;
         } else {
-          // move
-          plogf("  particle at index %i move to %i", srcPixel, dstPixel);
-          particleMap[srcPixel] = NULL;
-          particleMap[dstPixel] = &p;
-          p.index = dstPixel;
-          p.pos -= unitMotionAcrossBound(checkBound);
+          const int32_t fQ8 = (grip << 8) / slide;
+          p.velocity.x += (dvt.x * fQ8) >> 8;
+          p.velocity.y += (dvt.y * fQ8) >> 8;
+          p2.velocity.x -= (dvt.x * fQ8) >> 8;
+          p2.velocity.y -= (dvt.y * fQ8) >> 8;
         }
-      } else {
-        plogf("  Particle %i intersected with wall via checkBound %i", label, checkBound);
-        line32 line = dst->edgeLine();
-        plogf("    wall line points (%i,%i), (%i,%i)", line.x1, line.y1, line.x2, line.y2);
-
-        // roll back the particle movement since it crossed a line.
-        // note this is a full velocity-unit (8ms of motion at kMotionDamper) rather than this frame's motion:
-        // a constant rollback distance at any framerate, and generous enough to reliably get behind the wall.
-        plogf("  pre-wall pos (%i, %i), velocity (%i, %i)", p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
-        p.pos -= p.velocity;
-        plogf("    rolled back to (%i, %i)", p.pos.x, p.pos.y);
-
-        // v` = v−2*(v⋅n)/(n⋅n)⋅n
-        auto normal = line.longnormal();
-        int32_t VDotN = p.velocity.dot(normal);
-        int32_t NDotN = normal.dot(normal);
-
-        // get line as Ax + By + C = 0
-        int32_t A = line.A;
-        int32_t B = line.B;
-        int32_t C = line.C;
-
-        plogf("    normal = (%i,%i), VDotN = %i, NDotN = %i", normal.x, normal.y, VDotN, NDotN);
-        plogf("      %i*x+%i*y+%i=0", A, B, C);
-
-        // Find the parameter t=p/q where the particle trajectory intersects the line:
-        int32_t t_p = abs(-(A * p.pos.x + B * p.pos.y + C));
-        int32_t t_q = abs(A * p.velocity.x + B * p.velocity.y);
-        plogf("      t = %i/%i", t_p, t_q);
-        if (t_p > t_q) {
-          // this happens when we do wall collision for a point already outside the wall, since pixel-neighbor hexa shape is rotated compared to from wall shape
-          plogf("    t_p > t_q, fixing..");
-          t_q = t_p;
-        }
-        if (t_q != 0) { // Check for parallel movement
-            // Compute intersection point
-            int16_t x_int = p.pos.x + p.velocity.x * t_p/t_q;
-            int16_t y_int = p.pos.y + p.velocity.y * t_p/t_q;
-            plogf("    intersection = (%i, %i)", x_int, y_int);
-
-            // Reflect the velocity
-            vector16 dv(-2 * normal.x * VDotN/NDotN, -2 * normal.y * VDotN/NDotN);
-            plogf("    dv = (%i,%i)", dv.x, dv.y);
-            dv = dv.scale8(elasticity);
-            plogf("      scaled dv = (%i,%i)", dv.x, dv.y);
-            p.velocity += dv;
-
-            // Update particle position after the collision
-            p.pos.x = x_int + p.velocity.x * (t_q-t_p)/t_q;
-            p.pos.y = y_int + p.velocity.y * (t_q-t_p)/t_q;
-        } else {
-          plogf("No ricochet, stuck behind wall? fixing.");
-          // hack: there is a significant wall collision issue where we get stuck behind a wall
-          // but we're stuck at max speed running parallel to the wall, so there is no ricochet.
-          // here's a bandaid until i can redo all this.
-          vector16 ogPos = p.pos;
-          p.pos += p.velocity;
-          p.pos.x = constrain(p.pos.x, -0xFF, 0xFF);
-          p.pos.y = constrain(p.pos.y, -0xFF, 0xFF);
-          if (p.pos == ogPos) {
-            p.pos = vector16(0,0);
-          }
-        }
-        plogf("  post-wall pos (%i, %i), velocity (%i, %i)", p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
       }
-      // sanity constraints
-      p.pos.x = constrain(p.pos.x, -0xFF, 0xFF);
-      p.pos.y = constrain(p.pos.y, -0xFF, 0xFF);
-      p.velocity.x = constrain(p.velocity.x, -0xFF, 0xFF);
-      p.velocity.y = constrain(p.velocity.y, -0xFF, 0xFF);
-    } else {
-      // plogf("particle did not cross checkBound %i", checkBound);
+      clampVelocity(p.velocity);
+      clampVelocity(p2.velocity);
+      plogf("  post-contact velocities p1=(%i, %i), p2=(%i, %i)", p.velocity.x, p.velocity.y, p2.velocity.x, p2.velocity.y);
+    }
+    // separate along u, each giving half the overlap
+    const vector16 push((overlap * cd.px) >> 8, (overlap * cd.py) >> 8);
+    p.pos -= push;
+    p2.pos += push;
+    clampPosition(p.pos);
+    clampPosition(p2.pos);
+  }
+
+  // Reflect p off a board edge line in its cell's coordinates. A*x + B*y + C > 0 is beyond the wall (the edge lines wind
+  // counterclockwise in initConnections) and initWalls() scaled the line so |(A,B)| = kWallNormal, which makes the projections
+  // shifts. Mirrors the position back inside and reflects the outward part of the velocity, with Coulomb friction.
+  bool reflectOffWall(Particle &p, const line32 &line) {
+    const int32_t A = line.A, B = line.B, C = line.C;
+    const int32_t d = A * p.pos.x + B * p.pos.y + C; // kWallNormal × the distance beyond the wall
+    if (d <= 0) {
+      return false;
+    }
+    // pos -= 2 n d/(n·n)
+    p.pos.x -= (A * d) >> (2 * kWallNormalShift - 1);
+    p.pos.y -= (B * d) >> (2 * kWallNormalShift - 1);
+    const int32_t vDotN = p.velocity.x * A + p.velocity.y * B;
+    if (vDotN > 0) {
+      const int32_t vn = vDotN >> kWallNormalShift; // Q8 speed into the wall
+      // below 0x80 the reflection would leave the velocity pointing outward and the particle pinned against the mirror; walls are
+      // at least perfectly inelastic, and exactly that for a slow impact so a resting particle stays put
+      const int32_t e = (vn < restSpeedQ8 || tuning.elasticity < 0x80 ? 0x80 : tuning.elasticity);
+      // dvn = 2 (e/256) n̂ (v·n̂)
+      const int32_t vne = (vn * e) >> 8;
+      const vector32 dvn((A * vne) >> (kWallNormalShift - 1), (B * vne) >> (kWallNormalShift - 1));
+      if (frictionQ8 > 0) {
+        // Coulomb friction against the wall: up to friction × the normal impulse off the tangential velocity, at most all of it
+        const vector32 vt(p.velocity.x - ((A * vn) >> kWallNormalShift), p.velocity.y - ((B * vn) >> kWallNormalShift));
+        const int32_t slide = approxLength(vt);
+        const int32_t grip = (frictionQ8 * vne) >> 7; // friction × |dvn|
+        if (slide <= grip) {
+          // sticks: the common resting case, no division
+          p.velocity.x -= vt.x;
+          p.velocity.y -= vt.y;
+        } else {
+          const int32_t fQ8 = (grip << 8) / slide;
+          p.velocity.x -= (vt.x * fQ8) >> 8;
+          p.velocity.y -= (vt.y * fQ8) >> 8;
+        }
+      }
+      p.velocity -= dvn;
+    }
+    plogf("  post-wall pos (%i, %i), velocity (%i, %i)", p.pos.x, p.pos.y, p.velocity.x, p.velocity.y);
+    return true;
+  }
+
+  void crossBound(int label, Particle &p, HexagonBounding bound) {
+    plogf("Particle %i pos=(%i,%i) v=(%i,%i) crossed bound %i", label, p.pos.x, p.pos.y, p.velocity.x, p.velocity.y, bound);
+    HexGrid<PixelIndex>::HexNode *dst = hexGrid[p.index]->dstForMotion(bound);
+    if (!dst || !dst->isDataNode()) {
+      return; // an edge neighbor: the wall pass in resolveBounds handles it
+    }
+    PixelIndex srcPixel = p.index;
+    PixelIndex dstPixel = dst->data();
+    if (particleMap[dstPixel]) {
+      return; // occupied: the contact pass keeps the pair apart; the particle stays in its pixel
+    }
+    plogf("  particle at index %i move to %i", srcPixel, dstPixel);
+    particleMap[srcPixel] = NULL;
+    particleMap[dstPixel] = &p;
+    p.index = dstPixel;
+    p.pos -= unitMotionAcrossBound(bound);
+    clampPosition(p.pos);
+  }
+
+  void resolveBounds(int label, Particle &p) {
+    static const HexagonBounding kBounds[6] = {
+      HexagonBounding::right, HexagonBounding::upright, HexagonBounding::upleft,
+      HexagonBounding::left, HexagonBounding::downleft, HexagonBounding::downright,
+    };
+    // each bound is considered once per step, against the position as the previous bounds left it
+    HexagonBounding containment = innerSpaceHexagonBounding(p.pos);
+    for (HexagonBounding bound : kBounds) {
+      if (containment == HexagonBounding::interior) {
+        break;
+      }
+      if ((containment & bound) != HexagonBounding::interior) {
+        crossBound(label, p, bound);
+        containment = innerSpaceHexagonBounding(p.pos);
+      }
+    }
+    // then the board edge, in whichever cell the particle ended up. Two passes so a corner (two or three walls) settles.
+    const uint8_t *walls = pixelWalls[p.index];
+    if (walls[0] != kNoWall) {
+      for (int pass = 0; pass < 2; ++pass) {
+        bool hit = false;
+        for (int w = 0; w < kMaxWallsPerPixel && walls[w] != kNoWall; ++w) {
+          hit |= reflectOffWall(p, wallLines[walls[w]]);
+        }
+        if (!hit) {
+          break;
+        }
+      }
+      clampPosition(p.pos);
+      clampVelocity(p.velocity);
     }
   }
+
 public:
   void setPosition(int particleIndex, PixelIndex position) {
     assert(particleMap[position] == NULL, "attempt to move one particle on top of another");
@@ -708,62 +870,113 @@ public:
     }
   }
 
-  unsigned long lastUpdate = 0;
+  unsigned long lastUpdateMicros = 0;
+  float lastGyroZ = 0;   // rad/s, for the Euler term
+  vectorf dvCarry;       // sub-Q8 remainder of the common acceleration, so a faint tilt still integrates
 
-  void update(std::function<vector32(PixelIndex)> accelForIndex) {
-    // velocity units per (accel unit · millisecond); folded with kMotionDamper below
-    const int32_t accelPreScale = 100000;
-    const int32_t accelDivisor = accelPreScale * kMotionDamper;
+  void update(const Motion &motion) {
+    const unsigned long now = micros();
+    uint32_t frameUs = (lastUpdateMicros == 0 ? 1000 : (uint32_t)(now - lastUpdateMicros));
+    const bool resync = (lastUpdateMicros == 0 || frameUs > kMaxFrameUs);
+    lastUpdateMicros = now;
+    frameUs = min(frameUs, kMaxFrameUs);
+    const int steps = max(1, (int)((frameUs + kMaxStepUs - 1) / kMaxStepUs));
+    const int32_t stepUs = frameUs / steps;
+    const float stepMs = stepUs * 1e-3f;
 
-    unsigned long elapsed = (lastUpdate > 0 ? millis() - lastUpdate : 1);
-    elapsed = constrain(elapsed, (unsigned long)0, (unsigned long)100); // don't slam velocities after a stall or unpause
-    lastUpdate = millis();
+    // Per-frame force constants, float once, then integers per particle.
 
-    vector<Particle *> lastParticles = particles;
-    for (int i = 0; i < particles.size(); ++i) {
-      Particle &p = *particles[i];
-      vector32 accelVector = accelForIndex(p.index);
-      plogf("PHYSICS UPDATE px %i saw raw accel = %i, %i", i, accelVector.x, accelVector.y);
-
-      // integrate accel*elapsed before dividing, carrying the sub-unit remainder: dividing first
-      // truncated ~1g accelerations to zero velocity gain on short (1-2ms) frames
-      vector32 num = accelScaling * accelVector;
-      num *= (int32_t)elapsed;
-      num += p.acceleration;
-      vector32 dv = num / accelDivisor;
-      p.acceleration = vector32(num.x % accelDivisor, num.y % accelDivisor);
-      plogf("  dv = %i, %i, remainder accel (%i,%i)", dv.x, dv.y, p.acceleration.x, p.acceleration.y);
-
-      dv.x = constrain(dv.x, -0xFF, 0xFF);
-      dv.y = constrain(dv.y, -0xFF, 0xFF);
-
-      p.velocity += dv;
-      p.velocity.x = constrain(p.velocity.x, -0xFF, 0xFF);
-      p.velocity.y = constrain(p.velocity.y, -0xFF, 0xFF);
-
-      vector16 motionNum = p.velocity;
-      motionNum *= (int16_t)elapsed;
-      motionNum += p.posRemainder;
-      vector16 newPos = p.pos + motionNum / (int16_t)kMotionDamper;
-      p.posRemainder = vector16(motionNum.x % kMotionDamper, motionNum.y % kMotionDamper);
-      plogf("  p%i at px %i move from pos (%i, %i) to pos (%i, %i) with velocity (%i, %i)", i, p.index, p.pos.x, p.pos.y, newPos.x, newPos.y, p.velocity.x, p.velocity.y);
-      p.pos = newPos;
+    // Common acceleration, the same for every particle: the direction things fall, plus the pseudo-force of a shove
+    vector32 dvCommon;
+    {
+      float ax = velPerMsPerG * (tuning.gravityScale * motion.gravityG.x + tuning.inertiaScale * motion.linearG.x) * stepMs * steps + dvCarry.x;
+      float ay = velPerMsPerG * (tuning.gravityScale * motion.gravityG.y + tuning.inertiaScale * motion.linearG.y) * stepMs * steps + dvCarry.y;
+      dvCommon = vector32((int32_t)(ax / steps), (int32_t)(ay / steps));
+      dvCarry = vectorf(ax - dvCommon.x * steps, ay - dvCommon.y * steps);
     }
-    for (int i = 0; i < particles.size(); ++i) {
-      Particle &p = *particles[i];
-      updateParticleAtBound(i, p, elapsed, HexagonBounding::right);
-      updateParticleAtBound(i, p, elapsed, HexagonBounding::upright);
-      updateParticleAtBound(i, p, elapsed, HexagonBounding::upleft);
-      updateParticleAtBound(i, p, elapsed, HexagonBounding::left);
-      updateParticleAtBound(i, p, elapsed, HexagonBounding::downleft);
-      updateParticleAtBound(i, p, elapsed, HexagonBounding::downright);
-    }
-  }
 
-  void update(vector16 accel) {
-    update([accel](PixelIndex index) {
-      return accel;
-    });
+    // The sensor reports the hexa's acceleration at its own position; a particle is somewhere else on a rotating body, with r
+    // its lever arm from the sensor. Centrifugal w²r and Euler -(dw/dt)×r are linear in r, so they reduce to a Q14 coefficient
+    // per µm of r. Euler integrates over the frame to -dw×r, so the change in rate is applied directly.
+    const float gyroZMs = motion.gyroZ * 1e-3f; // rad/ms
+    const float gyroZDeltaMs = (resync ? 0.0f : (motion.gyroZ - lastGyroZ) * 1e-3f) / steps;
+    lastGyroZ = motion.gyroZ;
+    const int32_t centrifugalQ14 = constrain((int32_t)(tuning.inertiaScale * gyroZMs * gyroZMs * stepMs * velPerMsPerUm * 16384), -kMaxRadialCoeff, kMaxRadialCoeff);
+    const int32_t eulerQ14 = constrain((int32_t)(tuning.inertiaScale * gyroZDeltaMs * velPerMsPerUm * 16384), -kMaxRadialCoeff, kMaxRadialCoeff);
+    const bool radial = (centrifugalQ14 != 0 || eulerQ14 != 0);
+
+    // Coriolis, -2w×v: turns the velocity through -2w·dt without changing its length. Half a turn before the other forces and
+    // half after; all at one end is a first-order error that shows up as drift when a shove meets a spin. Q13 so cos·vx + sin·vy
+    // fits int32 at kMaxVelocity.
+    const float theta = tuning.inertiaScale * gyroZMs * stepMs;
+    int32_t sinQ13, cosQ13;
+    if (fabsf(theta) < 0.05f) {
+      // small angle, spares the soft-float sinf/cosf on RP2040 in the common case
+      sinQ13 = (int32_t)(theta * 8192);
+      cosQ13 = 8192 - (int32_t)(theta * theta * 4096);
+    } else {
+      sinQ13 = (int32_t)(sinf(theta) * 8192);
+      cosQ13 = (int32_t)(cosf(theta) * 8192);
+    }
+    const bool spinning = (sinQ13 != 0);
+    auto coriolisHalfTurn = [&](vector32 &v) {
+      const int32_t vx = v.x, vy = v.y;
+      v.x = ( cosQ13 * vx + sinQ13 * vy) / 8192;
+      v.y = (-sinQ13 * vx + cosQ13 * vy) / 8192;
+    };
+
+    // Viscous drag as a linear approximation of exp(-k·dt)
+    const int32_t dragQ14 = (int32_t)(16384 * max(0.0f, 1.0f - tuning.viscousPerSecond * stepMs * 1e-3f));
+    const bool dragging = (dragQ14 < 16384);
+
+    for (int step = 0; step < steps; ++step) {
+      for (int i = 0; i < particles.size(); ++i) {
+        Particle &p = *particles[i];
+        vector32 &v = p.velocity;
+        if (spinning) {
+          coriolisHalfTurn(v);
+        }
+        v += dvCommon;
+        if (radial) {
+          const vector32 r = hexGrid.position(p.index) - sensorPosition; // µm
+          v.x += centrifugalQ14 * r.x / 16384 + eulerQ14 * r.y / 16384;
+          v.y += centrifugalQ14 * r.y / 16384 - eulerQ14 * r.x / 16384;
+        }
+        if (spinning) {
+          coriolisHalfTurn(v);
+        }
+        if (dragging) {
+          // division rather than shift so both signs decay to zero
+          v.x = v.x * dragQ14 / 16384;
+          v.y = v.y * dragQ14 / 16384;
+        }
+        clampVelocity(v);
+
+        // integrate velocity·µs into cell units, carrying the remainder
+        vector32 motionNum = v;
+        motionNum *= stepUs;
+        motionNum += p.posRemainder;
+        p.pos += vector16(motionNum.x / kPosDivisor, motionNum.y / kPosDivisor);
+        p.posRemainder = vector32(motionNum.x % kPosDivisor, motionNum.y % kPosDivisor);
+        clampPosition(p.pos); // a particle pressing into an occupied pixel has nowhere to go
+        plogf("  p%i at px %i pos (%i, %i) velocity (%i, %i)", i, p.index, p.pos.x, p.pos.y, v.x, v.y);
+      }
+      // contacts: three of the six directions visit each adjacent pair exactly once
+      const ContactDir *dirs = contactDirs();
+      for (int i = 0; i < particles.size(); ++i) {
+        Particle &p = *particles[i];
+        for (int k = 0; k < 3; ++k) {
+          Particle *p2 = neighborParticle(p, dirs[k].dir);
+          if (p2) {
+            contact(p, *p2, dirs[k]);
+          }
+        }
+      }
+      // then moves into empty pixels and the board's edge
+      for (int i = 0; i < particles.size(); ++i) {
+        resolveBounds(i, *particles[i]);
+      }
+    }
   }
 };
 

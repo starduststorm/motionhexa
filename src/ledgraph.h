@@ -95,22 +95,6 @@ static HexagonBounding directionForAngle(int angle) {
   }
 }
 
-vector32 accelerationAtPixelIndex(PixelIndex index, const MotionFrame &frame) {
-  UMPoint Q = hexGrid.position(index); // in micrometers, 0,0 at center
-  const UMPoint &P = kHexaMotionPlacement.position;
-  vector32 accel(frame.acc.x, frame.acc.y);
-
-  UMPoint P2Q = Q - P;
-  // centrifugal: ω²×r in accel LSB = gyroZ² × P2Q_um × accelToGScale / (gyrToRadScale² × 1e6 × 9.81)
-  static constexpr int32_t centrifugalDiv = (int32_t)(MotionManager::gyrToRadScale * MotionManager::gyrToRadScale * 1e6 * 9.81 / MotionManager::accelToGScale);
-  int32_t gyroZ = frame.gyr.z;
-  int32_t gyroZ_sq = gyroZ * gyroZ;
-  accel.x += (int32_t)((int64_t)gyroZ_sq * P2Q.x / centrifugalDiv);
-  accel.y += (int32_t)((int64_t)gyroZ_sq * P2Q.y / centrifugalDiv);
-
-  return accel;
-}
-
 struct fAxial;
 template<typename T>
 struct AxialT : vectorT<T> {
