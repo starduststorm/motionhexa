@@ -253,7 +253,7 @@ public:
 
     const int32_t gyrRotate = gyrZ.value / 2; // getMirroredPaletteColor wraps at 0x200
     const int32_t evolve = (mils/100) % 0x200;
-    const int32_t evolveTwist = (mils/500) % 0x200; // reduced before the per-shell multiply so s*mils can't overflow
+    const int32_t evolveTwistMS = mils % (500 * 0x200); // wraps at 500*0x200 ms, where s*x/500 is a multiple of 0x200
     const int32_t shellHBeat = beatsin16(3, 0, 0x200, 0, gyrX.value);
 
     for (int s = 0 ; s < shellCount; ++s) {
@@ -269,7 +269,7 @@ public:
         shellBrightness = (rt > s * shellFadeTime ? min(0xFF, 0xFF * (rt - s*shellFadeTime) / (fadeOverlap * shellFadeTime)) : 0);
       }
 
-      int32_t twistFactor = (s * gyrY.value / 8 + s * evolveTwist) % 0x200;
+      int32_t twistFactor = (s * gyrY.value / 8 + s * evolveTwistMS / 500) % 0x200;
       int32_t shellH = 0x200 * s/shellCount * shellHBeat / 0x200;
 
       for (int si = 0; si < shellSize; ++si) {
