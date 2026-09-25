@@ -758,6 +758,7 @@ class TriangleSpin : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
   TriangleSpin() {
     secondsPerPalette = 20;
+    minBrightness = 10;
   };
 
   // Rotate vector v by quaternion q: v' = v + 2w*(q×v) + 2*(q×(q×v))
