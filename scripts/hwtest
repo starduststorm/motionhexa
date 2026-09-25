@@ -18,7 +18,7 @@ minihexas (env mini_v2) run the same flow; with no i2c, gauge, imu, mic, photose
 Several units at once is fine. The firmware (src/hwtest.h) only measures and prints "HWTEST <section> key=value" lines;
 the limits live here (LIMITS / judge()), so they can be tuned against the accumulated log without reflashing anything.
 Every run appends one JSON record to hwtest_results/results.jsonl and its raw transcript to hwtest_results/raw/.
-Flashing is ./autoflash's: copy the .uf2 onto any volume with an INFO_UF2.TXT.
+Flashing copies the .uf2 onto any volume with an INFO_UF2.TXT.
 """
 
 import argparse, datetime, json, os, re, shutil, statistics, subprocess, sys, threading, time
@@ -74,7 +74,7 @@ def log(msg):
         print(f"[{datetime.datetime.now():%H:%M:%S}] {msg}", flush=True)
 
 
-# ---- flashing (from ./autoflash) ------------------------------------------------------------------------------------
+# ---- flashing ------------------------------------------------------------------------------------
 
 def find_pio():
     for cand in ("pio", "platformio"):
