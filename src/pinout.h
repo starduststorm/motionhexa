@@ -211,7 +211,7 @@
 #define HAS_BUTTON (HARDWARE_VERSION >= 1)
 #define HAS_BUTTON_BOOT (HARDWARE_VERSION >= 4)
 #define HAS_BATTERY (HARDWARE_VERSION >= 1)
-#define HAS_AUTO_BRIGHTNESS (HARDWARE_VERSION >= 6)
+#define HAS_AUTO_BRIGHTNESS (HARDWARE_VERSION >= 7)
 #define HAS_HWTEST (HARDWARE_VERSION >= 5 || MINI_VERSION >= 1) // HWTEST intake self-test (src/hwtest.h, scripts/hwtest)
 
 #endif
