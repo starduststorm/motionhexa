@@ -1176,7 +1176,7 @@ public:
     CRGB color = CHSV(hue, 0xFF, 0xAF);
 
     for (int i = 0; i < displayLength; ++i) {
-      ctx.leds[outerShell[(i + firstIdx) % outerShell.size()].value()] = color.scale8(0x50 + 0x9F*i / displayLength);
+      ctx.leds[outerShell[(i + firstIdx) % outerShell.size()].value()] = color;
     }
     if (animationMillis > ringAnimateTime) {
       if (displayLength < outerShell.size()) {
