@@ -390,6 +390,9 @@ void setup() {
   pinMode(DISABLE_CHARGE_PIN, OUTPUT);
   digitalWrite(DISABLE_CHARGE_PIN, true);
 #endif
+#if HARDWARE_VERSION >= 7
+  setChargerEnabled(true); // EN_CHARGE released to its pull-up; ThermalChargeGuard sinks it when the board runs hot
+#endif
 
 #endif
 

@@ -24,6 +24,14 @@ static inline void benchLoop(char *serialLine) {
       logf("AB THERM %i", autoBrightness->thermalEnabled ? 1 : 0);
     } else
 #endif
+#if HARDWARE_VERSION >= 5
+    // CHGPAUSE 0|1|AUTO  force the charger on / off, or hand it back to ThermalChargeGuard
+    if (strncmp(serialLine, "CHGPAUSE ", 9) == 0) {
+      const char *arg = serialLine + 9;
+      chargePauseOverride = (strcmp(arg, "AUTO") == 0) ? -1 : (atoi(arg) != 0);
+      logf("CHGPAUSE %s", chargePauseOverride < 0 ? "auto" : chargePauseOverride ? "forced pause" : "forced charge");
+    } else
+#endif
     if (strcmp(serialLine, "COMPASSCAL") == 0) {
       logf("COMPASSCAL: discarding the hard-iron offset in effect; tumble the device through every orientation");
       compassCalRequested = true;

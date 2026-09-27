@@ -35,14 +35,15 @@ struct BatteryData {
   uint16_t temperature;     // K
   uint16_t flags;
   uint8_t softFull;         // ChargeController declared the battery full (software 4.2V cutoff); always 0 without SOFTWARE_CHARGE_LIMITER
+  uint8_t thermalPaused;    // ThermalChargeGuard is holding the charger off because the board is too hot (v5+)
   uint8_t sampled;          // filled from a gauge read (vs. the zeroed initial value)
   uint16_t controlStatus;   // CONTROL_STATUS, for the log
   int16_t current;          // mA, average; positive = charging
   uint8_t presence;         // BatteryPresence result (v7+), see below
   void print(uint16_t senseMV = 0) {
-    logf("battery: %s, soc: %u%%, soh: %u%%, voltage: %umV, sense: %umV, capacity: %umAh / %umAh, power: %imW, current: %imA, temp: %uK, flags: %X, status: %X%s%s",
+    logf("battery: %s, soc: %u%%, soh: %u%%, voltage: %umV, sense: %umV, capacity: %umAh / %umAh, power: %imW, current: %imA, temp: %uK, flags: %X, status: %X%s%s%s",
       batteryDetected()?"yes":"no", stateOfCharge, stateOfHealth, voltage, senseMV, currentCapacity, fullCapacity, powerDraw, current, temperature, flags,
-      controlStatus, gaugingReady() ? "" : ", initializing", softFull ? ", soft-full" : "");
+      controlStatus, gaugingReady() ? "" : ", initializing", softFull ? ", soft-full" : "", thermalPaused ? ", thermal-pause" : "");
   }
   enum : uint8_t { presenceUnknown = 0, presenceYes = 1, presenceNo = 2 };
   bool batteryDetected() {
@@ -136,7 +137,7 @@ public:
       return;
     }
 
-    bool chargeIdle = vbusPowered && batteryData.voltage >= kChargeIdleMinMV && batteryData.current < kChargeIdleMA;
+    bool chargeIdle = vbusPowered && !batteryData.thermalPaused && batteryData.voltage >= kChargeIdleMinMV && batteryData.current < kChargeIdleMA;
     if (!chargeIdle) {
       chargeIdleSince = 0;
     } else if (chargeIdleSince == 0) {
@@ -359,13 +360,20 @@ public:
   bool isChargeEnabled() { return chargeEnabled; }
   bool isFull() { return state == full; }
 
-  // Called from the core1 battery poll with fresh gauge data
-  void update(BatteryData &bd) {
+  // Called from the core1 battery poll with fresh gauge data. thermalPause (ThermalChargeGuard) holds the charger off.
+  void update(BatteryData &bd, bool thermalPause) {
     if (!bd.batteryDetected() || !plausibleVoltage(bd.voltage)) {
       // No battery, or we can't read the gauge: don't charge what we can't supervise.
       setChargeEnabled(false, bd.voltage);
       enterState(settling); // re-measure before charging if readings return
       bd.softFull = false;
+      return;
+    }
+    if (thermalPause) {
+      // Too hot to charge
+      setChargeEnabled(false, bd.voltage);
+      if (state == charging) enterState(settling);
+      bd.softFull = (state == full);
       return;
     }
     switch (state) {
@@ -394,6 +402,64 @@ public:
 };
 ChargeController chargeController;
 #endif // SOFTWARE_CHARGE_LIMITER
+
+#if HARDWARE_VERSION >= 5
+// Thermal charge pause - v7s seen charging at up to 70ºC which is too hot for PLA front case.
+const int16_t kChargePauseC = 60;
+const int16_t kChargeResumeC = 55;
+const unsigned long kChargePauseMinMS = 60000; // once paused stay off at least this long: the gauge is coarse and slow
+
+// "CHGPAUSE 0|1|AUTO" serial command: force the charger on/off or return to the thermal guard.
+volatile int8_t chargePauseOverride = -1;
+
+class ThermalChargeGuard {
+  bool paused = false;
+  unsigned long pausedAt = 0;
+public:
+  bool isPaused() const { return paused; }
+  // Called from the core1 battery poll with each gauge sample (also failed ones: those hold the last decision).
+  // Returns whether the charger should be held off, and publishes that in bd for core0.
+  bool update(BatteryData &bd) {
+    bool valid = bd.sampled && bd.plausible() && bd.temperature != 0;
+    if (chargePauseOverride >= 0) {
+      paused = chargePauseOverride != 0;
+    } else if (valid && !bd.batteryDetected()) {
+      // nothing to heat; and on v7 the charger output is what's powering us
+      paused = false;
+    } else if (valid) {
+      int tempC = (int)bd.temperature - 273;
+      if (!paused && tempC >= kChargePauseC) {
+        paused = true;
+        pausedAt = millis();
+        logf("[t=%lu] thermal charge pause: gauge %iC >= %iC (%umV, %imA)", millis(), tempC, kChargePauseC, bd.voltage, bd.current);
+      } else if (paused && tempC <= kChargeResumeC && millis() - pausedAt >= kChargePauseMinMS) {
+        paused = false;
+        logf("[t=%lu] thermal charge resume: gauge %iC <= %iC after %lus (%umV)", millis(), tempC, kChargeResumeC, (millis() - pausedAt) / 1000, bd.voltage);
+      }
+    }
+    bd.thermalPaused = paused;
+    return paused;
+  }
+};
+ThermalChargeGuard thermalChargeGuard;
+#endif // HARDWARE_VERSION >= 5
+
+#if HARDWARE_VERSION >= 7
+// EN_CHARGE is pulled up to enable the LY4176D. Release it to enable and sink it to disable, so we never drive
+// against the pull-up rail.
+void setChargerEnabled(bool enable) {
+  static int8_t current = -1;
+  if (current == (int8_t)enable) return;
+  current = enable;
+  if (enable) {
+    pinMode(EN_CHARGE, INPUT);
+  } else {
+    pinMode(EN_CHARGE, OUTPUT);
+    digitalWrite(EN_CHARGE, LOW);
+  }
+  logf("charger %s (EN_CHARGE %s)", enable ? "enabled" : "disabled", enable ? "released" : "sunk");
+}
+#endif
 
 #if HARDWARE_VERSION >= 7
 // Infers whether a cell is actually connected, since the gauge can't tell us (see BatteryData::batteryDetected).
@@ -726,7 +792,7 @@ bool battery_step_core1(unsigned long motionStartedAt, BatteryData &bd) {
     const uint16_t kFailedSamplesBeforeUnknown = 3;
     failedSamples++;
 #if SOFTWARE_CHARGE_LIMITER
-    chargeController.update(bd); // implausible voltage: stops the charge it can no longer supervise
+    chargeController.update(bd, thermalChargeGuard.update(bd)); // implausible voltage: stops the charge it can no longer supervise
 #endif
     if (failedSamples == 1 || failedSamples % 60 == 0) {
       logf("[t=%lu] gauge read failed (x%u): soc %u, %umV", millis(), failedSamples, bd.stateOfCharge, bd.voltage);
@@ -745,10 +811,12 @@ bool battery_step_core1(unsigned long motionStartedAt, BatteryData &bd) {
     logf("[t=%lu] gauge reads recovered after %u failed samples", millis(), failedSamples);
     failedSamples = 0;
   }
+  bool thermalPause = thermalChargeGuard.update(bd);
 #if SOFTWARE_CHARGE_LIMITER
-  chargeController.update(bd);
+  chargeController.update(bd, thermalPause);
   bd.print(lastBatterySenseMV);
 #else
+  setChargerEnabled(!thermalPause);
   lastPolledMV = LowBatteryMonitor::plausibleVoltage(bd.voltage) ? bd.voltage : 0;
   bd.print();
 #endif
@@ -758,7 +826,8 @@ bool battery_step_core1(unsigned long motionStartedAt, BatteryData &bd) {
 
 
 uint8_t chargingPatternCheck(PatternRunner &runner, PowerManager &runState) {
-  const int kChargePatternOverlayDuration = 1500; // how long to show charge pattern while running main patterns
+  const int kChargePatternOverlayDuration = 1500; // how long to show charge pattern as an overlay while running main patterns
+  const int kChargeRingIdleDuration = 6000;       // how long the transient ring shows while idle (not running patterns)
   const int kFadeTime = 300;
   const int kSitTimeAtFullCharge = 5000;
   const int kRecentStateChangeDelay = 200;
@@ -776,6 +845,12 @@ uint8_t chargingPatternCheck(PatternRunner &runner, PowerManager &runState) {
   }
   if (runState.isCharging()) {
     unsigned long lastReachedFullCharge = runState.lastReachedFullCharge();
+    // transient ring: time since the last reason to show it (plugged in, turned off while plugged in)
+    unsigned long ringWake = runState.lastChargingStateChange();
+    if (!runState.isRunning()) {
+      ringWake = max(ringWake, runState.lastRunStateChange());
+    }
+    bool ringExpired = !runState.isRunning() && millis() - ringWake > (unsigned long)kChargeRingIdleDuration;
     if (runner.pattern) {
       int runTime = runner.pattern->runTime();
       if (runState.isRunning() && runTime > kChargePatternOverlayDuration) {
@@ -789,6 +864,11 @@ uint8_t chargingPatternCheck(PatternRunner &runner, PowerManager &runState) {
         chargeAlpha = constrain(0xFF - 0xFF * (long)(fadeProgress) / kFadeTime, 0, 0xFF);
         logdf("fade down fully charged => %i", chargeAlpha);
 
+      } else if (ringExpired) {
+        // transient ring: shown long enough, fade out; the pixel rail switches off once the panel is black
+        chargeAlpha = constrain(0xFF - 0xFF * (long)(millis() - ringWake - kChargeRingIdleDuration) / kFadeTime, 0, 0xFF);
+        logdf("fade down transient ring => %i", chargeAlpha);
+
       } else if (runTime < kFadeTime) {
         // fade up overlay
         chargeAlpha = min(0xFFL, (long)0xFF * runTime / kFadeTime);
@@ -797,11 +877,11 @@ uint8_t chargingPatternCheck(PatternRunner &runner, PowerManager &runState) {
         // run overlay
         chargeAlpha = 0xFF;
       }
-    } else if (
+    } else if (!ringExpired && (
               (!runState.isRunning() && lastReachedFullCharge == 0) // not running, not fully charged
             ||  millis() - runState.lastChargingStateChange() < kRecentStateChangeDelay  // just plugged in
             || (millis() - runState.lastRunStateChange() < kRecentStateChangeDelay && lastReachedFullCharge == 0) // just turned off while plugged in
-              ) {
+              )) {
       // start overlay
       chargeAlpha = 0x1;
       logdf("start overlay => %i", chargeAlpha);
