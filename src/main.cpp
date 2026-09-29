@@ -174,6 +174,8 @@ static void synthesizeMotionFrame(MotionFrame &frame) {
   frame.acc = vector16(8000 * sinf(rotation), 8000 * cosf(rotation), 0);
   frame.accG = vectorf(frame.acc.x / MotionManager::accelToGScale, frame.acc.y / MotionManager::accelToGScale, 0);
   frame.gyr = vector16(100 * sinf(rotation), 100 * cosf(rotation), 0);
+  frame.gravityG = frame.accG;
+  frame.linearG = vectorf();
   frame.hasAccelGyro = true;
 }
 #endif

@@ -373,8 +373,6 @@ class BouncyPixels : public Pattern, PaletteRotation<CRGBPalette256> {
 public:
   const PixelIndex pixelCount;
   PixelPhysics<LED_COUNT> physics;
-  GravityTracker gravityTracker;
-  unsigned long lastUpdateMicros = 0;
   int fadeDown = 0xFF;
   BouncyPixels(PixelIndex pixelCount, PixelPhysicsTuning tuning) : pixelCount(pixelCount), physics(hexGrid, kHexaMotionPlacement.position, pixelCount, tuning) {
     minBrightness = 15;
@@ -384,19 +382,9 @@ public:
     ctx.leds.fadeToBlackBy(fadeDown);
     const MotionFrame &motion = MotionManager::motionFrame;
 
-    unsigned long nowMicros = micros();
-    float dtSeconds = (lastUpdateMicros == 0 ? 1e-3f : (nowMicros - lastUpdateMicros) * 1e-6f);
-    if (lastUpdateMicros == 0 || dtSeconds > 0.05f) {
-      // stalled: the gravity estimate has missed rotation, start it over
-      gravityTracker.reset();
-      dtSeconds = 1e-3f;
-    }
-    lastUpdateMicros = nowMicros;
-    gravityTracker.update(motion, dtSeconds);
-
     PixelPhysics<LED_COUNT>::Motion m;
-    m.gravityG = gravityTracker.gravity;
-    m.linearG = gravityTracker.linear(motion);
+    m.gravityG = motion.gravityG;
+    m.linearG = motion.linearG;
     m.gyroZ = motion.gyr.z / MotionManager::gyrToRadScale;
     physics.update(m);
 
@@ -493,7 +481,6 @@ public:
   uint8_t superBaseBrightness = 0; // brightness when the ball escaped; the ramp starts here
   uint8_t superBrightness = 0;     // brightness through the boom
 
-  GravityTracker gravityTracker;
   float lastGyrZ = 0; // rad/ms
 
   void stellate(float radius, float bright) {
@@ -599,11 +586,9 @@ public:
     const MotionFrame &motion = MotionManager::motionFrame;
     const bool resync = (firstUpdate || elapsed > 50 || boomStart != 0);
     if (resync) {
-      // stalled, or not simulating: the gravity estimate has missed rotation, start it over
+      // stalled, or not simulating: don't integrate the gap
       elapsed = min(elapsed, 1.0f);
-      gravityTracker.reset();
     }
-    gravityTracker.update(motion, elapsed * 1e-3f);
     const float gyrZ = motion.gyr.z / (MotionManager::gyrToRadScale * 1000.0f); // rad/ms
     const float gyrZDelta = (resync ? 0 : gyrZ - lastGyrZ);
     lastGyrZ = gyrZ;
@@ -669,8 +654,8 @@ public:
     
     // Acceleration of the ball relative to the hexa, rect coordinates, px/ms^2. Motion-frame x/y read directly as "the direction
     // things fall" in pixel geometry (see MotionFrame), for the pseudo-force of a shove as much as for gravity.
-    const vectorf &gravity = gravityTracker.gravity;
-    vectorf linear = gravityTracker.linear(motion);
+    const vectorf &gravity = motion.gravityG;
+    const vectorf &linear = motion.linearG;
     float ax = kGToPxPerMsSq * (gravityScale * gravity.x + inertiaScale * linear.x);
     float ay = kGToPxPerMsSq * (gravityScale * gravity.y + inertiaScale * linear.y);
 

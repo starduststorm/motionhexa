@@ -56,6 +56,9 @@ struct MotionFrame {
   // The same accelerometer reading in g, float, out to the sensor's own full scale (BMI270: ±16g) where acc saturates at ±4g.
   // For consumers that integrate impulses (a flick peaks well past 4g, and a clipped peak leaves a phantom net velocity).
   vectorf accG;
+  // accG split by MotionManager's always-running GravityTracker, g, motion frame: the gravity estimate, and accG minus it
+  vectorf gravityG;
+  vectorf linearG;
   vector16 gyr;
   vector16 mag;
   Euler euler;
@@ -157,6 +160,66 @@ struct MotionSensorPlacement {
   // offset is defined at magTempRefC.
   float magTempSlopeUTperC[3] = {0, 0, 0};
   float magTempRefC = 40;
+};
+
+// Splits the accelerometer reading into gravity and linear acceleration, both in g, motion frame. The gravity estimate is
+// carried through rotation by the gyro and pulled back toward the accelerometer only while it reads about 1g and the device
+// is barely rotating, so a flick, shove or spin lands in linear() instead of being mistaken for a tilt. It tracks the measured
+// vector rather than a unit one, so accelerometer offset ends up in gravity and linear() settles to exactly zero at rest.
+// MotionManager runs one of these continuously and publishes it in MotionFrame: an estimate started fresh mid-shake seeds
+// from whatever the hand was doing and stays wrong until the shaking stops.
+struct GravityTracker {
+  vectorf gravity;
+  bool seeded = false;
+  float staleSeconds = 0; // trusted time still owed at the fast rate: the estimate is suspect (just seeded, stalled, gyro pinned)
+  static constexpr float kCorrectionTau = 0.5f; // s; how quickly a wrong estimate (gyro error after a violent move) bleeds off
+  static constexpr float kStaleTau = 0.05f;     // s; the same while the estimate is known to be suspect
+  static constexpr float kStaleSeconds = 0.4f;  // trusted seconds spent at kStaleTau before dropping back to kCorrectionTau
+  static constexpr float kStallSeconds = 0.05f; // a gap between updates this long has missed rotation
+  static constexpr float kTrustBandG = 0.08f;   // |acc| this far from 1g means it isn't showing us gravity, so ignore it
+  static constexpr float kTrustGyroRad = 2.0f;  // rad/s; likewise while rotating this fast (the accelerometer sits off-center)
+  static constexpr float kStaleTrustGyroRad = 4.0f; // rad/s; looser while suspect: centripetal at 4 rad/s is a couple of degrees,
+                                                   // and a spinner coasting down otherwise stays untrusted until nearly stopped
+
+  // gyroSaturated: some axis is at the gyro's full scale, so propagation is under-rotating (a hard spin pins ±2000dps)
+  void update(const vectorf &a, const vectorf &w, bool gyroSaturated, float dtSeconds) {
+    if (!seeded) {
+      gravity = a;
+      seeded = true;
+      staleSeconds = kStaleSeconds;
+      return;
+    }
+    if (gyroSaturated || dtSeconds > kStallSeconds) {
+      staleSeconds = kStaleSeconds;
+      dtSeconds = min(dtSeconds, kStallSeconds);
+    }
+    // a world-fixed vector seen from the rotating body: dg/dt = -w x g, i.e. turn g by -|w|dt about w (Rodrigues). An exact
+    // rotation, not a first-order step plus renormalize: that opens the cone by ~theta^2/2 per step, and a few seconds of hard
+    // spin at 1-2 ms steps tips the estimate tens of degrees. sin/cos are series; theta stays under ~0.1 rad per step.
+    float gx = gravity.x, gy = gravity.y, gz = gravity.z;
+    float gyrMag = sqrtf(w.x*w.x + w.y*w.y + w.z*w.z);
+    float rx = gx, ry = gy, rz = gz;
+    if (gyrMag > 1e-6f) {
+      float theta = gyrMag * dtSeconds, theta2 = theta * theta;
+      float s = theta * (1.0f - theta2 / 6.0f), c1 = theta2 * (0.5f - theta2 / 24.0f); // sin(theta), 1 - cos(theta)
+      float kx = w.x / gyrMag, ky = w.y / gyrMag, kz = w.z / gyrMag;
+      float cx = ky*gz - kz*gy, cy = kz*gx - kx*gz, cz = kx*gy - ky*gx; // k x g
+      float kg = kx*gx + ky*gy + kz*gz;
+      rx = gx - s*cx + c1*(kx*kg - gx);
+      ry = gy - s*cy + c1*(ky*kg - gy);
+      rz = gz - s*cz + c1*(kz*kg - gz);
+    }
+
+    float accMag = sqrtf(a.x*a.x + a.y*a.y + a.z*a.z);
+    float trust = constrain(1.0f - fabsf(accMag - 1.0f) / kTrustBandG, 0.0f, 1.0f) * constrain(1.0f - gyrMag / (staleSeconds > 0 ? kStaleTrustGyroRad : kTrustGyroRad), 0.0f, 1.0f);
+    float k = min(1.0f, trust * dtSeconds / (staleSeconds > 0 ? kStaleTau : kCorrectionTau));
+    staleSeconds = max(0.0f, staleSeconds - trust * dtSeconds);
+    gravity = vectorf(rx + (a.x - rx) * k, ry + (a.y - ry) * k, rz + (a.z - rz) * k);
+  }
+
+  vectorf linear(const vectorf &a) const {
+    return vectorf(a.x - gravity.x, a.y - gravity.y, a.z - gravity.z);
+  }
 };
 
 class MotionManager : public MagBiasPort {
@@ -670,6 +733,25 @@ public:
   bool hasSensor() { return hasIMU; }
   bool hasMagSensor() { return hasMagnetometer; }
 
+  GravityTracker gravityTracker;
+  unsigned long lastGravityMicros = 0;
+  static constexpr int16_t kGyroSaturatedLSB = 32000; // ~1950dps of the ±2000dps range
+
+  // Runs on every fresh accel/gyro sample regardless of what core0 is showing, so a pattern that starts mid-shake inherits an
+  // estimate that has been following the rotation all along instead of seeding from one shaken sample.
+  void trackGravity(MotionFrame &out) {
+    if (out.hasAccelGyro) {
+      unsigned long now = micros();
+      float dt = (lastGravityMicros == 0 ? 0 : (now - lastGravityMicros) * 1e-6f);
+      lastGravityMicros = now;
+      vectorf w(out.gyr.x / gyrToRadScale, out.gyr.y / gyrToRadScale, out.gyr.z / gyrToRadScale);
+      bool saturated = abs(out.gyr.x) >= kGyroSaturatedLSB || abs(out.gyr.y) >= kGyroSaturatedLSB || abs(out.gyr.z) >= kGyroSaturatedLSB;
+      gravityTracker.update(out.accG, w, saturated, dt);
+    }
+    out.gravityG = gravityTracker.gravity;
+    out.linearG = gravityTracker.linear(out.accG);
+  }
+
   // core1 only. Reads the sensors and returns the latest frame localized to hexa axes.
   // `frame` itself is retained in chip axes between loops (sensor odr may be below our frame rate); the copy is what gets
   // localized so a retained DMP quaternion is not re-rotated every call.
@@ -689,6 +771,7 @@ public:
     MotionFrame out = frame;
     localizeMotionFrame(out);
     finishFrame(out);
+    trackGravity(out);
     return out;
   }
 };
@@ -701,47 +784,3 @@ MotionManager &MotionManager::manager() {
   }
   return *_singleton;
 }
-
-
-// Splits the accelerometer reading into gravity and linear acceleration, both in g, motion frame. The gravity estimate is
-// carried through rotation by the gyro and pulled back toward the accelerometer only while it reads about 1g and the device
-// is barely rotating, so a flick, shove or spin lands in linear() instead of being mistaken for a tilt. It tracks the measured vector rather than a unit one, so
-// accelerometer offset ends up in gravity and linear() settles to exactly zero at rest.
-struct GravityTracker {
-  vectorf gravity;
-  bool seeded = false;
-  static constexpr float kCorrectionTau = 0.5f; // s; how quickly a wrong estimate (gyro error after a violent move) bleeds off
-  static constexpr float kTrustBandG = 0.08f;   // |acc| this far from 1g means it isn't showing us gravity, so ignore it
-  static constexpr float kTrustGyroRad = 2.0f;  // rad/s; likewise while rotating this fast (the accelerometer sits off-center)
-
-  void reset() { seeded = false; }
-
-  void update(const MotionFrame &motion, float dtSeconds) {
-    const vectorf &a = motion.accG;
-    if (!seeded) {
-      gravity = a;
-      seeded = true;
-      return;
-    }
-    // a world-fixed vector seen from the rotating body: dg/dt = -w x g. First order, so restore the norm afterwards.
-    float wx = motion.gyr.x / MotionManager::gyrToRadScale, wy = motion.gyr.y / MotionManager::gyrToRadScale, wz = motion.gyr.z / MotionManager::gyrToRadScale;
-    float gx = gravity.x, gy = gravity.y, gz = gravity.z;
-    float normBefore = sqrtf(gx*gx + gy*gy + gz*gz);
-    float rx = gx + (gy*wz - gz*wy) * dtSeconds;
-    float ry = gy + (gz*wx - gx*wz) * dtSeconds;
-    float rz = gz + (gx*wy - gy*wx) * dtSeconds;
-    float normAfter = sqrtf(rx*rx + ry*ry + rz*rz);
-    float renorm = (normAfter > 0.0001f ? normBefore / normAfter : 1.0f);
-    rx *= renorm; ry *= renorm; rz *= renorm;
-
-    float accMag = sqrtf(a.x*a.x + a.y*a.y + a.z*a.z);
-    float gyrMag = sqrtf(wx*wx + wy*wy + wz*wz);
-    float trust = constrain(1.0f - fabsf(accMag - 1.0f) / kTrustBandG, 0.0f, 1.0f) * constrain(1.0f - gyrMag / kTrustGyroRad, 0.0f, 1.0f);
-    float k = min(1.0f, trust * dtSeconds / kCorrectionTau);
-    gravity = vectorf(rx + (a.x - rx) * k, ry + (a.y - ry) * k, rz + (a.z - rz) * k);
-  }
-
-  vectorf linear(const MotionFrame &motion) const {
-    return vectorf(motion.accG.x - gravity.x, motion.accG.y - gravity.y, motion.accG.z - gravity.z);
-  }
-};
