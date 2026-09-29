@@ -3,11 +3,11 @@
 PCB designs and code for a motion-reactive, battery-powered hexagonal glowy object. 
 
 <img src="doc/assets/hexa_front.jpg" alt="photo of motionhexa pixels panel" height=400>
-<img src="doc/assets/hexa_back_assembled.jpg" alt="photo of back of assembled motionhexa" height=400>
+<img src="doc/assets/hexa_v7_back_assembled.jpg" alt="photo of back of assembled motionhexa" height=400>
 
-# The Object
+# What is it?
 
-It is a hexagon. Colors swirl & shift as you move it. Pixels fall towards the earth. The triangle stays put. USB-C Rechargable.
+It's a hexagon. Colors swirl & shift as you move it. Pixels fall towards the earth. The triangle stays put. USB-C Rechargable.
 
 ## Controls
 
@@ -19,21 +19,21 @@ There is a button on that back of an assembled hexa that you can press by squeez
 
 ## Hardware
 
+### v8
+* RP2354 dual-core ARM processor
+* BMI270 motion sensor
+* LMD4030 PDM microphone
+* BQ27427 battery monitor
+* SK9822-EC20 pixels
+* LY4176D lipo charger
+
+### v5-v6
 * RP2040 dual-core ARM processor
 * ICM-20948 motion sensor
 * LMD4030 PDM microphone
 * BQ27421 battery monitor
 * SK9822-EC20 pixels
 * LP28013HQVF lipo charger
-
-### Disabled Hardware
-
-* An ALS-PT19-315 ambient light sensor for use in autobrightness that is disabled since its response time is too slow (likely load capacitance too high) to be able to subtract out the the light from nearby pixels during patterns. It may be able to do one-shot autobrigthness during the startup animation.
-* An MT3608-based 5V boost circuit. The hexa is running with no color-loss issues directly on lipo voltage, so the boost circuit is disabled.
-
-### Hardware errata
-
-* v5: An issue where the charging ring will remain after unplugging the hexa due to unexpected voltage on the VBUS line. Mitgated in 1e0326c by fully powering off when device is manually turned off.
 
 # Project layout
 
@@ -46,13 +46,18 @@ The project is built using [PlatformIO] in Visual Studio Code.
 
 ## Building
 
-Build the v5 environment in the [PlatformIO] project, which corresponds to the MakerFaire2025 hardware.
-
 You will likely need to run
 ```
 git submodule update --init
 ```
 in the source after ```git clone``` in order to fetch the submodules for building.
+
+### Build environment
+
+The [PlatformIO] project has a number of build environments:
+* v5 - MakerFaire 2025 hardware
+* v6 - online orders 2025-Sept 2026
+* v8 - MakerFaire 2026 hardware and subsequent online orders
 
 ### Libraries & Dependencies
 PlatformIO should fetch the apprpriate version of each dependency on first build.
@@ -144,8 +149,9 @@ If your hexagon stops doing hexagon things while you are hacking on it, does not
 OR
 * Copy the stable binary hexa image from [here](bin/hexa-v5-firmware@ed502d04.uf2) onto the drive, and after the copy it should automatically reboot.
 
-## Document is a work in progress
-(More details to come!)
+## MotionHexagon
+
+<img src="doc/assets/hexamove.gif" alt="A short clip showing the hexagon being tilted side to side while a spiral pattern animates along with the motion" height=400>
 
 [FastLED]: https://github.com/FastLED/FastLED
 [PlatformIO]: <https://platformio.org>
